@@ -1,5 +1,6 @@
 name: Build all Docker images
 on:
+  repository_dispatch:
   workflow_dispatch:
 
 jobs:
