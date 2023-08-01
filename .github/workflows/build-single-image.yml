@@ -1,6 +1,23 @@
 name: Build a single Docker image
 on:
   workflow_dispatch:
+    inputs:
+      name:
+        required: true
+        type: string
+        description: "name of Docker file"
+      path:
+        required: true
+        type: string
+        description: "path of Docker file"
+      platform:
+        required: true
+        type: string
+        description: "platform"
+      tag:
+        required: true
+        type: string
+        description: "tag"
   workflow_call:
     inputs:
       name:
@@ -62,6 +79,6 @@ jobs:
           push: true
           tags: |
             versatiles/versatiles:test-latest-${{ inputs.name }}-${{ inputs.platform }}
-            versatiles/versatiles:test-${{ input.tag }}-${{ inputs.name }}-${{ inputs.platform }}
+            versatiles/versatiles:test-${{ inputs.tag }}-${{ inputs.name }}-${{ inputs.platform }}
             ghcr.io/versatiles-org/versatiles:test-latest-${{ inputs.name }}-${{ inputs.platform }}
-            ghcr.io/versatiles-org/versatiles:test-${{ input.tag }}-${{ inputs.name }}-${{ inputs.platform }}
+            ghcr.io/versatiles-org/versatiles:test-${{ inputs.tag }}-${{ inputs.name }}-${{ inputs.platform }}
