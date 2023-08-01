@@ -38,7 +38,7 @@ jobs:
       contents: read
     steps:
       - name: Check
-        if: ${{ !startsWith(inputs.tag, 'v') || inputs.name || inputs.platform }}
+        if: ${{ !startsWith(inputs.tag, 'v') || !inputs.name || !inputs.platform }}
         run: exit 1
 
       - name: Set up QEMU
