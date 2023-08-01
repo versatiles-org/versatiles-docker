@@ -31,7 +31,7 @@ jobs:
     secrets: inherit
     with:
       name: alpine
-      platforms: ${{ env.PLATFORMS }}
+      platforms: $PLATFORMS
       tag: "${{ needs.init.outputs.tag }}"
 
   scratch:
@@ -40,7 +40,7 @@ jobs:
     secrets: inherit
     with:
       name: scratch
-      platforms: ${{ env.PLATFORMS }}
+      platforms: $PLATFORMS
       tag: "${{ needs.init.outputs.tag }}"
 
   debian:
@@ -49,7 +49,7 @@ jobs:
     secrets: inherit
     with:
       name: debian
-      platforms: ${{ env.PLATFORMS }}
+      platforms: $PLATFORMS
       tag: "${{ needs.init.outputs.tag }}"
 
   debian-frontend:
@@ -58,5 +58,5 @@ jobs:
     secrets: inherit
     with:
       name: debian-frontend
-      platforms: ${{ env.PLATFORMS }}
+      platforms: $PLATFORMS
       tag: "${{ needs.init.outputs.tag }}"
