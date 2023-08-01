@@ -1,5 +1,5 @@
 # create builder system
-FROM alpine as builder
+FROM alpine:latest as builder
 
 # install dependencies
 RUN apk add curl gcc musl-dev openssl-dev pkgconfig sqlite-dev
@@ -11,7 +11,7 @@ RUN curl https://sh.rustup.rs -sSf | sh -s -- -y --default-toolchain stable
 RUN $HOME/.cargo/bin/cargo install versatiles
 
 # create production system
-FROM alpine
+FROM alpine:latest
 
 # install dependencies
 RUN apk add --no-cache sqlite

@@ -39,9 +39,9 @@ jobs:
     steps:
       - name: Input
         run: |
-          echo "name:     ${{ inputs.name }}"
-          echo "platform: ${{ inputs.platform }}"
-          echo "tag:      ${{ inputs.tag }}"
+          echo "name:     '${{ inputs.name }}'"
+          echo "platform: '${{ inputs.platform }}'"
+          echo "tag:      '${{ inputs.tag }}'"
 
       - name: Check
         if: ${{ !startsWith(inputs.tag, 'v') || !inputs.name || !inputs.platform }}
