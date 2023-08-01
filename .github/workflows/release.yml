@@ -15,7 +15,6 @@ jobs:
 
   release1:
     name: Build and release level 1
-    runs-on: ubuntu-latest
     needs: [init]
     permissions:
       packages: write
@@ -24,17 +23,15 @@ jobs:
       matrix:
         name: [debian, alpine, scratch]
         platforms: [linux/amd64]
-    steps:
-      - uses: versatiles-org/versatiles-docker/.github/workflows/build-single-image.yml@main
-        with:
-          path: docker/level1/
-          name: ${{ matrix.name }}
-          platform: ${{ matrix.platform }}
-          tag: ${{ needs.init.outputs.tag }}
+    uses: versatiles-org/versatiles-docker/.github/workflows/build-single-image.yml@main
+    with:
+      path: docker/level1/
+      name: ${{ matrix.name }}
+      platform: ${{ matrix.platform }}
+      tag: ${{ needs.init.outputs.tag }}
 
   release2:
     name: Build and release level 2
-    runs-on: ubuntu-latest
     needs: [init, release1]
     permissions:
       packages: write
@@ -45,10 +42,9 @@ jobs:
         name: [frontend]
         #name: [maker, frontend, nginx]
         platforms: [linux/amd64]
-    steps:
-      - uses: versatiles-org/versatiles-docker/.github/workflows/build-single-image.yml@main
-        with:
-          path: docker/level2/
-          name: ${{ matrix.based_on }}-${{ matrix.name }}
-          platform: ${{ matrix.platform }}
-          tag: ${{ needs.init.outputs.tag }}
+    uses: versatiles-org/versatiles-docker/.github/workflows/build-single-image.yml@main
+    with:
+      path: docker/level2/
+      name: ${{ matrix.based_on }}-${{ matrix.name }}
+      platform: ${{ matrix.platform }}
+      tag: ${{ needs.init.outputs.tag }}
