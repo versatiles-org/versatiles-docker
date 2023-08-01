@@ -26,7 +26,7 @@ jobs:
     strategy:
       matrix:
         name: [debian, alpine, scratch]
-        platforms: [linux/amd64, linux/arm64]
+        platform: [linux/amd64, linux/arm64]
     uses: versatiles-org/versatiles-docker/.github/workflows/build-single-image.yml@main
     secrets: inherit
     with:
@@ -46,7 +46,7 @@ jobs:
         based_on: [debian]
         name: [frontend]
         #name: [maker, frontend, nginx]
-        platforms: [linux/amd64, linux/arm64]
+        platform: [linux/amd64, linux/arm64]
     uses: versatiles-org/versatiles-docker/.github/workflows/build-single-image.yml@main
     secrets: inherit
     with:
