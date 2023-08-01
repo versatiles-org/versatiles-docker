@@ -6,10 +6,6 @@ on:
         required: true
         type: string
         description: "name of Docker file"
-      path:
-        required: true
-        type: string
-        description: "path of Docker file"
       platform:
         required: true
         type: string
@@ -21,9 +17,6 @@ on:
   workflow_call:
     inputs:
       name:
-        required: true
-        type: string
-      path:
         required: true
         type: string
       platform:
@@ -44,12 +37,6 @@ jobs:
       packages: write
       contents: read
     steps:
-      - run: |
-          echo "path: ${{ inputs.path }}"
-          echo "name: ${{ inputs.name }}"
-          echo "platform: ${{ inputs.platform }}"
-          echo "tag: ${{ inputs.tag }}"
-
       - name: Set up QEMU
         uses: docker/setup-qemu-action@v2
 
@@ -73,7 +60,7 @@ jobs:
         uses: docker/build-push-action@v4
         with:
           platforms: ${{ inputs.platform }}
-          file: "${{ inputs.path }}/${{ inputs.name }}.Dockerfile"
+          file: "docker/${{ inputs.name }}.Dockerfile"
           push: true
           tags: |
             versatiles/versatiles:latest-${{ inputs.name }}
