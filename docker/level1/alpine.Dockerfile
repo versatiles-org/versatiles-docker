@@ -14,7 +14,7 @@ RUN $HOME/.cargo/bin/cargo install versatiles
 FROM alpine
 
 # install dependencies
-RUN apk add --no-cache curl sqlite
+RUN apk add --no-cache sqlite
 
 # copy versatiles, frontend and selftest
 COPY --from=builder /root/.cargo/bin/versatiles /usr/bin/
