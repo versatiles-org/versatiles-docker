@@ -13,8 +13,9 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - run: env
-      
+
   init:
+    needs: [test]
     name: Init
     runs-on: ubuntu-latest
     outputs:
