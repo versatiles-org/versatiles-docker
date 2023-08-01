@@ -5,7 +5,6 @@ on:
 
 env:
   CARGO_TERM_COLOR: always
-  GH_TOKEN: ${{ github.token }}
 
 jobs:
   init:
@@ -29,6 +28,7 @@ jobs:
         name: [debian, alpine, scratch]
         platforms: [linux/amd64, linux/arm64]
     uses: versatiles-org/versatiles-docker/.github/workflows/build-single-image.yml@main
+    secrets: inherit
     with:
       path: docker/level1/
       name: ${{ matrix.name }}
@@ -48,6 +48,7 @@ jobs:
         #name: [maker, frontend, nginx]
         platforms: [linux/amd64, linux/arm64]
     uses: versatiles-org/versatiles-docker/.github/workflows/build-single-image.yml@main
+    secrets: inherit
     with:
       path: docker/level2/
       name: ${{ matrix.based_on }}-${{ matrix.name }}

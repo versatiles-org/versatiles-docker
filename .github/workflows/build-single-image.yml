@@ -32,17 +32,9 @@ on:
       tag:
         required: true
         type: string
-    secrets:
-      DOCKERHUB_USERNAME:
-        required: true
-      DOCKERHUB_TOKEN:
-        required: true
-      GITHUB_TOKEN:
-        required: true
 
 env:
   CARGO_TERM_COLOR: always
-  GH_TOKEN: ${{ github.token }}
 
 jobs:
   build:
