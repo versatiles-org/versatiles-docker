@@ -6,10 +6,10 @@ on:
         required: true
         type: string
         description: "name of Docker file"
-      platform:
+      platforms:
         required: true
         type: string
-        description: "platform"
+        description: "platforms"
       tag:
         required: true
         type: string
@@ -19,7 +19,7 @@ on:
       name:
         required: true
         type: string
-      platform:
+      platforms:
         required: true
         type: string
       tag:
@@ -31,7 +31,7 @@ env:
 
 jobs:
   build:
-    name: Build ${{ inputs.name }}-${{ inputs.platform }}-${{ inputs.tag }}
+    name: Build ${{ inputs.name }}-${{ inputs.tag }}
     runs-on: ubuntu-latest
     permissions:
       packages: write
@@ -39,12 +39,12 @@ jobs:
     steps:
       - name: Input
         run: |
-          echo "name:     '${{ inputs.name }}'"
-          echo "platform: '${{ inputs.platform }}'"
-          echo "tag:      '${{ inputs.tag }}'"
+          echo "name:      '${{ inputs.name }}'"
+          echo "platforms: '${{ inputs.platforms }}'"
+          echo "tag:       '${{ inputs.tag }}'"
 
       - name: Check
-        if: ${{ !startsWith(inputs.tag, 'v') || !inputs.name || !inputs.platform }}
+        if: ${{ !startsWith(inputs.tag, 'v') || !inputs.name || !inputs.platforms }}
         run: exit 1
 
       - name: Set up QEMU
@@ -69,7 +69,7 @@ jobs:
       - name: Build and push
         uses: docker/build-push-action@v4
         with:
-          platforms: ${{ inputs.platform }}
+          platforms: ${{ inputs.platforms }}
           file: "docker/${{ inputs.name }}.Dockerfile"
           push: true
           tags: |

@@ -22,68 +22,27 @@ jobs:
     strategy:
       matrix:
         name: [alpine, scratch]
-        platform: [linux/arm64, linux/amd64]
     uses: ./.github/workflows/build-single-image.yml
     secrets: inherit
     with:
       name: ${{ matrix.name }}
-      platform: ${{ matrix.platform }}
+      platforms: linux/arm64,linux/amd64
       tag: "${{ needs.init.outputs.tag }}"
-
-  debian-arm:
-    needs: [init]
-    uses: ./.github/workflows/build-single-image.yml
-    secrets: inherit
-    with: { name: debian, platform: linux/arm64, tag: "${{ needs.init.outputs.tag }}" }
 
   debian-amd:
     needs: [init]
     uses: ./.github/workflows/build-single-image.yml
     secrets: inherit
-    with: { name: debian, platform: linux/amd64, tag: "${{ needs.init.outputs.tag }}" }
-
-  debian-frontend-arm:
-    needs: [init, debian-arm]
-    uses: ./.github/workflows/build-single-image.yml
-    secrets: inherit
-    with: { name: debian-frontend, platform: linux/arm64, tag: "${{ needs.init.outputs.tag }}" }
+    with:
+      name: debian
+      platforms: linux/arm64,linux/amd64
+      tag: "${{ needs.init.outputs.tag }}"
 
   debian-frontend-amd:
     needs: [init, debian-amd]
     uses: ./.github/workflows/build-single-image.yml
     secrets: inherit
-    with: { name: debian-frontend, platform: linux/amd64, tag: "${{ needs.init.outputs.tag }}" }
-
-#  alpine-arm2:
-#    needs: [init]
-#    strategy:
-#      matrix:
-#        name: [debian, alpine, scratch]
-#        platform: [linux/amd64, linux/arm64]
-#    uses: versatiles-org/versatiles-docker/.github/workflows/build-single-image.yml@main
-#    secrets: inherit
-#    with:
-#      path: docker/level1/
-#      name: ${{ matrix.name }}
-#      platform: ${{ matrix.platform }}
-#      tag: ${{ needs.init.outputs.tag }}
-#
-#  release2:
-#    name: Build level 2
-#    needs: [init, release1]
-#    permissions:
-#      packages: write
-#      contents: read
-#    strategy:
-#      matrix:
-#        based_on: [debian]
-#        name: [frontend]
-#        #name: [maker, frontend, nginx]
-#        platform: [linux/amd64, linux/arm64]
-#    uses: versatiles-org/versatiles-docker/.github/workflows/build-single-image.yml@main
-#    secrets: inherit
-#    with:
-#      path: docker/level2/
-#      name: ${{ matrix.based_on }}-${{ matrix.name }}
-#      platform: ${{ matrix.platform }}
-#      tag: ${{ needs.init.outputs.tag }}
+    with:
+      name: debian-frontend
+      platforms: linux/arm64,linux/amd64
+      tag: "${{ needs.init.outputs.tag }}"
