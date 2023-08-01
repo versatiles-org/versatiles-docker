@@ -19,11 +19,51 @@ jobs:
 
   alpine-arm:
     needs: [init]
-    uses: versatiles-org/versatiles-docker/.github/workflows/build-single-image.yml@main
+    uses: ./.github/workflows/build-single-image.yml
     secrets: inherit
-    with: { name: alpine, platform: linux/arm64, tag: ${{ needs.init.outputs.tag }} }
+    with: { name: alpine, platform: linux/arm64, tag: "${{ needs.init.outputs.tag }}" }
 
+  alpine-amd:
+    needs: [init]
+    uses: ./.github/workflows/build-single-image.yml
+    secrets: inherit
+    with: { name: alpine, platform: linux/amd64, tag: "${{ needs.init.outputs.tag }}" }
 
+  scratch-arm:
+    needs: [init]
+    uses: ./.github/workflows/build-single-image.yml
+    secrets: inherit
+    with: { name: scratch, platform: linux/arm64, tag: "${{ needs.init.outputs.tag }}" }
+
+  scratch-amd:
+    needs: [init]
+    uses: ./.github/workflows/build-single-image.yml
+    secrets: inherit
+    with: { name: scratch, platform: linux/amd64, tag: "${{ needs.init.outputs.tag }}" }
+
+  debian-arm:
+    needs: [init]
+    uses: ./.github/workflows/build-single-image.yml
+    secrets: inherit
+    with: { name: debian, platform: linux/arm64, tag: "${{ needs.init.outputs.tag }}" }
+
+  debian-amd:
+    needs: [init]
+    uses: ./.github/workflows/build-single-image.yml
+    secrets: inherit
+    with: { name: debian, platform: linux/amd64, tag: "${{ needs.init.outputs.tag }}" }
+
+  debian-frontend-arm:
+    needs: [debian-arm]
+    uses: ./.github/workflows/build-single-image.yml
+    secrets: inherit
+    with: { name: debian-frontend, platform: linux/arm64, tag: "${{ needs.init.outputs.tag }}" }
+
+  debian-frontend-amd:
+    needs: [debian-amd]
+    uses: ./.github/workflows/build-single-image.yml
+    secrets: inherit
+    with: { name: debian-frontend, platform: linux/amd64, tag: "${{ needs.init.outputs.tag }}" }
 
 #  alpine-arm2:
 #    needs: [init]
