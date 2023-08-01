@@ -78,7 +78,7 @@ jobs:
           file: "${{ inputs.path }}/${{ inputs.name }}.Dockerfile"
           push: true
           tags: |
-            versatiles/versatiles:test-latest-${{ inputs.name }}-${{ inputs.platform }}
-            versatiles/versatiles:test-${{ inputs.tag }}-${{ inputs.name }}-${{ inputs.platform }}
-            ghcr.io/versatiles-org/versatiles:test-latest-${{ inputs.name }}-${{ inputs.platform }}
-            ghcr.io/versatiles-org/versatiles:test-${{ inputs.tag }}-${{ inputs.name }}-${{ inputs.platform }}
+            versatiles/versatiles:latest-${{ inputs.name }}-${{ inputs.platform }}
+            versatiles/versatiles:${{ inputs.tag }}-${{ inputs.name }}-${{ inputs.platform }}
+            ghcr.io/versatiles-org/versatiles:latest-${{ inputs.name }}-${{ inputs.platform }}
+            ghcr.io/versatiles-org/versatiles:${{ inputs.tag }}-${{ inputs.name }}-${{ inputs.platform }}

@@ -1,4 +1,4 @@
-name: Build Docker Images
+name: Build all Docker images
 on:
   workflow_dispatch:
 
@@ -11,10 +11,10 @@ jobs:
     steps:
       - name: get latest tag
         id: result
-        run: curl https://api.github.com/repos/versatiles-org/versatiles-rs/tags | jq -r '"tag=" + first(.[] | .name | select(startswith("v")))' >> "$GITHUB_OUTPUT"
+        run: curl -s https://api.github.com/repos/versatiles-org/versatiles-rs/tags | jq -r '"tag=" + first(.[] | .name | select(startswith("v")))' >> "$GITHUB_OUTPUT"
 
   release1:
-    name: Build and release level 1
+    name: Build level 1
     needs: [init]
     permissions:
       packages: write
@@ -31,7 +31,7 @@ jobs:
       tag: ${{ needs.init.outputs.tag }}
 
   release2:
-    name: Build and release level 2
+    name: Build level 2
     needs: [init, release1]
     permissions:
       packages: write
