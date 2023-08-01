@@ -5,10 +5,15 @@ on:
 
 env:
   CARGO_TERM_COLOR: always
-  #PLATFORMS: linux/amd64,linux/arm64
   PLATFORMS: linux/amd64
+  #PLATFORMS: linux/amd64,linux/arm64
 
 jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - run: env
+      
   init:
     name: Init
     runs-on: ubuntu-latest
@@ -25,7 +30,7 @@ jobs:
     secrets: inherit
     with:
       name: alpine
-      platforms: ${{ PLATFORMS }}
+      platforms: ${{ env.PLATFORMS }}
       tag: "${{ needs.init.outputs.tag }}"
 
   scratch:
@@ -34,7 +39,7 @@ jobs:
     secrets: inherit
     with:
       name: scratch
-      platforms: ${{ PLATFORMS }}
+      platforms: ${{ env.PLATFORMS }}
       tag: "${{ needs.init.outputs.tag }}"
 
   debian:
@@ -43,7 +48,7 @@ jobs:
     secrets: inherit
     with:
       name: debian
-      platforms: ${{ PLATFORMS }}
+      platforms: ${{ env.PLATFORMS }}
       tag: "${{ needs.init.outputs.tag }}"
 
   debian-frontend:
@@ -52,5 +57,5 @@ jobs:
     secrets: inherit
     with:
       name: debian-frontend
-      platforms: ${{ PLATFORMS }}
+      platforms: ${{ env.PLATFORMS }}
       tag: "${{ needs.init.outputs.tag }}"
