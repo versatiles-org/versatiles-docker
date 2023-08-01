@@ -25,7 +25,7 @@ jobs:
     secrets: inherit
     with:
       name: alpine
-      platforms: linux/amd64
+      platforms: linux/amd64,linux/arm64
       tag: "${{ needs.init.outputs.tag }}"
 
   scratch:
@@ -34,7 +34,7 @@ jobs:
     secrets: inherit
     with:
       name: scratch
-      platforms: linux/amd64
+      platforms: linux/amd64,linux/arm64
       tag: "${{ needs.init.outputs.tag }}"
 
   debian:
@@ -43,7 +43,7 @@ jobs:
     secrets: inherit
     with:
       name: debian
-      platforms: linux/amd64
+      platforms: linux/amd64,linux/arm64
       tag: "${{ needs.init.outputs.tag }}"
 
   debian-frontend:
@@ -52,5 +52,5 @@ jobs:
     secrets: inherit
     with:
       name: debian-frontend
-      platforms: linux/amd64
+      platforms: linux/amd64,linux/arm64
       tag: "${{ needs.init.outputs.tag }}"
