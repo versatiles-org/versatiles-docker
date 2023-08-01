@@ -43,13 +43,13 @@ jobs:
     with: { name: debian, platform: linux/amd64, tag: "${{ needs.init.outputs.tag }}" }
 
   debian-frontend-arm:
-    needs: [debian-arm]
+    needs: [init, debian-arm]
     uses: ./.github/workflows/build-single-image.yml
     secrets: inherit
     with: { name: debian-frontend, platform: linux/arm64, tag: "${{ needs.init.outputs.tag }}" }
 
   debian-frontend-amd:
-    needs: [debian-amd]
+    needs: [init, debian-amd]
     uses: ./.github/workflows/build-single-image.yml
     secrets: inherit
     with: { name: debian-frontend, platform: linux/amd64, tag: "${{ needs.init.outputs.tag }}" }
