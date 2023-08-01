@@ -1,0 +1,54 @@
+name: Build Docker Images
+on:
+  workflow_dispatch:
+
+jobs:
+  init:
+    name: Init
+    runs-on: ubuntu-latest
+    outputs:
+      tag: ${{ steps.result.outputs.tag }
+    steps:
+      - name: get latest tag
+        id: result
+        run: curl https://api.github.com/repos/versatiles-org/versatiles-rs/tags | jq -r '"tag=" + first(.[] | .name | select(startswith("v")))' >> "$GITHUB_OUTPUT"
+
+  release1:
+    name: Build and release level 1
+    runs-on: ubuntu-latest
+    needs: [init]
+    permissions:
+      packages: write
+      contents: read
+    strategy:
+      matrix:
+        name: [debian, alpine, scratch]
+        platforms: [linux/amd64]
+    steps:
+      - uses: versatiles-org/versatiles-docker/.github/workflows/build-single-image.yml@main
+        with:
+          path: docker/level1/
+          name: ${{ matrix.name }}
+          platform: ${{ matrix.platform }}
+          tag: ${{ needs.init.outputs.tag }}
+
+  release2:
+    name: Build and release level 2
+    runs-on: ubuntu-latest
+    needs: [init, release1]
+    permissions:
+      packages: write
+      contents: read
+    strategy:
+      matrix:
+        based_on: [debian]
+        name: [frontend]
+        #name: [maker, frontend, nginx]
+        platforms: [linux/amd64]
+    steps:
+      - uses: versatiles-org/versatiles-docker/.github/workflows/build-single-image.yml@main
+        with:
+          path: docker/level2/
+          name: ${{ matrix.based_on }}-${{ matrix.name }}
+          platform: ${{ matrix.platform }}
+          tag: ${{ needs.init.outputs.tag }}

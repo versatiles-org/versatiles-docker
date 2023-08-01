@@ -1,0 +1,66 @@
+name: Build a single Docker image
+on:
+  workflow_call:
+    inputs:
+      name:
+        required: true
+        type: string
+      path:
+        required: true
+        type: string
+      platform:
+        required: true
+        type: string
+      tag:
+        required: true
+        type: string
+
+jobs:
+  build:
+    name: Build ${{ inputs.tag }}-${{ inputs.name }}-${{ inputs.platform }}
+    runs-on: ubuntu-latest
+    permissions:
+      packages: write
+      contents: read
+    steps:
+      - run: |
+          echo "path: ${{ inputs.path }}"
+          echo "name: ${{ inputs.name }}"
+          echo "platform: ${{ inputs.platform }}"
+          echo "tag: ${{ inputs.tag }}"
+
+      - name: Set up QEMU
+        if: false
+        uses: docker/setup-qemu-action@v2
+
+      - name: Set up Docker Buildx
+        if: false
+        uses: docker/setup-buildx-action@v2
+
+      - name: Log in to Docker Hub
+        if: false
+        uses: docker/login-action@v2
+        with:
+          username: ${{ secrets.DOCKERHUB_USERNAME }}
+          password: ${{ secrets.DOCKERHUB_TOKEN }}
+
+      - name: Log in to GitHub Container Registry
+        if: false
+        uses: docker/login-action@v2
+        with:
+          registry: ghcr.io
+          username: ${{ github.repository_owner }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Build and push
+        if: false
+        uses: docker/build-push-action@v4
+        with:
+          platforms: ${{ inputs.platform }}
+          file: "${{ inputs.path }}/${{ inputs.name }}.Dockerfile"
+          push: true
+          tags: |
+            versatiles/versatiles:test-latest-${{ inputs.name }}-${{ inputs.platform }}
+            versatiles/versatiles:test-${{ input.tag }}-${{ inputs.name }}-${{ inputs.platform }}
+            ghcr.io/versatiles-org/versatiles:test-latest-${{ inputs.name }}-${{ inputs.platform }}
+            ghcr.io/versatiles-org/versatiles:test-${{ input.tag }}-${{ inputs.name }}-${{ inputs.platform }}
