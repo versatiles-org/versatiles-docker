@@ -19,7 +19,7 @@ WORKDIR /data/
 # install dependencies
 ENV DEBIAN_FRONTEND=noninteractive
 RUN apt update && \
-    apt install -y --no-install-recommends curl libsqlite3-0 && \
+    apt install -y curl libsqlite3-0 && \
     apt clean && \
     apt autoremove --yes && \
     rm -rf /var/lib/apt/lists/* && \
