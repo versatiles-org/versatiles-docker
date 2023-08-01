@@ -22,7 +22,7 @@ jobs:
     strategy:
       matrix:
         name: [alpine, scratch]
-        platform: [linux/arm64, linux/amd]
+        platform: [linux/arm64, linux/amd64]
     uses: ./.github/workflows/build-single-image.yml
     secrets: inherit
     with:
