@@ -5,6 +5,8 @@ on:
 
 env:
   CARGO_TERM_COLOR: always
+  #PLATFORMS: linux/amd64,linux/arm64
+  PLATFORMS: linux/amd64
 
 jobs:
   init:
@@ -17,32 +19,38 @@ jobs:
         id: result
         run: curl -s https://api.github.com/repos/versatiles-org/versatiles-rs/tags | jq -r '"tag=" + first(.[] | .name | select(startswith("v")))' >> "$GITHUB_OUTPUT"
 
-  simple:
+  alpine:
     needs: [init]
-    strategy:
-      matrix:
-        name: [alpine, scratch]
     uses: ./.github/workflows/build-single-image.yml
     secrets: inherit
     with:
-      name: ${{ matrix.name }}
-      platforms: linux/arm64,linux/amd64
+      name: alpine
+      platforms: ${{ env.PLATFORMS }}
       tag: "${{ needs.init.outputs.tag }}"
 
-  debian-amd:
+  scratch:
+    needs: [init]
+    uses: ./.github/workflows/build-single-image.yml
+    secrets: inherit
+    with:
+      name: scratch
+      platforms: ${{ env.PLATFORMS }}
+      tag: "${{ needs.init.outputs.tag }}"
+
+  debian:
     needs: [init]
     uses: ./.github/workflows/build-single-image.yml
     secrets: inherit
     with:
       name: debian
-      platforms: linux/arm64,linux/amd64
+      platforms: ${{ env.PLATFORMS }}
       tag: "${{ needs.init.outputs.tag }}"
 
-  debian-frontend-amd:
-    needs: [init, debian-amd]
+  debian-frontend:
+    needs: [init, debian]
     uses: ./.github/workflows/build-single-image.yml
     secrets: inherit
     with:
       name: debian-frontend
-      platforms: linux/arm64,linux/amd64
+      platforms: ${{ env.PLATFORMS }}
       tag: "${{ needs.init.outputs.tag }}"
