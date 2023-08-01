@@ -2,7 +2,7 @@
 FROM alpine as builder
 
 # install dependencies
-RUN apk add gcc musl-dev openssl-dev pkgconfig sqlite-dev
+RUN apk add curl gcc musl-dev openssl-dev pkgconfig sqlite-dev
 
 # install rust
 RUN curl https://sh.rustup.rs -sSf | sh -s -- -y --default-toolchain stable
