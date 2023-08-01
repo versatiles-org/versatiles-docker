@@ -32,6 +32,7 @@ on:
       tag:
         required: true
         type: string
+    secrets: [DOCKERHUB_USERNAME, DOCKERHUB_TOKEN, GITHUB_TOKEN]
 
 env:
   CARGO_TERM_COLOR: always
