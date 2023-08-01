@@ -9,13 +9,7 @@ env:
   #PLATFORMS: linux/amd64,linux/arm64
 
 jobs:
-  test:
-    runs-on: ubuntu-latest
-    steps:
-      - run: env
-
   init:
-    needs: [test]
     name: Init
     runs-on: ubuntu-latest
     outputs:
