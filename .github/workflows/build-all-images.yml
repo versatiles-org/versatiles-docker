@@ -17,29 +17,18 @@ jobs:
         id: result
         run: curl -s https://api.github.com/repos/versatiles-org/versatiles-rs/tags | jq -r '"tag=" + first(.[] | .name | select(startswith("v")))' >> "$GITHUB_OUTPUT"
 
-  alpine-arm:
+  simple:
     needs: [init]
+    strategy:
+      matrix:
+        name: [alpine, scratch]
+        platform: [linux/arm64, linux/amd]
     uses: ./.github/workflows/build-single-image.yml
     secrets: inherit
-    with: { name: alpine, platform: linux/arm64, tag: "${{ needs.init.outputs.tag }}" }
-
-  alpine-amd:
-    needs: [init]
-    uses: ./.github/workflows/build-single-image.yml
-    secrets: inherit
-    with: { name: alpine, platform: linux/amd64, tag: "${{ needs.init.outputs.tag }}" }
-
-  scratch-arm:
-    needs: [init]
-    uses: ./.github/workflows/build-single-image.yml
-    secrets: inherit
-    with: { name: scratch, platform: linux/arm64, tag: "${{ needs.init.outputs.tag }}" }
-
-  scratch-amd:
-    needs: [init]
-    uses: ./.github/workflows/build-single-image.yml
-    secrets: inherit
-    with: { name: scratch, platform: linux/amd64, tag: "${{ needs.init.outputs.tag }}" }
+    with:
+      name: ${{ matrix.name }}
+      platform: ${{ matrix.platform }}
+      tag: "${{ needs.init.outputs.tag }}"
 
   debian-arm:
     needs: [init]
