@@ -3,6 +3,10 @@ on:
   repository_dispatch:
   workflow_dispatch:
 
+env:
+  CARGO_TERM_COLOR: always
+  GH_TOKEN: ${{ github.token }}
+
 jobs:
   init:
     name: Init

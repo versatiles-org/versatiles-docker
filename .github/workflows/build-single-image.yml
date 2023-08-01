@@ -33,6 +33,10 @@ on:
         required: true
         type: string
 
+env:
+  CARGO_TERM_COLOR: always
+  GH_TOKEN: ${{ github.token }}
+
 jobs:
   build:
     name: Build ${{ inputs.tag }}-${{ inputs.name }}-${{ inputs.platform }}
