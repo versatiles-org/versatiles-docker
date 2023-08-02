@@ -34,7 +34,7 @@ jobs:
 
       - id: init
         run: |
-          node src/process_vars.js "${{ inputs }}" >> "$GITHUB_OUTPUT"
+          node src/process_vars.js '${{ toJSON(inputs) }}' | tee -a "$GITHUB_OUTPUT"
           exit 1
 
         # steps.vars.outputs
