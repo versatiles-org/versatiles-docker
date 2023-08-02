@@ -2,51 +2,42 @@ name: Build a single Docker image
 on:
   workflow_dispatch:
     inputs:
-      name:
-        required: true
-        type: string
-        description: "name of Docker file"
-      platforms:
-        required: true
-        type: string
-        description: "platforms"
-      tag:
-        required: true
-        type: string
-        description: "tag"
+      repo: { default: "versatiles", description: repo }
+      tag: { required: true, description: tag }
+      variant: { default: "", description: variant }
+      filename: { required: true, description: filename }
+      platforms: { default: "linux/amd64,linux/arm64", description: platforms }
   workflow_call:
     inputs:
-      name:
-        required: true
-        type: string
-      platforms:
-        required: true
-        type: string
-      tag:
-        required: true
-        type: string
+      repo: { type: string, default: "versatiles" }
+      tag: { type: string, required: true }
+      variant: { type: string, default: "" }
+      filename: { type: string, required: true }
+      platforms: { type: string, default: "linux/amd64,linux/arm64" }
 
 env:
   CARGO_TERM_COLOR: always
 
 jobs:
   build:
-    name: Build ${{ inputs.name }}-${{ inputs.tag }}
+    name: Build ${{ inputs.repo }}-${{ inputs.variant }}
     runs-on: ubuntu-latest
     permissions:
       packages: write
       contents: read
     steps:
-      - name: Input
+      - uses: actions/checkout@v3
+      - uses: actions/setup-node@v3
+        with:
+          node-version: 'latest'
+      - run: npm ci
+
+      - id: init
         run: |
-          echo "name:      '${{ inputs.name }}'"
-          echo "platforms: '${{ inputs.platforms }}'"
-          echo "tag:       '${{ inputs.tag }}'"
+          node src/process_vars.js "${{ inputs }}" >> "$GITHUB_OUTPUT"
+          exit 1
 
-      - name: Check
-        if: ${{ !startsWith(inputs.tag, 'v') || !inputs.name || !inputs.platforms }}
-        run: exit 1
-
+        # steps.vars.outputs
       - name: Set up QEMU
         uses: docker/setup-qemu-action@v2
 
@@ -69,11 +60,12 @@ jobs:
       - name: Build and push
         uses: docker/build-push-action@v4
         with:
-          platforms: ${{ inputs.platforms }}
-          file: "docker/${{ inputs.name }}.Dockerfile"
+          platforms: ${{ steps.init.outputs.platforms }}
+          file: "docker/${{ steps.init.outputs.filename }}.Dockerfile"
           push: true
-          tags: |
-            versatiles/versatiles:latest-${{ inputs.name }}
-            versatiles/versatiles:${{ inputs.tag }}-${{ inputs.name }}
-            ghcr.io/versatiles-org/versatiles:latest-${{ inputs.name }}
-            ghcr.io/versatiles-org/versatiles:${{ inputs.tag }}-${{ inputs.name }}
+          tags: ${{ steps.init.outputs.tags }}
+  #        |
+  #          versatiles/${{ inputs.repo }}:latest${{ steps.var.outputs.variant }}
+  #          versatiles/${{ inputs.repo }}:${{ inputs.tag }}${{ steps.var.outputs.variant }}
+  #          ghcr.io/versatiles-org/${{ inputs.repo }}:latest${{ steps.var.outputs.variant }}
+  #          ghcr.io/versatiles-org/${{ inputs.repo }}:${{ inputs.tag }}${{ steps.var.outputs.variant }}
