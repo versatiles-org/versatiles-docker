@@ -4,14 +4,14 @@ on:
     inputs:
       repo: { default: "versatiles", description: repo }
       tag: { required: true, description: tag }
-      variant: { default: "", description: variant }
+      variants: { default: "", description: variants }
       filename: { required: true, description: filename }
       platforms: { default: "linux/amd64,linux/arm64", description: platforms }
   workflow_call:
     inputs:
       repo: { type: string, default: "versatiles" }
       tag: { type: string, required: true }
-      variant: { type: string, default: "" }
+      variants: { type: string, default: "" }
       filename: { type: string, required: true }
       platforms: { type: string, default: "linux/amd64,linux/arm64" }
 
@@ -20,7 +20,7 @@ env:
 
 jobs:
   build:
-    name: Build ${{ inputs.repo }}-${{ inputs.variant }}
+    name: Build ${{ inputs.repo }}-${{ inputs.variants }}
     runs-on: ubuntu-latest
     permissions:
       packages: write
@@ -33,11 +33,8 @@ jobs:
       - run: npm ci
 
       - id: init
-        run: |
-          node src/process_vars.js '${{ toJSON(inputs) }}' | tee -a "$GITHUB_OUTPUT"
-          exit 1
+        run: node src/process_vars.js '${{ toJSON(inputs) }}' | tee -a "$GITHUB_OUTPUT"
 
-        # steps.vars.outputs
       - name: Set up QEMU
         uses: docker/setup-qemu-action@v2
 
@@ -64,8 +61,4 @@ jobs:
           file: "docker/${{ steps.init.outputs.filename }}.Dockerfile"
           push: true
           tags: ${{ steps.init.outputs.tags }}
-  #        |
-  #          versatiles/${{ inputs.repo }}:latest${{ steps.var.outputs.variant }}
-  #          versatiles/${{ inputs.repo }}:${{ inputs.tag }}${{ steps.var.outputs.variant }}
-  #          ghcr.io/versatiles-org/${{ inputs.repo }}:latest${{ steps.var.outputs.variant }}
-  #          ghcr.io/versatiles-org/${{ inputs.repo }}:${{ inputs.tag }}${{ steps.var.outputs.variant }}
+          

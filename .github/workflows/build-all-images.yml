@@ -22,7 +22,8 @@ jobs:
     uses: ./.github/workflows/build-single-image.yml
     secrets: inherit
     with:
-      variant: alpine
+      variants: alpine
+      filename: alpine
       tag: "${{ needs.init.outputs.tag }}"
 
   scratch:
@@ -30,7 +31,8 @@ jobs:
     uses: ./.github/workflows/build-single-image.yml
     secrets: inherit
     with:
-      variant: scratch
+      variants: scratch
+      filename: scratch
       tag: "${{ needs.init.outputs.tag }}"
 
   debian:
@@ -38,7 +40,8 @@ jobs:
     uses: ./.github/workflows/build-single-image.yml
     secrets: inherit
     with:
-      variant: debian
+      variants: debian,
+      filename: debian
       tag: "${{ needs.init.outputs.tag }}"
 
   debian-frontend:
@@ -47,5 +50,6 @@ jobs:
     secrets: inherit
     with:
       repo: versatiles-frontend
+      variants: debian,
       filename: debian-frontend
       tag: "${{ needs.init.outputs.tag }}"
