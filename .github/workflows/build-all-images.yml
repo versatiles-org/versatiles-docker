@@ -17,13 +17,24 @@ jobs:
         id: result
         run: curl -s https://api.github.com/repos/versatiles-org/versatiles-rs/tags | jq -r '"tag=" + first(.[] | .name | select(startswith("v")))' >> "$GITHUB_OUTPUT"
 
+### BASIC IMAGES
+
   alpine:
     needs: [init]
     uses: ./.github/workflows/build-single-image.yml
     secrets: inherit
     with:
-      variants: alpine
-      filename: alpine
+      variants: alpine,
+      filename: basic-alpine
+      tag: "${{ needs.init.outputs.tag }}"
+
+  debian:
+    needs: [init]
+    uses: ./.github/workflows/build-single-image.yml
+    secrets: inherit
+    with:
+      variants: debian
+      filename: basic-debian
       tag: "${{ needs.init.outputs.tag }}"
 
   scratch:
@@ -32,16 +43,19 @@ jobs:
     secrets: inherit
     with:
       variants: scratch
-      filename: scratch
+      filename: basic-scratch
       tag: "${{ needs.init.outputs.tag }}"
 
-  debian:
-    needs: [init]
+### FRONTEND IMAGES
+
+  alpine-frontend:
+    needs: [init, alpine]
     uses: ./.github/workflows/build-single-image.yml
     secrets: inherit
     with:
-      variants: debian,
-      filename: debian
+      repo: versatiles-frontend
+      variants: alpine,
+      filename: frontend-alpine
       tag: "${{ needs.init.outputs.tag }}"
 
   debian-frontend:
@@ -50,6 +64,16 @@ jobs:
     secrets: inherit
     with:
       repo: versatiles-frontend
-      variants: debian,
-      filename: debian-frontend
+      variants: debian
+      filename: frontend-debian
+      tag: "${{ needs.init.outputs.tag }}"
+
+  scratch-frontend:
+    needs: [init, scratch]
+    uses: ./.github/workflows/build-single-image.yml
+    secrets: inherit
+    with:
+      repo: versatiles-frontend
+      variants: scratch
+      filename: frontend-scratch
       tag: "${{ needs.init.outputs.tag }}"
