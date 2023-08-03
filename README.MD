@@ -2,16 +2,32 @@
 
 This Repo contains .Dockerfiles and GitHub Workflows to build Docker images
 
-## Level 1
+## Image "versatiles"
 
-The folder `docker/level1` contains .Dockerfiles for creating minimal images. These images containing only the `versatiles` binary, curl and sqlite. Currently we support:
-- `debian`
-- `alpine`
-- `scratch`
+- Contains only `versatiles` and minimal dependencies.
+- Supported OS: Alpine, Debian and Scratch
+- Supported Architectures: AMD64, ARM64
+- Images are on [GitHub Container registry](https://github.com/versatiles-org/versatiles-docker/pkgs/container/versatiles) and on [Docker Hub](https://hub.docker.com/repository/docker/versatiles/versatiles/general)
 
-## Level 2
+| OS             | Version                                                                                                                 | Image Size                                                                                                                    |
+|----------------|-------------------------------------------------------------------------------------------------------------------------|-------------------------------------------------------------------------------------------------------------------------------|
+| Linux: Alpine  | ![Docker Image version versatiles/latest-alpine](https://img.shields.io/docker/v/versatiles/versatiles/latest-alpine)   | ![Docker Image size versatiles/latest-alpine](https://img.shields.io/docker/image-size/versatiles/versatiles/latest-alpine)   |
+| Linux: Debian  | ![Docker Image version versatiles/latest-debian](https://img.shields.io/docker/v/versatiles/versatiles/latest-debian)   | ![Docker Image size versatiles/latest-debian](https://img.shields.io/docker/image-size/versatiles/versatiles/latest-debian)   |
+| Linux: Scratch | ![Docker Image version versatiles/latest-scratch](https://img.shields.io/docker/v/versatiles/versatiles/latest-scratch) | ![Docker Image size versatiles/latest-scratch](https://img.shields.io/docker/image-size/versatiles/versatiles/latest-scratch) |
 
-The folder `docker/level2` contains .Dockerfiles for more complex images based on the previous level1 images. Currently they are all based on `debian`:
-- `debian-frontend` adds the [frontend](https://github.com/versatiles-org/versatiles-frontend)
-- *TODO:* ~~`debian-nginx` adds nginx and the [frontend](https://github.com/versatiles-org/versatiles-frontend)~~
-- *TODO:* ~~`debian-maker` adds tilemaker~~
+## Image "versatiles-frontend"
+
+- Contains `versatiles` and the latest [frontend](https://github.com/versatiles-org/versatiles-frontend)
+- Supported OS: only Debian
+- Supported Architectures: AMD64, ARM64
+- Images are on [GitHub Container registry](https://github.com/versatiles-org/versatiles-docker/pkgs/container/versatiles-frontend) and on [Docker Hub](https://hub.docker.com/repository/docker/versatiles/versatiles-frontend/general)
+
+| OS             | Version                                                                                                                 | Image Size                                                                                                                    |
+|----------------|-------------------------------------------------------------------------------------------------------------------------|-------------------------------------------------------------------------------------------------------------------------------|
+| Linux: Debian  | ![Docker Image version versatiles-frontend/latest-debian](https://img.shields.io/docker/v/versatiles/versatiles-frontend/latest-debian)   | ![Docker Image size versatiles/latest-debian](https://img.shields.io/docker/image-size/versatiles/versatiles-frontend/latest-debian)   |
+
+## Next steps:
+
+We are planning to add:
+- `versatiles-maker` containing tilemaker to generate vector tiles ([Issue #4](https://github.com/versatiles-org/versatiles-docker/issues/4))
+- `versatiles-nginx` containing nginx, lets encrypt and [frontend](https://github.com/versatiles-org/versatiles-frontend) to have everything to run a simple server ([Issue #5](https://github.com/versatiles-org/versatiles-docker/issues/5))
