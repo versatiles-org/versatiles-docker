@@ -7,5 +7,5 @@ gh workflow run build-single-image.yml -R versatiles-org/versatiles-docker -F na
 Build locally:
 ```bash
 docker build --progress="plain" --file="docker/frontend-scratch.Dockerfile" .
-docker buildx build --platform="linux/arm64" --progress="plain" --file="docker/basic-alpine.Dockerfile" .
+docker buildx build --platform="linux/amd64" --progress="plain" --file="docker/basic-alpine.Dockerfile" .
 ```
