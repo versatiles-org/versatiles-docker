@@ -31,8 +31,8 @@ jobs:
     uses: ./.github/workflows/build-single-image.yml
     secrets: inherit
     with:
-      variants: ${{ matrix.variants }},
-      filename: ${{ matrix.filename }},
+      variants: ${{ matrix.variants }}
+      filename: ${{ matrix.filename }}
       tag: "${{ needs.init.outputs.tag }}"
 
 ### FRONTEND IMAGES
@@ -49,6 +49,6 @@ jobs:
     uses: ./.github/workflows/build-single-image.yml
     secrets: inherit
     with:
-      variants: ${{ matrix.variants }},
-      filename: ${{ matrix.filename }},
+      variants: ${{ matrix.variants }}
+      filename: ${{ matrix.filename }}
       tag: "${{ needs.init.outputs.tag }}"
