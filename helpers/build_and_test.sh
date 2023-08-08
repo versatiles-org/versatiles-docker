@@ -7,7 +7,7 @@ GRE="\033[1;32m"
 YEL="\033[1;33m"
 END="\033[0m"
 
-function run_arch() {
+run_arch() {
 	case $1 in
 		"x86")
 			platform=linux/amd64
