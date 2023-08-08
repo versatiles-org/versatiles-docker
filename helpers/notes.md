@@ -9,3 +9,9 @@ Build locally:
 docker build --progress="plain" --file="docker/frontend-scratch.Dockerfile" .
 docker buildx build --platform="linux/amd64" --progress="plain" --file="docker/basic-alpine.Dockerfile" .
 ```
+
+Build and test Docker:
+```bash
+docker buildx build --platform=linux/amd64 --progress=plain --file=docker/basic-alpine.Dockerfile --tag=test . && docker run -it --rm test serve --auto-shutdown 1000 -p 8088 "https://download.versatiles.org/planet-20230605.versatiles"
+```
+

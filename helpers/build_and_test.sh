@@ -1,11 +1,18 @@
 #!/usr/bin/env bash
 
-function run() {
+set -e
+
+RED="\033[1;31m"
+GRE="\033[1;32m"
+YEL="\033[1;33m"
+END="\033[0m"
+
+function run_arch() {
 	case $1 in
 		"x86")
 			platform=linux/amd64
 			;;
-		"amd")
+		"arm")
 			platform=linux/arm64
 			;;
 		*)
@@ -19,15 +26,22 @@ function run() {
 	if [ -z $name ]; then echo "name not set"; fi
 	if [ -z $platform ]; then echo "platform not set"; fi
 	
-	docker buildx build --platform=$platform --progress=plain --file=docker/$name.Dockerfile --tag=test .
+	echo -e "${YEL}Build and Test $name on $platform${END}"
+
+	docker buildx build --platform=$platform --file=docker/$name.Dockerfile --tag=test .
 	docker run --platform=$platform -it --rm test serve --auto-shutdown 1000 -p 8088 "https://download.versatiles.org/planet-20230605.versatiles"
 }
 
-#run x86 basic-alpine
-run x86 basic-debian
-#run x86 basic-scratch
-#run x86 debian-maker
-#run x86 debian-nginx
-#run x86 frontend-alpine
-#run x86 frontend-debian
-#run x86 frontend-scratch
+function run() {
+	run_arch x86 $1
+	run_arch arm $1
+}
+
+#run basic-alpine
+#run basic-debian
+run basic-scratch
+#run debian-maker
+#run debian-nginx
+#run frontend-alpine
+#run frontend-debian
+#run frontend-scratch
