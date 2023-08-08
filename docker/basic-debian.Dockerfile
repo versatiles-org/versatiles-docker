@@ -1,30 +1,17 @@
 # create builder system
-FROM debian:stable as builder
-
-# install dependencies
-ENV DEBIAN_FRONTEND=noninteractive
-RUN apt update
-RUN apt install -y build-essential curl libsqlite3-dev libssl-dev pkg-config
-
-# install rust
-RUN curl https://sh.rustup.rs -sSf | sh -s -- -y --default-toolchain stable
-
-# install versatiles
-RUN $HOME/.cargo/bin/cargo install versatiles
+FROM --platform=$BUILDPLATFORM curlimages/curl as builder
+ARG TARGETPLATFORM
+COPY --chmod=0755 helpers/download.sh .
+RUN ./download.sh "$TARGETPLATFORM-gnu"
 
 # create production system
 FROM debian:stable-slim
-WORKDIR /data/
 
-# install dependencies
-ENV DEBIAN_FRONTEND=noninteractive
-RUN apt update && \
-    apt install -y curl libsqlite3-0 && \
-    apt clean && \
-    apt autoremove --yes && \
-    rm -rf /var/lib/apt/lists/* && \
-    rm -rf /var/cache/*
+# copy versatiles and selftest
+WORKDIR /app
+COPY --from=builder --chmod=0755 --chown=root /home/curl_user/versatiles /usr/local/bin/
+ENV PATH="/usr/local/bin:$PATH"
 
-# copy versatiles, frontend and selftest
-COPY --from=builder /root/.cargo/bin/versatiles /usr/bin/
-COPY helpers/versatiles_selftest.sh .
+# finalize
+EXPOSE 8080
+ENTRYPOINT [ "versatiles" ]

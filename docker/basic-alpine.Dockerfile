@@ -1,21 +1,17 @@
 # create builder system
-FROM alpine:latest as builder
-
-# install dependencies
-RUN apk add curl gcc musl-dev openssl-dev pkgconfig sqlite-dev
-
-# install rust
-RUN curl https://sh.rustup.rs -sSf | sh -s -- -y --default-toolchain stable
-
-# install versatiles
-RUN $HOME/.cargo/bin/cargo install versatiles
+FROM --platform=$BUILDPLATFORM curlimages/curl as builder
+ARG TARGETPLATFORM
+COPY --chmod=0755 helpers/download.sh .
+RUN ./download.sh "$TARGETPLATFORM-musl"
 
 # create production system
 FROM alpine:latest
 
-# install dependencies
-RUN apk add --no-cache sqlite
+# copy versatiles and selftest
+WORKDIR /app
+COPY --from=builder --chmod=0755 --chown=root /home/curl_user/versatiles /usr/local/bin/
+ENV PATH="/usr/local/bin:$PATH"
 
-# copy versatiles, frontend and selftest
-COPY --from=builder /root/.cargo/bin/versatiles /usr/bin/
-COPY helpers/versatiles_selftest.sh .
+# finalize
+EXPOSE 8080
+ENTRYPOINT [ "versatiles" ]

@@ -19,61 +19,37 @@ jobs:
 
 ### BASIC IMAGES
 
-  alpine:
+  basic:
     needs: [init]
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - { variants: "alpine,", filename: basic-alpine }
+          - { variants: "debian",  filename: basic-debian }
+          - { variants: "scratch", filename: basic-scratch }
     uses: ./.github/workflows/build-single-image.yml
     secrets: inherit
     with:
-      variants: alpine,
-      filename: basic-alpine
-      tag: "${{ needs.init.outputs.tag }}"
-
-  debian:
-    needs: [init]
-    uses: ./.github/workflows/build-single-image.yml
-    secrets: inherit
-    with:
-      variants: debian
-      filename: basic-debian
-      tag: "${{ needs.init.outputs.tag }}"
-
-  scratch:
-    needs: [init]
-    uses: ./.github/workflows/build-single-image.yml
-    secrets: inherit
-    with:
-      variants: scratch
-      filename: basic-scratch
+      variants: ${{ matrix.variants }}
+      filename: ${{ matrix.filename }}
       tag: "${{ needs.init.outputs.tag }}"
 
 ### FRONTEND IMAGES
 
-  alpine-frontend:
-    needs: [init, alpine]
+  frontend:
+    needs: [init, basic]
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - { variants: "alpine,", filename: frontend-alpine }
+          - { variants: "debian",  filename: frontend-debian }
+          - { variants: "scratch", filename: frontend-scratch }
     uses: ./.github/workflows/build-single-image.yml
     secrets: inherit
     with:
       repo: versatiles-frontend
-      variants: alpine,
-      filename: frontend-alpine
-      tag: "${{ needs.init.outputs.tag }}"
-
-  debian-frontend:
-    needs: [init, debian]
-    uses: ./.github/workflows/build-single-image.yml
-    secrets: inherit
-    with:
-      repo: versatiles-frontend
-      variants: debian
-      filename: frontend-debian
-      tag: "${{ needs.init.outputs.tag }}"
-
-  scratch-frontend:
-    needs: [init, scratch]
-    uses: ./.github/workflows/build-single-image.yml
-    secrets: inherit
-    with:
-      repo: versatiles-frontend
-      variants: scratch
-      filename: frontend-scratch
+      variants: ${{ matrix.variants }}
+      filename: ${{ matrix.filename }}
       tag: "${{ needs.init.outputs.tag }}"

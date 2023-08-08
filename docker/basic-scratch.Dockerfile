@@ -1,37 +1,16 @@
-# Compile Versatiles Binary inside Builder
-FROM rust:alpine as builder
+# create builder system
+FROM --platform=$BUILDPLATFORM curlimages/curl as builder
+ARG TARGETPLATFORM
+COPY --chmod=0755 helpers/download.sh .
+RUN ./download.sh "$TARGETPLATFORM-musl"
 
-COPY ../ /usr/src/versatiles
-WORKDIR /usr/src/versatiles
-
-RUN apk add curl gzip musl-dev openssl-dev pkgconfig sqlite-dev
-RUN rustup default stable
-RUN cargo install versatiles
-
-# download frontend
-RUN curl -L "https://github.com/versatiles-org/versatiles-frontend/releases/latest/download/frontend.br.tar" > /frontend.br.tar
-
-# Create user
-ENV USER=versatiles
-ENV UID=1000
-RUN adduser \ 
-    --disabled-password \ 
-    --gecos "" \ 
-    --home "/nonexistent" \ 
-    --shell "/sbin/nologin" \ 
-    --no-create-home \ 
-    --uid "${UID}" \ 
-    "${USER}"
-
-# Setup Final Docker Image
+# create production system
 FROM scratch
-WORKDIR /data/
 
-# Copy files from builder
-COPY --from=builder /etc/passwd /etc/passwd
-COPY --from=builder /etc/group /etc/group
-COPY --from=builder --chown=versatiles:versatiles /usr/local/cargo/bin/versatiles /usr/bin/
-COPY --from=builder --chown=versatiles:versatiles /frontend.br.tar .
-COPY helpers/versatiles_selftest.sh .
+# copy versatiles and selftest
+WORKDIR /app
+COPY --from=builder --chmod=0755 --chown=root /home/curl_user/versatiles /app/
 
-USER versatiles
+# finalize
+EXPOSE 8080
+ENTRYPOINT [ "/app/versatiles" ]
