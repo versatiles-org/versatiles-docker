@@ -26,15 +26,6 @@ jobs:
       packages: write
       contents: read
     steps:
-      - uses: actions/checkout@v3
-      - uses: actions/setup-node@v3
-        with:
-          node-version: 'latest'
-      - run: npm ci
-
-      - id: init
-        run: node src/process_vars.js '${{ toJSON(inputs) }}' | tee -a "$GITHUB_OUTPUT"
-
       - name: Set up QEMU
         uses: docker/setup-qemu-action@v2
 
@@ -53,6 +44,16 @@ jobs:
           registry: ghcr.io
           username: ${{ github.repository_owner }}
           password: ${{ secrets.GITHUB_TOKEN }}
+
+      - uses: actions/setup-node@v3
+        with:
+          node-version: 'latest'
+
+      - uses: actions/checkout@v3
+
+      - run: npm ci
+      - id: init
+        run: node src/process_vars.js '${{ toJSON(inputs) }}' | tee -a "$GITHUB_OUTPUT"
 
       - name: Build and push
         uses: docker/build-push-action@v4
