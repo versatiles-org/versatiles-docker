@@ -7,16 +7,16 @@ URL="https://github.com/versatiles-org/versatiles-rs/releases/latest/download/ve
 
 case $TARGETPLATFORM in
 	"linux/amd64-musl")
-		curl -sL "${URL}-linux-x86_64-musl.tar.gz" | tar x -z -f - versatiles
+		curl -sL "${URL}-linux-musl-x86_64.tar.gz" | tar x -z -f - versatiles
 		;;
 	"linux/arm64-musl")
-		curl -sL "${URL}-linux-aarch64-musl.tar.gz" | tar x -z -f - versatiles
+		curl -sL "${URL}-linux-musl-aarch64.tar.gz" | tar x -z -f - versatiles
 		;;
 	"linux/amd64-gnu")
-		curl -sL "${URL}-linux-x86_64-gnu.tar.gz" | tar x -z -f - versatiles
+		curl -sL "${URL}-linux-gnu-x86_64.tar.gz" | tar x -z -f - versatiles
 		;;
 	"linux/arm64-gnu")
-		curl -sL "${URL}-linux-aarch64-gnu.tar.gz" | tar x -z -f - versatiles
+		curl -sL "${URL}-linux-gnu-aarch64.tar.gz" | tar x -z -f - versatiles
 		;;
 	"macos-x86_64.tar.gz")
 		echo "IMPLEMENT ME!"
