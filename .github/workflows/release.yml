@@ -1,7 +1,20 @@
 name: Build all Docker images
 on:
   repository_dispatch:
+    inputs:
+      run:
+        default: "all"
   workflow_dispatch:
+    inputs:
+      run:
+        description: "Run which image build process?"
+        default: "all"
+        type: choice
+        options:
+          - all
+          - basic
+          - frontend
+          - tilemaker
 
 env:
   CARGO_TERM_COLOR: always
@@ -17,16 +30,17 @@ jobs:
         id: result
         run: curl -s https://api.github.com/repos/versatiles-org/versatiles-rs/tags | jq -r '"tag=" + first(.[] | .name | select(startswith("v")))' >> "$GITHUB_OUTPUT"
 
-### BASIC IMAGES
+  ### BASIC IMAGES
 
   basic:
+    if: github.event.inputs.run == "basic" || github.event.inputs.run == "all"
     needs: [init]
     strategy:
       fail-fast: false
       matrix:
         include:
           - { variants: "alpine,", filename: basic-alpine }
-          - { variants: "debian",  filename: basic-debian }
+          - { variants: "debian", filename: basic-debian }
           - { variants: "scratch", filename: basic-scratch }
     uses: ./.github/workflows/build-single-image.yml
     secrets: inherit
@@ -35,9 +49,10 @@ jobs:
       filename: ${{ matrix.filename }}
       tag: "${{ needs.init.outputs.tag }}"
 
-### FRONTEND IMAGES
+  ### FRONTEND IMAGES
 
   frontend:
+    if: github.event.inputs.run == "frontend" || github.event.inputs.run == "all"
     needs: [init, basic]
     strategy:
       fail-fast: false
