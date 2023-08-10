@@ -33,7 +33,7 @@ jobs:
   ### BASIC IMAGES
 
   basic:
-    if: github.event.inputs.run == "basic" || github.event.inputs.run == "all"
+    if: ${{ github.event.inputs.run == "basic" || github.event.inputs.run == "all" }}
     needs: [init]
     strategy:
       fail-fast: false
@@ -52,7 +52,7 @@ jobs:
   ### FRONTEND IMAGES
 
   frontend:
-    if: github.event.inputs.run == "frontend" || github.event.inputs.run == "all"
+    if: ${{ github.event.inputs.run == "frontend" || github.event.inputs.run == "all" }}
     needs: [init, basic]
     strategy:
       fail-fast: false
@@ -72,7 +72,7 @@ jobs:
   ### TILEMAKER IMAGES
 
   tilemaker:
-    if: github.event.inputs.run == "tilemaker" || github.event.inputs.run == "all"
+    if: ${{ github.event.inputs.run == "tilemaker" || github.event.inputs.run == "all" }}
     needs: [init, basic]
     uses: ./.github/workflows/build-single-image.yml
     secrets: inherit
