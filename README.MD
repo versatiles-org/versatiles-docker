@@ -5,12 +5,12 @@
 
 This Repo contains .Dockerfiles and GitHub Workflows to build Docker Images.
 
-## Image `versatiles`
+## Images `versatiles`
 
-- Contains only the `versatiles` binary
+- Contains only the [versatiles](https://github.com/versatiles-org/versatiles-rs) binary
 - Supported OS: Alpine, Debian and "Scratch"
 - Supported Architectures: AMD64, ARM64
-- Images are on [GitHub Container registry](https://github.com/versatiles-org/versatiles-docker/pkgs/container/versatiles) and on [Docker Hub](https://hub.docker.com/repository/docker/versatiles/versatiles/general)
+- Images are on [GitHub Container Registry](https://github.com/versatiles-org/versatiles-docker/pkgs/container/versatiles) and on [Docker Hub](https://hub.docker.com/repository/docker/versatiles/versatiles/general)
 
 <table>
 <tr>
@@ -35,12 +35,12 @@ This Repo contains .Dockerfiles and GitHub Workflows to build Docker Images.
 </tr>
 </table>
 
-## Image `versatiles-frontend`
+## Images `versatiles-frontend`
 
-- Contains the `versatiles` binary and the latest [frontend](https://github.com/versatiles-org/versatiles-frontend)
+- Contains: [versatiles](https://github.com/versatiles-org/versatiles-rs) and the latest [frontend](https://github.com/versatiles-org/versatiles-frontend)
 - Supported OS: Alpine, Debian and "Scratch"
 - Supported Architectures: AMD64, ARM64
-- Images are on [GitHub Container registry](https://github.com/versatiles-org/versatiles-docker/pkgs/container/versatiles-frontend) and on [Docker Hub](https://hub.docker.com/repository/docker/versatiles/versatiles-frontend/general)
+- Images are on [GitHub Container Registry](https://github.com/versatiles-org/versatiles-docker/pkgs/container/versatiles-frontend) and on [Docker Hub](https://hub.docker.com/repository/docker/versatiles/versatiles-frontend/general)
 
 <table>
 <tr>
@@ -65,8 +65,27 @@ This Repo contains .Dockerfiles and GitHub Workflows to build Docker Images.
 </tr>
 </table>
 
+## Images `versatiles-tilemaker`
+
+- Contains: [versatiles](https://github.com/versatiles-org/versatiles-rs), [tilemaker](https://github.com/systemed/tilemaker) and some helpers like: [aria2](https://aria2.github.io), curl, [gdal](https://gdal.org), [osmium tool](https://osmcode.org/osmium-tool/)
+- Supported OS: Debian
+- Supported Architectures: AMD64
+- Images are on [GitHub Container Registry](https://github.com/versatiles-org/versatiles-docker/pkgs/container/versatiles-tilemaker) and on [Docker Hub](https://hub.docker.com/repository/docker/versatiles/versatiles-tilemaker/general)
+
+<table>
+<tr>
+	<th>OS</th>
+	<th>Version</th>
+	<th>Image Size</th>
+</tr>
+<tr>
+	<td>Linux: Debian</td>
+	<td><img src="https://img.shields.io/docker/v/versatiles/versatiles-tilemaker/latest-debian" alt="Docker Image version versatiles-tilemaker/debian"></td>
+	<td><img src="https://img.shields.io/docker/image-size/versatiles/versatiles-tilemaker/latest-debian" alt="Docker Image size versatiles-tilemaker/debian"></td>
+</tr>
+</table>
+
 ## Next steps:
 
 We are planning to add:
-- `versatiles-tilemaker` containing tilemaker to generate vector tiles ([Issue #4](https://github.com/versatiles-org/versatiles-docker/issues/4))
 - `versatiles-nginx` containing nginx, lets encrypt and [frontend](https://github.com/versatiles-org/versatiles-frontend) to have everything to run a simple server ([Issue #5](https://github.com/versatiles-org/versatiles-docker/issues/5))

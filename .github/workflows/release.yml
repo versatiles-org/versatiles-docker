@@ -1,7 +1,20 @@
 name: Build all Docker images
 on:
   repository_dispatch:
+    inputs:
+      run:
+        default: "all"
   workflow_dispatch:
+    inputs:
+      run:
+        description: "Run which image build process?"
+        default: "all"
+        type: choice
+        options:
+          - all
+          - basic
+          - frontend
+          - tilemaker
 
 env:
   CARGO_TERM_COLOR: always
@@ -17,7 +30,7 @@ jobs:
         id: result
         run: curl -s https://api.github.com/repos/versatiles-org/versatiles-rs/tags | jq -r '"tag=" + first(.[] | .name | select(startswith("v")))' >> "$GITHUB_OUTPUT"
 
-### BASIC IMAGES
+  ### BASIC IMAGES
 
   basic:
     needs: [init]
@@ -26,7 +39,7 @@ jobs:
       matrix:
         include:
           - { variants: "alpine,", filename: basic-alpine }
-          - { variants: "debian",  filename: basic-debian }
+          - { variants: "debian", filename: basic-debian }
           - { variants: "scratch", filename: basic-scratch }
     uses: ./.github/workflows/build-single-image.yml
     secrets: inherit
@@ -35,16 +48,17 @@ jobs:
       filename: ${{ matrix.filename }}
       tag: "${{ needs.init.outputs.tag }}"
 
-### FRONTEND IMAGES
+  ### FRONTEND IMAGES
 
   frontend:
+    if: github.event.inputs.run == 'frontend' || github.event.inputs.run == 'all'
     needs: [init, basic]
     strategy:
       fail-fast: false
       matrix:
         include:
           - { variants: "alpine,", filename: frontend-alpine }
-          - { variants: "debian",  filename: frontend-debian }
+          - { variants: "debian", filename: frontend-debian }
           - { variants: "scratch", filename: frontend-scratch }
     uses: ./.github/workflows/build-single-image.yml
     secrets: inherit
@@ -52,4 +66,18 @@ jobs:
       repo: versatiles-frontend
       variants: ${{ matrix.variants }}
       filename: ${{ matrix.filename }}
+      tag: "${{ needs.init.outputs.tag }}"
+
+  ### TILEMAKER IMAGES
+
+  tilemaker:
+    if: github.event.inputs.run == 'tilemaker' || github.event.inputs.run == 'all'
+    needs: [init, basic]
+    uses: ./.github/workflows/build-single-image.yml
+    secrets: inherit
+    with:
+      repo: versatiles-tilemaker
+      variants: "debian,"
+      filename: "tilemaker-debian"
+      platforms: "linux/amd64"
       tag: "${{ needs.init.outputs.tag }}"

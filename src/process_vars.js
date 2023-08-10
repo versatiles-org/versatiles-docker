@@ -6,11 +6,6 @@ let keys = 'filename,platforms,repo,tag,variants'.split(',');
 
 
 
-// check if all keys are valid
-Object.keys(args).forEach(key => {
-	if (!keys.includes(key)) throw Error(`unknown key "${key}"`)
-})
-
 // cleanup values, set to undefined if not defined
 keys.forEach(key => {
 	if (typeof args[key] !== 'string') return args[key] = undefined;
