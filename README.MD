@@ -88,5 +88,4 @@ This Repo contains .Dockerfiles and GitHub Workflows to build Docker Images.
 ## Next steps:
 
 We are planning to add:
-- `versatiles-tilemaker` containing tilemaker to generate vector tiles ([Issue #4](https://github.com/versatiles-org/versatiles-docker/issues/4))
 - `versatiles-nginx` containing nginx, lets encrypt and [frontend](https://github.com/versatiles-org/versatiles-frontend) to have everything to run a simple server ([Issue #5](https://github.com/versatiles-org/versatiles-docker/issues/5))
