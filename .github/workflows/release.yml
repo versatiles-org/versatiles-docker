@@ -33,7 +33,6 @@ jobs:
   ### BASIC IMAGES
 
   basic:
-    if: github.event.inputs.run == 'basic' || github.event.inputs.run == 'all'
     needs: [init]
     strategy:
       fail-fast: false
