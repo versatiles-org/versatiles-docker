@@ -9,9 +9,5 @@ FROM debian:stable-slim
 
 # copy versatiles and selftest
 WORKDIR /app
-COPY --from=builder --chmod=0755 --chown=root /home/curl_user/versatiles /usr/local/bin/
-ENV PATH="/usr/local/bin:$PATH"
-
-# finalize
-EXPOSE 8080
-ENTRYPOINT [ "versatiles" ]
+COPY --from=builder --chmod=0755 --chown=root /home/curl_user/versatiles /app/
+ENV PATH="/app/:$PATH"

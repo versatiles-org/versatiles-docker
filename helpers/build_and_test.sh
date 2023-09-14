@@ -1,5 +1,7 @@
 #!/usr/bin/env bash
 
+cd "$(dirname "$0")/.."
+
 set -e
 
 RED="\033[1;31m"
@@ -29,7 +31,7 @@ run_arch() {
 	echo -e "${YEL}Build and Test $name on $platform${END}"
 
 	docker buildx build --platform=$platform --file=docker/$name.Dockerfile --tag=test .
-	docker run --platform=$platform -it --rm test serve --auto-shutdown 1000 -p 8088 "https://download.versatiles.org/planet-20230605.versatiles"
+	docker run --platform=$platform -it --rm test versatiles serve --auto-shutdown 1000 -p 8088 "https://download.versatiles.org/planet-latest.versatiles"
 }
 
 function run() {
@@ -39,9 +41,9 @@ function run() {
 
 #run basic-alpine
 #run basic-debian
-run basic-scratch
-#run debian-maker
+#run basic-scratch
+run frontend-alpine
+run frontend-debian
+run frontend-scratch
+run tilemaker-debian
 #run debian-nginx
-#run frontend-alpine
-#run frontend-debian
-#run frontend-scratch

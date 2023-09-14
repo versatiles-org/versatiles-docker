@@ -10,7 +10,3 @@ FROM scratch
 # copy versatiles and selftest
 WORKDIR /app
 COPY --from=builder --chmod=0755 --chown=root /home/curl_user/versatiles /app/
-
-# finalize
-EXPOSE 8080
-ENTRYPOINT [ "/app/versatiles" ]

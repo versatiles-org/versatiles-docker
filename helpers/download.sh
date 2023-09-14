@@ -18,16 +18,10 @@ case $TARGETPLATFORM in
 	"linux/arm64-gnu")
 		curl -sL "${URL}-linux-gnu-aarch64.tar.gz" | tar x -z -f - versatiles
 		;;
-	"macos-x86_64.tar.gz")
-		echo "IMPLEMENT ME!"
-		exit 1
-		;;
-	"macos-aarch64.tar.gz")
-		echo "IMPLEMENT ME!"
-		exit 1
-		;;
 	*)
 		echo "Unknown target plattform $TARGETPLATFORM"
 		exit 1
 		;;
 esac
+
+chmod +x versatiles
