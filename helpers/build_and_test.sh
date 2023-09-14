@@ -39,9 +39,9 @@ function run() {
 	run_arch arm $1
 }
 
-#run basic-alpine
-#run basic-debian
-#run basic-scratch
+run basic-alpine
+run basic-debian
+run basic-scratch
 run frontend-alpine
 run frontend-debian
 run frontend-scratch
