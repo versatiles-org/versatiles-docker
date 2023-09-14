@@ -6,7 +6,7 @@ on:
         default: "all"
   workflow_dispatch:
     inputs:
-      run:
+      run_jobs:
         description: "Run which image build process?"
         default: "all"
         type: choice
@@ -51,7 +51,7 @@ jobs:
   ### FRONTEND IMAGES
 
   frontend:
-    if: github.event.inputs.run == 'frontend' || github.event.inputs.run == 'all'
+    if: github.event.inputs.run_jobs == 'frontend' || github.event.inputs.run_jobs == 'all'
     needs: [init, basic]
     strategy:
       fail-fast: false
@@ -71,7 +71,7 @@ jobs:
   ### TILEMAKER IMAGES
 
   tilemaker:
-    if: github.event.inputs.run == 'tilemaker' || github.event.inputs.run == 'all'
+    if: github.event.inputs.run_jobs == 'tilemaker' || github.event.inputs.run_jobs == 'all'
     needs: [init, basic]
     uses: ./.github/workflows/build-single-image.yml
     secrets: inherit
