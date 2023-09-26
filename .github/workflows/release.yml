@@ -35,6 +35,7 @@ jobs:
   basic:
     needs: [init]
     strategy:
+      max-parallel: 2
       fail-fast: false
       matrix:
         include:
@@ -54,6 +55,7 @@ jobs:
     if: github.event.inputs.run_jobs == 'frontend' || github.event.inputs.run_jobs == 'all'
     needs: [init, basic]
     strategy:
+      max-parallel: 2
       fail-fast: false
       matrix:
         include:
