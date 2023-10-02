@@ -33,6 +33,7 @@ jobs:
   ### BASIC IMAGES
 
   basic:
+    name: "Basic"
     needs: [init]
     strategy:
       max-parallel: 2
@@ -52,6 +53,7 @@ jobs:
   ### FRONTEND IMAGES
 
   frontend:
+    name: "Frontend"
     if: github.event.inputs.run_jobs == 'frontend' || github.event.inputs.run_jobs == 'all'
     needs: [init, basic]
     strategy:
@@ -73,6 +75,7 @@ jobs:
   ### TILEMAKER IMAGES
 
   tilemaker:
+    name: "Tilemaker"
     if: github.event.inputs.run_jobs == 'tilemaker' || github.event.inputs.run_jobs == 'all'
     needs: [init, basic]
     uses: ./.github/workflows/build-single-image.yml
