@@ -1,4 +1,3 @@
-# create builder system
 FROM ghcr.io/versatiles-org/versatiles:latest-debian
 
 RUN apt update -y && apt install -y \
@@ -23,7 +22,7 @@ RUN apt update -y && apt install -y \
     wget
 
 # Install Tilemaker
-RUN cd ~ && git clone -q https://github.com/systemed/tilemaker.git tilemaker
+RUN cd ~ && git clone --depth 1 -q https://github.com/systemed/tilemaker.git tilemaker
 RUN cd ~/tilemaker && make "CONFIG=-DFLOAT_Z_ORDER"
 RUN cd ~/tilemaker && make install
 
