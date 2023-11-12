@@ -99,7 +99,7 @@ jobs:
     secrets: inherit
     with:
       repo: tippecanoe
-      variants: "debian,"
-      filename: "tippecanoe-debian"
+      variants: "alpine,"
+      filename: "tippecanoe-alpine"
       platforms: "linux/amd64"
       tag: ${{ needs.init.outputs.tag }}
