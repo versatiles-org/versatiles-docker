@@ -15,9 +15,10 @@ on:
           - basic
           - frontend
           - tilemaker
+          - tippecanoe
 
 env:
-  CARGO_TERM_COLOR: always
+  FORCE_COLOR: 1
 
 jobs:
   init:
@@ -33,7 +34,8 @@ jobs:
   ### BASIC IMAGES
 
   basic:
-    name: "Basic"
+    name: Basic
+    if: contains( fromJSON('["all", "basic", "frontend", "tilemaker"]'), github.event.inputs.run_jobs )
     needs: [init]
     strategy:
       max-parallel: 2
@@ -48,13 +50,13 @@ jobs:
     with:
       variants: ${{ matrix.variants }}
       filename: ${{ matrix.filename }}
-      tag: "${{ needs.init.outputs.tag }}"
+      tag: ${{ needs.init.outputs.tag }}
 
   ### FRONTEND IMAGES
 
   frontend:
-    name: "Frontend"
-    if: github.event.inputs.run_jobs == 'frontend' || github.event.inputs.run_jobs == 'all'
+    name: Frontend
+    if: contains( fromJSON('["all", "frontend"]'), github.event.inputs.run_jobs )
     needs: [init, basic]
     strategy:
       max-parallel: 2
@@ -70,13 +72,13 @@ jobs:
       repo: versatiles-frontend
       variants: ${{ matrix.variants }}
       filename: ${{ matrix.filename }}
-      tag: "${{ needs.init.outputs.tag }}"
+      tag: ${{ needs.init.outputs.tag }}
 
   ### TILEMAKER IMAGES
 
   tilemaker:
-    name: "Tilemaker"
-    if: github.event.inputs.run_jobs == 'tilemaker' || github.event.inputs.run_jobs == 'all'
+    name: Tilemaker
+    if: contains( fromJSON('["all", "tilemaker"]'), github.event.inputs.run_jobs )
     needs: [init, basic]
     uses: ./.github/workflows/build-single-image.yml
     secrets: inherit
@@ -85,4 +87,19 @@ jobs:
       variants: "debian,"
       filename: "tilemaker-debian"
       platforms: "linux/amd64"
-      tag: "${{ needs.init.outputs.tag }}"
+      tag: ${{ needs.init.outputs.tag }}
+
+  ### MAPLIBRE-NATIVE IMAGES
+
+  tippecanoe:
+    name: Tippecanoe
+    if: contains( fromJSON('["all", "tippecanoe"]'), github.event.inputs.run_jobs )
+    needs: [init]
+    uses: ./.github/workflows/build-single-image.yml
+    secrets: inherit
+    with:
+      repo: tippecanoe
+      variants: "debian,"
+      filename: "tippecanoe-debian"
+      platforms: "linux/amd64"
+      tag: ${{ needs.init.outputs.tag }}
