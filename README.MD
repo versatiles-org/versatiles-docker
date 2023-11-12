@@ -89,3 +89,10 @@ This Repo contains .Dockerfiles and GitHub Workflows to build Docker Images.
 
 We are planning to add:
 - `versatiles-nginx` containing nginx, lets encrypt and [frontend](https://github.com/versatiles-org/versatiles-frontend) to have everything to run a simple server ([Issue #5](https://github.com/versatiles-org/versatiles-docker/issues/5))
+
+# Notes:
+
+Document `tippecanoe`:
+```bash
+docker run --rm -v $(pwd):/data tippecanoe:latest --force --output=test.mbtiles admin.geojson
+```
