@@ -2,7 +2,7 @@ name: Build all Docker images
 on:
   repository_dispatch:
     inputs:
-      run:
+      run_jobs:
         default: "all"
   workflow_dispatch:
     inputs:
