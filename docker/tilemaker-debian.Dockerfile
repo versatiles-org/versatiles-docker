@@ -11,21 +11,22 @@ RUN apt update -y && apt install -y \
     libboost-iostreams-dev \
     libboost-program-options-dev \
     libboost-system-dev \
-    liblua5.1-0-dev \
-    libprotobuf-dev \
+    liblua5.3-dev lua5.3 \
     libshp-dev \
     libsqlite3-dev \
     osmium-tool \
-    protobuf-compiler \
     rapidjson-dev \
     unzip \
-    wget
+    wget \
+    zlib1g-dev
 
 # Install Tilemaker
-RUN cd ~ && git clone --depth 1 -q --branch v2.4.0 https://github.com/systemed/tilemaker.git tilemaker
-RUN cd ~/tilemaker && make "CONFIG=-DFLOAT_Z_ORDER"
-RUN cd ~/tilemaker && make install
+RUN git clone --depth 1 -q --branch v3.0.0 https://github.com/systemed/tilemaker.git tilemaker
+RUN cd tilemaker && make && make install
 
 # Install Shortbread
-RUN cd ~ && git clone -q https://github.com/versatiles-org/shortbread-tilemaker shortbread-tilemaker
-RUN cd ~/shortbread-tilemaker && ./get-shapefiles.sh
+RUN git clone --depth 1 -q --branch versatiles https://github.com/versatiles-org/shortbread-tilemaker shortbread-tilemaker
+RUN cd shortbread-tilemaker && ./get-shapefiles.sh
+
+# Add Scripts
+COPY --chmod=0755 src/generate_tiles.sh .

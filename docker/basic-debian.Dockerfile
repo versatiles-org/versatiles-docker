@@ -1,8 +1,8 @@
 # create builder system
 FROM --platform=$BUILDPLATFORM curlimages/curl as builder
 ARG TARGETPLATFORM
-COPY --chmod=0755 helpers/download.sh .
-RUN ./download.sh "$TARGETPLATFORM-gnu"
+COPY --chmod=0755 helpers/download_versatiles_binary.sh .
+RUN ./download_versatiles_binary.sh "$TARGETPLATFORM-gnu"
 
 # create production system
 FROM debian:stable-slim

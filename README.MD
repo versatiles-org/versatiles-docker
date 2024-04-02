@@ -8,7 +8,7 @@ This Repo contains .Dockerfiles and GitHub Workflows to build Docker Images.
 ## Images `versatiles`
 
 - Contains only the [versatiles](https://github.com/versatiles-org/versatiles-rs) binary
-- Supported OS: Alpine, Debian and "Scratch"
+- Supported OS: Alpine, Debian and Scratch
 - Supported Architectures: AMD64, ARM64
 - Images are on [GitHub Container Registry](https://github.com/versatiles-org/versatiles-docker/pkgs/container/versatiles) and on [Docker Hub](https://hub.docker.com/r/versatiles/versatiles)
 
@@ -38,7 +38,7 @@ This Repo contains .Dockerfiles and GitHub Workflows to build Docker Images.
 ## Images `versatiles-frontend`
 
 - Contains: [versatiles](https://github.com/versatiles-org/versatiles-rs) and the latest [frontend](https://github.com/versatiles-org/versatiles-frontend)
-- Supported OS: Alpine, Debian and "Scratch"
+- Supported OS: Alpine, Debian and Scratch
 - Supported Architectures: AMD64, ARM64
 - Images are on [GitHub Container Registry](https://github.com/versatiles-org/versatiles-docker/pkgs/container/versatiles-frontend) and on [Docker Hub](https://hub.docker.com/r/versatiles/versatiles-frontend)
 
@@ -90,9 +90,18 @@ This Repo contains .Dockerfiles and GitHub Workflows to build Docker Images.
 We are planning to add:
 - `versatiles-nginx` containing nginx, lets encrypt and [frontend](https://github.com/versatiles-org/versatiles-frontend) to have everything to run a simple server ([Issue #5](https://github.com/versatiles-org/versatiles-docker/issues/5))
 
-# Notes:
+## Notes:
 
+Build and generate tiles locally:
+```bash
+docker build --file=docker/tilemaker-debian.Dockerfile --tag=test .
+mkdir -p result
+docker run -it --rm --privileged --mount="type=bind,source=$(pwd)/result,target=/app/result" test generate_tiles.sh https://download.geofabrik.de/europe/germany/berlin-latest.osm.pbf osm.berlin "13.0,52.3,13.8,52.7"
+```
+
+<!--
 Document `tippecanoe`:
 ```bash
 docker run --rm -v $(pwd):/data tippecanoe:latest --force --output=test.mbtiles admin.geojson
 ```
+-->

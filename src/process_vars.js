@@ -1,4 +1,6 @@
 
+// Used for GitHub Workflow build-single-image.yml
+
 import { argv } from 'node:process';
 
 let args = JSON.parse(argv[2]);
