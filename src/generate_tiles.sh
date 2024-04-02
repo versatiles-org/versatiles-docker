@@ -4,11 +4,11 @@ mkdir -p data
 set -ex
 
 # reading arguments
-TILE_SRC=$1 # url of pbf file
+TILE_URL=$1 # url of pbf file
 TILE_NAME=$2 # name of the result
 TILE_BBOX=$3 # bbox
 
-if [[ $TILE_SRC != http* ]]
+if [[ $TILE_URL != http* ]]
 then
 	echo "First argument must be a valid URL"
 	exit 1
@@ -25,8 +25,13 @@ then
 	TILE_BBOX="-180,-86,180,86"
 fi
 
+echo "GENERATE OSM VECTOR TILES:"
+echo "   URL:  $TILE_URL"
+echo "   NAME: $TILE_NAME"
+echo "   BBOX: $TILE_BBOX"
+
 echo "DOWNLOAD DATA"
-aria2c --seed-time=0 --dir=data "$TILE_SRC"
+aria2c --seed-time=0 --dir=data "$TILE_URL"
 pbf_file=$(ls data/*.pbf)
 if [ $(echo $pbf_file | wc -l) -ne 1 ]
 then
