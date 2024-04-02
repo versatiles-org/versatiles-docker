@@ -46,7 +46,7 @@ rm data/input.pbf
 
 echo "RENDER TILES"
 cd shortbread-tilemaker
-time tilemaker --input ../data/prepared.pbf --config config.json --process process.lua --bbox $TILE_BBOX --output ../data/output.mbtiles --compact --shard-stores
+time tilemaker --input ../data/prepared.pbf --config config.json --process process.lua --bbox $TILE_BBOX --output ../data/output.mbtiles --shard-stores
 cd ..
 rm data/prepared.pbf
 

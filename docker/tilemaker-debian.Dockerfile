@@ -21,7 +21,7 @@ RUN apt update -y && apt install -y \
     zlib1g-dev
 
 # Install Tilemaker
-RUN git clone --depth 1 -q --branch v3.0.0 https://github.com/systemed/tilemaker.git tilemaker
+RUN git clone --depth 1 -q https://github.com/systemed/tilemaker.git tilemaker
 RUN cd tilemaker && make && make install
 
 # Install Shortbread
