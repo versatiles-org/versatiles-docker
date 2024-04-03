@@ -4,7 +4,7 @@
 # - 170 GB RAM 
 # - 400 GB SSD
 # - time:
-#    -  5 minutes for download
+#    -  3 minutes for download
 #    - 50 minutes for osmium
 #    - 70 minutes for tilemaker
 #    - 180 minutes for versatiles
