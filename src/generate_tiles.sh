@@ -58,7 +58,7 @@ echo "RENDER TILES"
 cd shortbread-tilemaker
 time tilemaker --input ../data/prepared.pbf --config config.json --process process.lua --bbox $TILE_BBOX --output ../data/output.mbtiles --compact --store ../tmp
 cd ..
-rm -r tmp
+rm -rf tmp || true
 rm data/prepared.pbf
 
 echo "CONVERT TILES"
