@@ -1,4 +1,14 @@
 #!/usr/bin/env bash
+
+# if you convert the whole planet you need:
+# - 170 GB RAM 
+# - 400 GB SSD
+# - time:
+#    -  5 minutes for download
+#    - 50 minutes for osmium
+#    - 70 minutes for tilemaker
+#    - 180 minutes for versatiles
+
 mkdir -p data
 
 set -ex
@@ -46,8 +56,9 @@ rm data/input.pbf
 
 echo "RENDER TILES"
 cd shortbread-tilemaker
-time tilemaker --input ../data/prepared.pbf --config config.json --process process.lua --bbox $TILE_BBOX --output ../data/output.mbtiles --shard-stores
+time tilemaker --input ../data/prepared.pbf --config config.json --process process.lua --bbox $TILE_BBOX --output ../data/output.mbtiles --compact --store ../tmp
 cd ..
+rm -r tmp
 rm data/prepared.pbf
 
 echo "CONVERT TILES"
