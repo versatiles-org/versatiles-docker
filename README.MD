@@ -1,16 +1,16 @@
 
-[![Docker Pulls](https://img.shields.io/docker/pulls/versatiles/versatiles)](https://hub.docker.com/r/versatiles/versatiles/latest-debian)
+[![Docker Hub Pulls](https://img.shields.io/docker/pulls/versatiles/versatiles)](https://hub.docker.com/r/versatiles/versatiles/latest-debian)
 
 # VersaTiles Docker
 
-This Repo contains .Dockerfiles and GitHub Workflows to build Docker Images.
+This repo contains .Dockerfiles and GitHub workflows for building Docker images with VersaTiles.
 
 ## Images `versatiles`
 
 - Contains only the [versatiles](https://github.com/versatiles-org/versatiles-rs) binary
 - Supported OS: Alpine, Debian and Scratch
-- Supported Architectures: AMD64, ARM64
-- Images are on [GitHub Container Registry](https://github.com/versatiles-org/versatiles-docker/pkgs/container/versatiles) and on [Docker Hub](https://hub.docker.com/r/versatiles/versatiles)
+- Supported architectures: AMD64, ARM64
+- Images are available on [GitHub Container Registry](https://github.com/versatiles-org/versatiles-docker/pkgs/container/versatiles) and [Docker Hub](https://hub.docker.com/r/versatiles/versatiles)
 
 <table>
 <tr>
@@ -39,8 +39,8 @@ This Repo contains .Dockerfiles and GitHub Workflows to build Docker Images.
 
 - Contains: [versatiles](https://github.com/versatiles-org/versatiles-rs) and the latest [frontend](https://github.com/versatiles-org/versatiles-frontend)
 - Supported OS: Alpine, Debian and Scratch
-- Supported Architectures: AMD64, ARM64
-- Images are on [GitHub Container Registry](https://github.com/versatiles-org/versatiles-docker/pkgs/container/versatiles-frontend) and on [Docker Hub](https://hub.docker.com/r/versatiles/versatiles-frontend)
+- Supported architectures: AMD64, ARM64
+- Images are available on [GitHub Container Registry](https://github.com/versatiles-org/versatiles-docker/pkgs/container/versatiles-frontend) and on [Docker Hub](https://hub.docker.com/r/versatiles/versatiles-frontend)
 
 <table>
 <tr>
@@ -69,8 +69,8 @@ This Repo contains .Dockerfiles and GitHub Workflows to build Docker Images.
 
 - Contains: [versatiles](https://github.com/versatiles-org/versatiles-rs), [tilemaker](https://github.com/systemed/tilemaker) and some helpers like: [aria2](https://aria2.github.io), curl, [gdal](https://gdal.org), [osmium tool](https://osmcode.org/osmium-tool/)
 - Supported OS: Debian
-- Supported Architectures: AMD64
-- Images are on [GitHub Container Registry](https://github.com/versatiles-org/versatiles-docker/pkgs/container/versatiles-tilemaker) and on [Docker Hub](https://hub.docker.com/r/versatiles/versatiles-tilemaker)
+- Supported architectures: AMD64
+- Images are available on [GitHub Container Registry](https://github.com/versatiles-org/versatiles-docker/pkgs/container/versatiles-tilemaker) and on [Docker Hub](https://hub.docker.com/r/versatiles/versatiles-tilemaker)
 
 <table>
 <tr>
