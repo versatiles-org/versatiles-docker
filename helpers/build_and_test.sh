@@ -31,7 +31,7 @@ run_arch() {
 	echo -e "${YEL}Build and Test $name on $platform${END}"
 
 	docker buildx build --platform=$platform --file=docker/$name.Dockerfile --tag=test .
-	docker run --platform=$platform -it --rm test versatiles serve --auto-shutdown 1000 -p 8088 "https://download.versatiles.org/planet-latest.versatiles"
+	docker run --platform=$platform -it --rm test versatiles serve --auto-shutdown 1000 -p 8088 "https://download.versatiles.org/osm.versatiles"
 }
 
 function run() {
