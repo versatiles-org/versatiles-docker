@@ -27,7 +27,7 @@ jobs:
     outputs:
       tag: ${{ steps.result.outputs.tag }}
     steps:
-      - name: get latest tag
+      - name: Get Latest Tag
         id: result
         run: curl -s https://api.github.com/repos/versatiles-org/versatiles-rs/tags | jq -r '"tag=" + first(.[] | .name | select(startswith("v")))' >> "$GITHUB_OUTPUT"
 
