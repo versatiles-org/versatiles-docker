@@ -33,13 +33,16 @@ let suffixes = args.variants.split(',').map(v => {
 let tags = new Set();
 'versatiles,ghcr.io/versatiles-org'.split(',').forEach(org => {
 	suffixes.forEach(suffix => {
-		tags.add(`${org}/${args.repo}:latest${suffix}`)
 		tags.add(`${org}/${args.repo}:${args.tag}${suffix}`)
+		tags.add(`${org}/${args.repo}:latest${suffix}`)
+		if (suffix.startsWith('-')) {
+			tags.add(`${org}/${args.repo}:${suffix.slice(1)}`)
+		}
 	})
 })
 
 args.tags = Array.from(tags.values()).join(',')
 
-for (let [key,value] of Object.entries(args)) {
+for (let [key, value] of Object.entries(args)) {
 	process.stdout.write(`${key}=${value}\n`)
 }
