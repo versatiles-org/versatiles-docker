@@ -1,5 +1,5 @@
 # create builder system
-FROM alpine:latest as builder
+FROM alpine:latest AS builder
 
 RUN apk update
 RUN apk add git make sqlite-dev zlib-dev bash g++

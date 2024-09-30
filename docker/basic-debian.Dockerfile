@@ -1,5 +1,5 @@
 # create builder system
-FROM --platform=$BUILDPLATFORM curlimages/curl as builder
+FROM --platform=$BUILDPLATFORM curlimages/curl AS builder
 ARG TARGETPLATFORM
 COPY --chmod=0755 helpers/download_versatiles_binary.sh .
 RUN ./download_versatiles_binary.sh "$TARGETPLATFORM-gnu"

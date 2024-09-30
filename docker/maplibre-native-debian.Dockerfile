@@ -1,5 +1,5 @@
 # create builder system
-FROM debian:latest as builder
+FROM debian:latest AS builder
 
 RUN apt update
 RUN apt install -y ccache cmake g++ git libcurl4-openssl-dev libglfw3-dev libicu-dev libjpeg-dev libpng-dev libuv1-dev libwebp-dev ninja-build pkg-config
