@@ -1,8 +1,8 @@
 # create builder system
 FROM --platform=$BUILDPLATFORM curlimages/curl AS builder
 ARG TARGETPLATFORM
-COPY --chmod=0755 helpers/download_versatiles_binary.sh .
-RUN ./download_versatiles_binary.sh "$TARGETPLATFORM-musl"
+COPY helpers/download_versatiles_binary.sh .
+RUN sh ./download_versatiles_binary.sh "$TARGETPLATFORM-musl"
 
 # create production system
 FROM scratch
