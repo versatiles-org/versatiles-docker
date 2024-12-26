@@ -67,7 +67,7 @@ This repo contains .Dockerfiles and GitHub workflows for building Docker images 
 
 ## Images `versatiles-tilemaker`
 
-- Contains: [versatiles](https://github.com/versatiles-org/versatiles-rs), [tilemaker](https://github.com/systemed/tilemaker) and some helpers like: [aria2](https://aria2.github.io), curl, [gdal](https://gdal.org), [osmium tool](https://osmcode.org/osmium-tool/)
+- Contains: [versatiles](https://github.com/versatiles-org/versatiles-rs), [tilemaker](https://github.com/systemed/tilemaker) and some helpers like: [aria2](https://aria2.github.io), [curl](https://curl.se/), [gdal](https://gdal.org), [osmium tool](https://osmcode.org/osmium-tool/)
 - Supported OS: Debian
 - Supported architectures: AMD64
 - Images are available on [GitHub Container Registry](https://github.com/versatiles-org/versatiles-docker/pkgs/container/versatiles-tilemaker) and on [Docker Hub](https://hub.docker.com/r/versatiles/versatiles-tilemaker)
