@@ -1,0 +1,43 @@
+# syntax=docker/dockerfile:1
+
+###############################################################################
+## ─────────────────────────────  builders  ───────────────────────────────── ##
+###############################################################################
+
+FROM --platform=$BUILDPLATFORM curlimages/curl AS builder
+ARG TARGETPLATFORM
+WORKDIR /app
+COPY scripts/download_versatiles_binary.sh .
+
+# ---- musl builder ----------------------------------------------------------
+FROM --platform=$BUILDPLATFORM builder AS builder-musl
+RUN ./download_versatiles_binary.sh "${TARGETPLATFORM}-musl"
+
+# ---- glibc/gnu builder ------------------------------------------------------
+FROM --platform=$BUILDPLATFORM builder AS builder-gnu
+RUN ./download_versatiles_binary.sh "${TARGETPLATFORM}-gnu"
+
+###############################################################################
+## ─────────────────────────────  runtimes  ──────────────────────────────── ##
+###############################################################################
+
+# ==== 1. Alpine (musl) =======================================================
+FROM alpine:latest AS versatiles-alpine
+WORKDIR /app
+COPY --from=builder-musl --chmod=0755 --chown=root /app/versatiles /app/
+ENV PATH="/app:$PATH"
+ENTRYPOINT ["versatiles"]
+
+# ==== 2. Scratch (static musl) ==============================================
+FROM scratch AS versatiles-scratch
+WORKDIR /app
+COPY --from=builder-musl --chmod=0755 /app/versatiles /app/
+ENV PATH="/app"
+ENTRYPOINT ["versatiles"]
+
+# ==== 3. Debian slim (glibc) =================================================
+FROM debian:stable-slim AS versatiles-debian
+WORKDIR /app
+COPY --from=builder-gnu --chmod=0755 --chown=root /app/versatiles /app/
+ENV PATH="/app:$PATH"
+ENTRYPOINT ["versatiles"]
