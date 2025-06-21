@@ -1,8 +1,0 @@
-{
-  "name": "versatiles-docker",
-  "version": "1.0.0",
-  "description": "This Repo contains .Dockerfiles and GitHub Workflows to build Docker images",
-  "author": "Michael Kreil <versatiles@michael-kreil.de> (https://github.com/MichaelKreil)",
-  "type": "module",
-  "license": "MIT"
-}
