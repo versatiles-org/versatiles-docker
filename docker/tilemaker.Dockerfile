@@ -1,4 +1,15 @@
-FROM ghcr.io/versatiles-org/versatiles:latest-debian
+FROM --platform=$BUILDPLATFORM curlimages/curl AS builder
+ARG TARGETPLATFORM
+WORKDIR /app
+COPY scripts/download_versatiles_binary.sh .
+RUN ./download_versatiles_binary.sh "${TARGETPLATFORM}-gnu"
+
+
+FROM debian:stable-slim AS versatiles-tilemaker
+
+WORKDIR /app
+ENV PATH="/app:$PATH"
+COPY --from=builder --chmod=0755 --chown=root /app/versatiles .
 
 RUN apt update -y && apt install -y \
     aria2 \
@@ -38,4 +49,6 @@ RUN \
     rm -r .git data/simplified-water-polygons-split-3857
 
 # Add Scripts
-COPY --chmod=0755 src/generate_tiles.sh .
+COPY --chmod=0755 scripts/generate_tiles.sh .
+
+ENTRYPOINT [ "bash", generate_tiles ]
