@@ -13,4 +13,5 @@ docker buildx build --target versatiles-tilemaker \
     -t $NAME:latest \
     -t $NAME:$VER \
     --file ../docker/tilemaker.Dockerfile \
+    $ARGS \
     ../docker

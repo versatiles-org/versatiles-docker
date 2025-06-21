@@ -51,4 +51,4 @@ RUN \
 # Add Scripts
 COPY --chmod=0755 scripts/generate_tiles.sh .
 
-ENTRYPOINT [ "bash", generate_tiles ]
+ENTRYPOINT [ "bash", "generate_tiles.sh" ]
