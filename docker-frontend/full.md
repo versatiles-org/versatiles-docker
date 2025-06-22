@@ -1,6 +1,6 @@
-# Docker Image: versatiles/versatiles
+# Docker Image: versatiles/versatiles-frontend
 
-A production-ready Docker image running a [VersaTiles Server](https://github.com/versatiles-org/versatiles-rs) with a developer frontend.
+A production-ready Docker image running a [VersaTiles server](https://github.com/versatiles-org/versatiles-rs) with the [developer frontend](https://github.com/versatiles-org/versatiles-frontend).
 
 ## Quick Start
 
