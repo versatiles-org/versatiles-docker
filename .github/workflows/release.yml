@@ -1,9 +1,6 @@
 name: Build all Docker images
 on:
   repository_dispatch:
-    inputs:
-      run_jobs:
-        default: "all"
   workflow_dispatch:
     inputs:
       run_jobs:
@@ -20,38 +17,27 @@ on:
 env:
   FORCE_COLOR: 1
 
+concurrency:
+  group: release-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
 jobs:
   basic:
     name: Basic
-    if: contains( fromJSON('["all", "basic"]'), github.event.inputs.run_jobs )
+    if: contains( fromJSON('["all", "basic"]'), inputs.run_jobs || 'all' )
     uses: ./.github/workflows/build-image.yml
     secrets: inherit
     with:
       name: versatiles
 
-  frontend:
-    name: Frontend
+  other:
     needs: basic
-    if: contains( fromJSON('["all", "frontend"]'), github.event.inputs.run_jobs )
+    strategy:
+      matrix:
+        name: [ frontend, tilemaker, tippecanoe]
+    if: contains(fromJSON('["all", matrix.name]'), inputs.run_jobs || 'all')
+    name: Build ${{ matrix.name }}
     uses: ./.github/workflows/build-image.yml
     secrets: inherit
     with:
-      name: versatiles-frontend
-
-  tilemaker:
-    name: tilemaker
-    needs: basic
-    if: contains( fromJSON('["all", "tilemaker"]'), github.event.inputs.run_jobs )
-    uses: ./.github/workflows/build-image.yml
-    secrets: inherit
-    with:
-      name: versatiles-tilemaker
-
-  tippecanoe:
-    name: tippecanoe
-    needs: basic
-    if: contains( fromJSON('["all", "tippecanoe"]'), github.event.inputs.run_jobs )
-    uses: ./.github/workflows/build-image.yml
-    secrets: inherit
-    with:
-      name: versatiles-tippecanoe
+      name: versatiles-${{ matrix.name }}
