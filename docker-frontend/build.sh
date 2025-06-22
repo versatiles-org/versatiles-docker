@@ -3,26 +3,25 @@ set -euo pipefail
 
 cd $(dirname $0)
 
-VER=$(./fetch_version.sh)
+VER=$(../scripts/fetch_release_tag.sh)
 
-ARGS=$(./setup_buildx.sh "${1:-}")
+ARGS=$(../scripts/setup_buildx.sh "${1:-}")
 
-ARGS+=" --file ../docker/basic.Dockerfile ../docker"
-NAME="versatiles/versatiles"
+NAME="versatiles/versatiles-frontend"
 
 docker buildx build --target versatiles-debian \
     -t $NAME:debian \
     -t $NAME:$VER-debian \
-    $ARGS
+    $ARGS .
 
 docker buildx build --target versatiles-alpine \
     -t $NAME:alpine \
     -t $NAME:$VER-alpine \
     -t $NAME:latest \
     -t $NAME:$VER \
-    $ARGS
+    $ARGS .
 
 docker buildx build --target versatiles-scratch \
     -t $NAME:scratch \
     -t $NAME:$VER-scratch \
-    $ARGS
+    $ARGS .

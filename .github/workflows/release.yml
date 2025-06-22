@@ -31,6 +31,7 @@ jobs:
 
   frontend:
     name: Frontend
+    needs: basic
     if: contains( fromJSON('["all", "frontend"]'), github.event.inputs.run_jobs )
     uses: ./.github/workflows/build-image.yml
     secrets: inherit
@@ -39,6 +40,7 @@ jobs:
 
   tilemaker:
     name: tilemaker
+    needs: basic
     if: contains( fromJSON('["all", "tilemaker"]'), github.event.inputs.run_jobs )
     uses: ./.github/workflows/build-image.yml
     secrets: inherit
@@ -47,6 +49,7 @@ jobs:
 
   tippecanoe:
     name: tippecanoe
+    needs: basic
     if: contains( fromJSON('["all", "tippecanoe"]'), github.event.inputs.run_jobs )
     uses: ./.github/workflows/build-image.yml
     secrets: inherit

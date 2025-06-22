@@ -7,37 +7,30 @@
 FROM --platform=$BUILDPLATFORM curlimages/curl AS builder
 ARG TARGETPLATFORM
 WORKDIR /app
+RUN curl -sL "https://github.com/versatiles-org/versatiles-frontend/releases/latest/download/frontend-dev.br.tar.gz" | gzip -d >frontend-dev.br.tar
 COPY scripts/download_versatiles_binary.sh .
-
-# ---- musl builder ----------------------------------------------------------
-FROM --platform=$BUILDPLATFORM builder AS builder-musl
-RUN ./download_versatiles_binary.sh "${TARGETPLATFORM}-musl"
-
-# ---- glibc/gnu builder ------------------------------------------------------
-FROM --platform=$BUILDPLATFORM builder AS builder-gnu
-RUN ./download_versatiles_binary.sh "${TARGETPLATFORM}-gnu"
 
 ###############################################################################
 ## ─────────────────────────────  runtimes  ──────────────────────────────── ##
 ###############################################################################
 
 # ==== 1. Alpine (musl) =======================================================
-FROM alpine:latest AS versatiles-alpine
+FROM versatiles/versatiles-alpine AS versatiles-alpine
 WORKDIR /app
-COPY --from=builder-musl --chmod=0755 --chown=root /app/versatiles .
+COPY --from=builder /app/frontend-dev.br.tar .
 ENV PATH="/app:$PATH"
 ENTRYPOINT ["versatiles"]
 
 # ==== 2. Scratch (static musl) ==============================================
-FROM scratch AS versatiles-scratch
+FROM versatiles/versatiles-scratch AS versatiles-scratch
 WORKDIR /app
-COPY --from=builder-musl --chmod=0755 /app/versatiles .
+COPY --from=builder /app/frontend-dev.br.tar .
 ENV PATH="/app"
 ENTRYPOINT ["versatiles"]
 
 # ==== 3. Debian slim (glibc) =================================================
-FROM debian:stable-slim AS versatiles-debian
+FROM versatiles/versatiles-debian AS versatiles-debian
 WORKDIR /app
-COPY --from=builder-gnu --chmod=0755 --chown=root /app/versatiles .
+COPY --from=builder /app/frontend-dev.br.tar .
 ENV PATH="/app:$PATH"
 ENTRYPOINT ["versatiles"]
