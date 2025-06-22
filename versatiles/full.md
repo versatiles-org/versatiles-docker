@@ -18,7 +18,7 @@ docker run -it versatiles/versatiles convert osm.mbtiles osm.versatiles
 
 ## About
 
-This Docker image is built from the [versatiles-org/versatiles-docker](https://github.com/versatiles-org/versatiles-docker) repository, specifically the [docker-basic/](https://github.com/versatiles-org/versatiles-docker/tree/main/docker-basic) subfolder.
+This Docker image is built from the [versatiles-org/versatiles-docker](https://github.com/versatiles-org/versatiles-docker) repository, specifically the [versatiles/](https://github.com/versatiles-org/versatiles-docker/tree/main/versatiles) subfolder.
 
 ## License
 

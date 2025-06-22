@@ -1,73 +1,146 @@
 #!/usr/bin/env bash
+#
+# generate_tiles.sh  <PBF‑URL>  <NAME>  [BBOX]
+#
+# Downloads an OpenStreetMap PBF extract, converts it to MBTiles via Tilemaker,
+# then re‑encodes it to Versatiles format. The resulting archive is placed in
+# /app/result/<NAME>.versatiles.
+#
+# Dependencies: aria2c, osmium, tilemaker, versatiles, mount, stat, perl
+#
+# Environment variables:
+#   WORKDIR        Working directory for intermediate artefacts (default: ./data)
+#   TMPFS_SIZE_GB  Override automatic tmpfs sizing in GB
+#
 
-# if you convert the whole planet you need:
-# - 170 GB RAM 
-# - 400 GB SSD
-# - time:
-#    -  3 minutes for download
-#    - 50 minutes for osmium
-#    - 70 minutes for tilemaker
-#    - 180 minutes for versatiles
+set -euo pipefail
 
-mkdir -p data
+###########################################################################
+# 🛠  Helper functions
+###########################################################################
+usage() {
+    echo "Arguments required: <pbf-url> <name> [bbox]"
+    echo "       bbox default: -180,-86,180,86"
+    exit 1
+}
 
-set -ex
+require_cmd() {
+    command -v "$1" >/dev/null 2>&1 || {
+        echo "Error: required command '$1' not found." >&2
+        exit 1
+    }
+}
 
-# reading arguments
-TILE_URL=$1 # url of pbf file
-TILE_NAME=$2 # name of the result
-TILE_BBOX=$3 # bbox
+###########################################################################
+# 🔎  Sanity checks & argument parsing
+###########################################################################
+[[ $# -ge 2 ]] || usage
 
-if [[ $TILE_URL != http* ]]
-then
-	echo "First argument must be a valid URL"
-	exit 1
-fi
+PBF_URL=$1
+TILE_NAME=$2
+TILE_BBOX=${3:--180,-86,180,86}
 
-if [ -z "$TILE_NAME" ]
-then
-	echo "Second argument must be a name"
-	exit 1
-fi
+[[ "$PBF_URL" =~ ^https?:// ]] || {
+    echo "First argument must be a valid URL"
+    exit 1
+}
+[[ -n "$TILE_NAME" ]] || {
+    echo "Second argument must be a name"
+    exit 1
+}
 
-if [ -z "$TILE_BBOX" ]
-then
-	TILE_BBOX="-180,-86,180,86"
-fi
+for cmd in aria2c osmium tilemaker versatiles; do
+    require_cmd "$cmd"
+done
 
+###########################################################################
+# 📁  Directory layout
+###########################################################################
+WORKDIR="${WORKDIR:-$(pwd)/data}"
+TMPDIR="${WORKDIR}/tmp"
+RAMDISK_MOUNT="${WORKDIR}/ramdisk"
+
+mkdir -p "$WORKDIR" "$TMPDIR"
+
+###########################################################################
+# 🚿  Cleanup on exit
+###########################################################################
+cleanup() {
+    echo "Cleaning up…"
+    umount -q "$RAMDISK_MOUNT" 2>/dev/null || true
+    rm -rf "$TMPDIR" "$RAMDISK_MOUNT"
+}
+trap cleanup EXIT
+
+###########################################################################
+# 🚚  Download PBF
+###########################################################################
 echo "GENERATE OSM VECTOR TILES:"
-echo "   URL:  $TILE_URL"
+echo "   URL:  $PBF_URL"
 echo "   NAME: $TILE_NAME"
 echo "   BBOX: $TILE_BBOX"
 
-echo "DOWNLOAD DATA"
-aria2c --seed-time=0 --dir=data "$TILE_URL"
-pbf_file=$(ls data/*.pbf)
-if [ $(echo $pbf_file | wc -l) -ne 1 ]
-then
-	echo "There should be only one PBF file"
-	exit 1
+echo "📥  Downloading data…"
+aria2c --seed-time=0 --dir="$WORKDIR" "$PBF_URL"
+
+PBF_FILE=$(find "$WORKDIR" -maxdepth 1 -type f -name '*.pbf' | head -n1)
+[[ -n "$PBF_FILE" ]] || {
+    echo "No PBF file found after download"
+    exit 1
+}
+
+mv "$PBF_FILE" "$WORKDIR/input.pbf"
+
+###########################################################################
+# 🛠  Prepare PBF for Tilemaker
+###########################################################################
+echo "🔃  Renumbering PBF…"
+time osmium renumber --progress -o "$WORKDIR/prepared.pbf" "$WORKDIR/input.pbf"
+rm "$WORKDIR/input.pbf"
+
+###########################################################################
+# 🖼  Generate MBTiles with Tilemaker
+###########################################################################
+echo "🧱  Rendering tiles…"
+pushd shortbread-tilemaker >/dev/null
+time tilemaker \
+    --input "$WORKDIR/prepared.pbf" \
+    --config config.json \
+    --process process.lua \
+    --bbox "$TILE_BBOX" \
+    --output "$WORKDIR/output.mbtiles" \
+    --compact \
+    --store "$TMPDIR"
+popd >/dev/null
+
+rm -rf "$TMPDIR" "$WORKDIR/prepared.pbf"
+
+###########################################################################
+# 🔄  Convert MBTiles → Versatiles
+###########################################################################
+echo "🚀  Converting to Versatiles…"
+FILE_SIZE_BYTES=$(stat -c %s "$WORKDIR/output.mbtiles")
+
+if [[ -n "${TMPFS_SIZE_GB:-}" ]]; then
+    RAM_GB="$TMPFS_SIZE_GB"
+else
+    RAM_GB=$(perl -E "use POSIX;say ceil($FILE_SIZE_BYTES/1073741824 + 0.3)")
 fi
-mv "${pbf_file}" data/input.pbf
 
-echo "PREPARE DATA"
-time osmium renumber --progress -o data/prepared.pbf data/input.pbf
-rm data/input.pbf
+mkdir -p "$RAMDISK_MOUNT"
+mount -t tmpfs -o size=${RAM_GB}G tmpfs "$RAMDISK_MOUNT"
 
-echo "RENDER TILES"
-cd shortbread-tilemaker
-time tilemaker --input ../data/prepared.pbf --config config.json --process process.lua --bbox $TILE_BBOX --output ../data/output.mbtiles --compact --store ../tmp
-cd ..
-rm -rf tmp || true
-rm data/prepared.pbf
+mv "$WORKDIR/output.mbtiles" "$RAMDISK_MOUNT"
 
-echo "CONVERT TILES"
-file_size=$(stat -c %s data/output.mbtiles)
-ram_disk_size=$(perl -E "use POSIX;say ceil($file_size/1073741824 + 0.3)")
-mkdir -p ramdisk
-mount -t tmpfs -o size=${ram_disk_size}G ramdisk ramdisk
-mv data/output.mbtiles ramdisk
-time versatiles convert -c brotli ramdisk/output.mbtiles data/output.versatiles
+time versatiles convert -c brotli \
+    "$RAMDISK_MOUNT/output.mbtiles" \
+    "$WORKDIR/output.versatiles"
 
-echo "RETURN RESULT"
-mv data/output.versatiles "/app/result/${TILE_NAME}.versatiles"
+###########################################################################
+# 📦  Deliver result
+###########################################################################
+echo "📤  Moving result to /app/result…"
+mkdir -p /app/result
+mv "$WORKDIR/output.versatiles" "/app/result/${TILE_NAME}.versatiles"
+
+echo "✅  Done: /app/result/${TILE_NAME}.versatiles"

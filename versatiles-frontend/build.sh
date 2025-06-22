@@ -48,7 +48,7 @@ if $needs_testing; then
     test_image "$NAME:alpine"
     test_image "$NAME:scratch"
 
-    echo "✅ All images start successfully and report a version."
+    echo "✅ All images start successfully."
 fi
 
 if $needs_push; then

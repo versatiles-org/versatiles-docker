@@ -1,45 +1,42 @@
 # syntax=docker/dockerfile:1
 
-FROM versatiles/versatiles-debian
+FROM versatiles/versatiles:debian
 
-RUN apt update -y && apt install -y \
-    aria2 \
-    build-essential \
-    curl \
-    gdal-bin \
-    git \
-    libboost-dev \
-    libboost-filesystem-dev \
-    libboost-iostreams-dev \
-    libboost-program-options-dev \
-    libboost-system-dev \
-    liblua5.3-dev lua5.3 \
-    libshp-dev \
-    libsqlite3-dev \
-    osmium-tool \
-    rapidjson-dev \
-    unzip \
-    wget \
-    zlib1g-dev
+RUN apt update -y && \
+    DEBIAN_FRONTEND=noninteractive apt install -y --no-install-recommends \
+        aria2 \
+        build-essential \
+        curl \
+        ca-certificates \
+        gdal-bin \
+        git \
+        libboost-dev \
+        libboost-filesystem-dev \
+        libboost-iostreams-dev \
+        libboost-program-options-dev \
+        libboost-system-dev \
+        liblua5.3-dev lua5.3 \
+        libshp-dev \
+        libsqlite3-dev \
+        osmium-tool \
+        rapidjson-dev \
+        unzip \
+        wget \
+        zlib1g-dev && \
+    rm -rf /var/lib/apt/lists/*
 
-# Install Tilemaker
-RUN \
-    git clone --depth 1 -q https://github.com/systemed/tilemaker.git tilemaker && \
-    cd tilemaker && \
-    make && \
-    make install && \
-    cd .. && \
-    rm -r tilemaker
+RUN git clone --depth 1 https://github.com/systemed/tilemaker.git /tmp/tilemaker && \
+    make -C /tmp/tilemaker && \
+    make -C /tmp/tilemaker install && \
+    rm -rf /tmp/tilemaker
 
 # Add Shortbread configuration
-RUN \
-    git clone --depth 1 -q --branch versatiles https://github.com/versatiles-org/shortbread-tilemaker shortbread-tilemaker && \
-    cd shortbread-tilemaker && \
-    bash get-shapefiles.sh && \
-    rm data/*.zip && \
-    rm -r .git data/simplified-water-polygons-split-3857
+RUN git clone --depth 1 -q --branch versatiles https://github.com/versatiles-org/shortbread-tilemaker /opt/shortbread && \
+    bash /opt/shortbread/get-shapefiles.sh && \
+    rm /opt/shortbread/data/*.zip && \
+    rm -rf /opt/shortbread/.git /opt/shortbread/data/simplified-water-polygons-split-3857
 
-# Add Scripts
-COPY --chmod=0755 ./scripts/generate_tiles.sh .
+WORKDIR /opt/shortbread
+COPY --chmod=0755 scripts/generate_tiles.sh /usr/local/bin/generate_tiles
 
-ENTRYPOINT [ "bash", "generate_tiles.sh" ]
+ENTRYPOINT ["generate_tiles"]
