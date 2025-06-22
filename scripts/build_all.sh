@@ -3,7 +3,7 @@ set -euo pipefail
 
 cd $(dirname $0)/..
 
-./docker-basic/build.sh "$@"
-./docker-frontend/build.sh "$@"
-./docker-tilemaker/build.sh "$@" 
-./docker-tippecanoe/build.sh "$@" 
+./versatiles/build.sh "$@"
+./versatiles-frontend/build.sh "$@"
+./versatiles-tilemaker/build.sh "$@" 
+./versatiles-tippecanoe/build.sh "$@" 

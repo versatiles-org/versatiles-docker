@@ -27,7 +27,7 @@ jobs:
     uses: ./.github/workflows/build-image.yml
     secrets: inherit
     with:
-      name: basic
+      name: versatiles
 
   frontend:
     name: Frontend
@@ -36,7 +36,7 @@ jobs:
     uses: ./.github/workflows/build-image.yml
     secrets: inherit
     with:
-      name: frontend
+      name: versatiles-frontend
 
   tilemaker:
     name: tilemaker
@@ -45,7 +45,7 @@ jobs:
     uses: ./.github/workflows/build-image.yml
     secrets: inherit
     with:
-      name: tilemaker
+      name: versatiles-tilemaker
 
   tippecanoe:
     name: tippecanoe
@@ -54,4 +54,4 @@ jobs:
     uses: ./.github/workflows/build-image.yml
     secrets: inherit
     with:
-      name: tippecanoe
+      name: versatiles-tippecanoe
