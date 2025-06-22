@@ -3,9 +3,12 @@ set -euo pipefail
 
 cd $(dirname $0)
 
-source ../scripts/parse_arguments.sh "$@"
-VER=$(../scripts/fetch_release_tag.sh)
-ARGS=$(../scripts/setup_buildx.sh "$@")
+# Load shared helpers
+source ../scripts/utils.sh
+
+parse_arguments "$@"
+VER=$(fetch_release_tag)
+ARGS=$(setup_buildx "$@")
 NAME="versatiles/versatiles"
 
 echo "👷 Building versatiles Docker images for version $VER"
@@ -37,7 +40,7 @@ if $needs_testing; then
         echo "  - $image"
         result=$(docker run --rm "$image" --version)
         if [ "$result" != "versatiles ${VER:1}" ]; then
-            echo "❌  Version mismatch for $image: expected 'versatiles ${VER:1}', got '$result'" >&2
+            echo "❌ Version mismatch for $image: expected 'versatiles ${VER:1}', got '$result'" >&2
             exit 1
         fi
     }
@@ -46,9 +49,9 @@ if $needs_testing; then
     test_image "$NAME:alpine"
     test_image "$NAME:scratch"
 
-    echo "✅  All images start successfully and report a version."
+    echo "✅ All images start successfully and report a version."
 fi
 
 if $needs_push; then
-    ../scripts/update_docker_description.sh versatiles
+    update_docker_description versatiles
 fi

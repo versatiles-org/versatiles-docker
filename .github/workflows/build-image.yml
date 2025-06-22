@@ -39,5 +39,5 @@ jobs:
 
       - uses: actions/checkout@v4
 
-      - run: ./scripts/build${{ inputs.name }}.sh --push
+      - run: ./scripts/build${{ inputs.name }}.sh --test --push
       

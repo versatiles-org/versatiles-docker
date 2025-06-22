@@ -3,8 +3,13 @@ set -euo pipefail
 
 cd $(dirname $0)
 
-VER=$(../scripts/fetch_release_tag.sh "felt/tippecanoe")
-ARGS=$(../scripts/setup_buildx.sh "$@")
+# Load shared helpers
+source ../scripts/utils.sh
+# Parse CLI flags → sets needs_push / needs_testing
+parse_arguments "$@"
+
+VER=$(fetch_release_tag "felt/tippecanoe")
+ARGS=$(setup_buildx "$@")
 
 docker buildx build \
     -t "versatiles/versatiles-tippecanoe:latest" \
@@ -13,6 +18,6 @@ docker buildx build \
     $ARGS \
     .
 
-if [[ " $* " == *" --push "* ]]; then
-    ../scripts/update_docker_description.sh versatiles-tippecanoe
+if $needs_push; then
+    update_docker_description versatiles-tippecanoe
 fi

@@ -3,8 +3,11 @@ set -euo pipefail
 
 cd $(dirname $0)
 
-VER=$(../scripts/fetch_release_tag.sh)
-ARGS=$(../scripts/setup_buildx.sh "$@")
+# Load shared helpers
+source ../scripts/utils.sh
+parse_arguments "$@"
+VER=$(fetch_release_tag)
+ARGS=$(setup_buildx "$@")
 NAME="versatiles/versatiles-frontend"
 
 docker buildx build --target versatiles-debian \
@@ -24,6 +27,6 @@ docker buildx build --target versatiles-scratch \
     -t $NAME:$VER-scratch \
     $ARGS .
 
-if [[ " $* " == *" --push "* ]]; then
-    ../scripts/update_docker_description.sh versatiles-frontend
+if $needs_push; then
+    update_docker_description versatiles-frontend
 fi
