@@ -48,3 +48,6 @@ jobs:
       # Build + test + push
       - name: Build script
         run: bash ./${{ inputs.name }}/build.sh --test --push
+        env:
+          DOCKERHUB_TOKEN: ${{ secrets.DOCKERHUB_TOKEN }}
+          
