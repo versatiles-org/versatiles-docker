@@ -4,9 +4,7 @@ set -euo pipefail
 cd $(dirname $0)
 
 VER=$(../scripts/fetch_release_tag.sh)
-
-ARGS=$(../scripts/setup_buildx.sh "${1:-}")
-
+ARGS=$(../scripts/setup_buildx.sh "$@")
 NAME="versatiles/versatiles"
 
 docker buildx build --target versatiles-debian \
@@ -26,4 +24,6 @@ docker buildx build --target versatiles-scratch \
     -t $NAME:$VER-scratch \
     $ARGS .
 
-../scripts/update_docker_description.sh versatiles
+if [[ " $* " == *" --push "* ]]; then
+    ../scripts/update_docker_description.sh versatiles
+fi

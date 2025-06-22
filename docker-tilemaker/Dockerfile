@@ -40,6 +40,6 @@ RUN \
     rm -r .git data/simplified-water-polygons-split-3857
 
 # Add Scripts
-COPY --chmod=0755 generate_tiles.sh .
+COPY --chmod=0755 ./scripts/generate_tiles.sh .
 
 ENTRYPOINT [ "bash", "generate_tiles.sh" ]

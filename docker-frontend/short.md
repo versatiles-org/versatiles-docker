@@ -1,0 +1,1 @@
+Docker image running the `versatiles` server with a developer frontend.

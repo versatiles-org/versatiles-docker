@@ -11,7 +11,7 @@ else
 fi
 
 # ── 2. Decide which buildx flags we need ─────────────────────────────────────
-if [[ "${1:-}" == "--push" ]]; then
+if [[ " $* " == *" --push "* ]]; then
     # Push a real multi-arch image to the registry
     echo "--platform linux/amd64,linux/arm64 --push"
 else

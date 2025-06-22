@@ -6,7 +6,7 @@
 
 ARG TIPPECANOE_VERSION=v2.34.0
 
-FROM alpine:3.20 AS builder
+FROM versatiles/versatiles:alpine AS builder
 ARG TIPPECANOE_VERSION
 
 # Build dependencies
@@ -29,7 +29,7 @@ RUN make -j"$(nproc)"
 # 🚀 Runtime stage                                                             #
 ###############################################################################
 
-FROM alpine:3.20
+FROM versatiles/versatiles:alpine
 
 # Copy the compiled binaries only (keeps image small)
 COPY --from=builder /src/tippecanoe /src/tippecanoe-json-tool /src/tippecanoe-decode /src/tile-join /usr/local/bin/
@@ -38,4 +38,3 @@ COPY --from=builder /src/tippecanoe /src/tippecanoe-json-tool /src/tippecanoe-de
 RUN apk add --no-cache libstdc++ sqlite-libs zlib
 
 WORKDIR /data
-ENTRYPOINT ["tippecanoe"]

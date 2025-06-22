@@ -7,7 +7,7 @@
 FROM --platform=$BUILDPLATFORM curlimages/curl AS builder
 ARG TARGETPLATFORM
 WORKDIR /app
-COPY download_versatiles_binary.sh .
+COPY ./scripts/download_versatiles_binary.sh .
 
 # ---- musl builder ----------------------------------------------------------
 FROM --platform=$BUILDPLATFORM builder AS builder-musl
