@@ -4,17 +4,6 @@ on:
     - cron: '0 0 * * 4' # Every Thursday at midnight UTC
   repository_dispatch:
   workflow_dispatch:
-    inputs:
-      run_jobs:
-        description: "Run which image build process?"
-        default: "all"
-        type: choice
-        options:
-          - all
-          - basic
-          - frontend
-          - tilemaker
-          - tippecanoe
 
 env:
   FORCE_COLOR: 1
@@ -26,7 +15,6 @@ concurrency:
 jobs:
   basic:
     name: Basic
-    if: contains( fromJSON('["all", "basic"]'), inputs.run_jobs || 'all' )
     uses: ./.github/workflows/build-image.yml
     secrets: inherit
     with:
@@ -37,8 +25,7 @@ jobs:
     strategy:
       max-parallel: 2
       matrix:
-        name: [ frontend, tilemaker, tippecanoe]
-    if: (inputs.run_jobs || 'all') == 'all' || inputs.run_jobs == matrix.name
+        name: [frontend, tilemaker, tippecanoe]
     name: Build ${{ matrix.name }}
     uses: ./.github/workflows/build-image.yml
     secrets: inherit
