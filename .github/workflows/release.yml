@@ -1,5 +1,7 @@
 name: Build all Docker images
 on:
+  schedule:
+    - cron: '0 0 * * 4' # Every Thursday at midnight UTC
   repository_dispatch:
   workflow_dispatch:
     inputs:
@@ -36,7 +38,7 @@ jobs:
       max-parallel: 2
       matrix:
         name: [ frontend, tilemaker, tippecanoe]
-    if: contains(fromJSON('["all", matrix.name]'), inputs.run_jobs || 'all')
+    if: (inputs.run_jobs || 'all') == 'all' || inputs.run_jobs == matrix.name
     name: Build ${{ matrix.name }}
     uses: ./.github/workflows/build-image.yml
     secrets: inherit
