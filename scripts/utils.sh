@@ -81,9 +81,9 @@ EOF
 setup_buildx() {
     # 1. Ensure a suitable builder is selected
     if ! docker buildx inspect multiarch >/dev/null 2>&1; then
-        docker buildx create --name multiarch --driver docker-container --use
+        docker buildx create --name multiarch --driver docker-container --use 1>&2
     else
-        docker buildx use multiarch
+        docker buildx use multiarch 1>&2
     fi
 
     # 2. Decide on flags
