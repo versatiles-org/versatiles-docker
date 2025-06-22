@@ -1,40 +1,38 @@
 # syntax=docker/dockerfile:1
 
 ###############################################################################
-# ⛏️  Builder stage                                                             #
+# ⛏️  Builder stage
 ###############################################################################
 
-ARG TIPPECANOE_VERSION=v2.34.0
 
 FROM versatiles/versatiles:alpine AS builder
 ARG TIPPECANOE_VERSION
+ENV TIPPECANOE_VERSION=${TIPPECANOE_VERSION}
 
-# Build dependencies
 RUN apk add --no-cache --virtual .build-deps \
+    bash \
     git \
     make \
     g++ \
+    binutils \
     sqlite-dev \
     zlib-dev
 
 WORKDIR /src
+RUN git clone --depth 1 --branch "$TIPPECANOE_VERSION" https://github.com/felt/tippecanoe.git .
 
-# Shallow‑clone the requested tag for reproducible builds
-RUN git clone --depth 1 --branch "${TIPPECANOE_VERSION}" https://github.com/felt/tippecanoe.git .
-
-# Compile (binaries are produced in /src)
-RUN make -j"$(nproc)"
+RUN make -j"$(nproc)" && \
+    strip --strip-unneeded tippecanoe* tile-join # slim the binaries
 
 ###############################################################################
-# 🚀 Runtime stage                                                             #
+# 🚀 Runtime stage
 ###############################################################################
 
 FROM versatiles/versatiles:alpine
 
-# Copy the compiled binaries only (keeps image small)
 COPY --from=builder /src/tippecanoe /src/tippecanoe-json-tool /src/tippecanoe-decode /src/tile-join /usr/local/bin/
 
-# Minimal runtime libs
 RUN apk add --no-cache libstdc++ sqlite-libs zlib
 
 WORKDIR /data
+ENTRYPOINT ["tippecanoe"]

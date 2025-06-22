@@ -1,1 +1,1 @@
-Debian with `versatiles` and `tilemaker`
+Debian with versatiles and tilemaker

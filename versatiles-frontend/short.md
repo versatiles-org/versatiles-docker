@@ -1,1 +1,1 @@
-Docker image running the `versatiles` server with the developer frontend.
+Docker image running the versatiles server with the developer frontend.
