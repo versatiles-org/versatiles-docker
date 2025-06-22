@@ -1,0 +1,1 @@
+Basic, lightweight Docker image containing only the `versatiles` binary.

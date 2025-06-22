@@ -25,3 +25,5 @@ docker buildx build --target versatiles-scratch \
     -t $NAME:scratch \
     -t $NAME:$VER-scratch \
     $ARGS .
+
+../scripts/update_docker_description.sh versatiles
