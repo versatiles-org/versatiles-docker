@@ -33,6 +33,7 @@ jobs:
   other:
     needs: basic
     strategy:
+      max-parallel: 2
       matrix:
         name: [ frontend, tilemaker, tippecanoe]
     if: contains(fromJSON('["all", matrix.name]'), inputs.run_jobs || 'all')
