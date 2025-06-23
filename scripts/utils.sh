@@ -256,7 +256,7 @@ update_docker_description() {
         return 1
     }
 
-    local short_desc full_desc status data
+    local short_desc full_desc status data response body
     short_desc=$(<"short.md")
     ((${#short_desc} <= 100)) || {
         echo "❌ Short description > 100 chars"
@@ -272,20 +272,26 @@ update_docker_description() {
     data=$(jq -n --arg short "$short_desc" --arg full "$full_desc" \
         '{description: $short, full_description: $full}')
 
-    status=$(curl --silent --show-error --fail --output /dev/null \
+    # Perform the PATCH request, capturing *both* body and status code
+    response=$(curl --silent --show-error \
         --retry 3 --retry-delay 2 \
         -X PATCH \
         -H "Content-Type: application/json" \
         -H "Authorization: JWT ${DOCKERHUB_TOKEN}" \
         -H "Accept: application/json" \
         -d "$data" \
-        -w "%{http_code}" \
+        -w "\n%{http_code}" \
         "https://hub.docker.com/v2/namespaces/versatiles/repositories/${repository}")
+
+    # Separate HTTP status code from body (last line)
+    status=$(echo "$response" | tail -n1)
+    body=$(echo "$response" | sed '$d')
 
     if [[ "$status" == "200" ]]; then
         echo "✅ Description updated."
     else
-        echo "❌ Failed (HTTP $status)."
+        echo "❌ Failed (HTTP $status). Server response:" >&2
+        [[ -n "$body" ]] && echo "$body" >&2
         return 1
     fi
 }
