@@ -1,0 +1,1 @@
+All‑in‑one Docker image with VersaTiles server, Nginx cache, optional frontend & automatic HTTPS.

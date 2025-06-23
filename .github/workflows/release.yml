@@ -14,7 +14,7 @@ concurrency:
 
 jobs:
   basic:
-    name: Basic
+    name: Build versatiles
     uses: ./.github/workflows/build-image.yml
     secrets: inherit
     with:
@@ -22,15 +22,23 @@ jobs:
 
   frontend:
     needs: basic
-    name: Build frontend
+    name: Build -frontend
     uses: ./.github/workflows/build-image.yml
     secrets: inherit
     with:
       name: versatiles-frontend
 
+  nginx:
+    needs: basic
+    name: Build -nginx
+    uses: ./.github/workflows/build-image.yml
+    secrets: inherit
+    with:
+      name: versatiles-nginx
+
   tilemaker:
     needs: basic
-    name: Build tilemaker
+    name: Build -tilemaker
     uses: ./.github/workflows/build-image.yml
     secrets: inherit
     with:
@@ -38,7 +46,7 @@ jobs:
 
   tippecanoe:
     needs: basic
-    name: Build tippecanoe
+    name: Build -tippecanoe
     uses: ./.github/workflows/build-image.yml
     secrets: inherit
     with:
