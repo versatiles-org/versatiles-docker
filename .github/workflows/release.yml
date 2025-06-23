@@ -20,14 +20,26 @@ jobs:
     with:
       name: versatiles
 
-  other:
+  frontend:
     needs: basic
-    strategy:
-      max-parallel: 2
-      matrix:
-        name: [frontend, tilemaker, tippecanoe]
-    name: Build ${{ matrix.name }}
+    name: Build frontend
     uses: ./.github/workflows/build-image.yml
     secrets: inherit
     with:
-      name: versatiles-${{ matrix.name }}
+      name: versatiles-frontend
+
+  tilemaker:
+    needs: basic
+    name: Build tilemaker
+    uses: ./.github/workflows/build-image.yml
+    secrets: inherit
+    with:
+      name: versatiles-tilemaker
+
+  tippecanoe:
+    needs: basic
+    name: Build tippecanoe
+    uses: ./.github/workflows/build-image.yml
+    secrets: inherit
+    with:
+      name: versatiles-tippecanoe
