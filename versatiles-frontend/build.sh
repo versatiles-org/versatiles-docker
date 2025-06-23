@@ -40,7 +40,7 @@ if $needs_testing; then
         local image="$1"
         echo "  - $image"
         local first_line
-        first_line=$(docker run --rm "$image" --help | head -n 1)
+        first_line=$(docker run --rm "$image" --help 2>&1 | head -n 1 || true)
         if [[ "$first_line" != "Serve tiles via HTTP" ]]; then
             echo "❌ Expected 'Serve tiles via HTTP', got '$first_line'" >&2
             exit 1

@@ -83,7 +83,7 @@ echo "   BBOX: $TILE_BBOX"
 echo "📥  Downloading data…"
 aria2c --seed-time=0 --dir="$WORKDIR" "$PBF_URL"
 
-PBF_FILE=$(find "$WORKDIR" -maxdepth 1 -type f -name '*.pbf' | head -n1)
+PBF_FILE=$(find "$WORKDIR" -maxdepth 1 -type f -name '*.pbf' | head -n 1)
 [[ -n "$PBF_FILE" ]] || {
     echo "No PBF file found after download"
     exit 1
