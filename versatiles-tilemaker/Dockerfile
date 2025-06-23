@@ -2,7 +2,7 @@
 
 FROM versatiles/versatiles:debian AS versatiles-tilemaker
 LABEL maintainer="Michael Kreil <versatiles@michael-kreil.de>"
-LABEL org.opencontainers.image.source https://github.com/versatiles-org/versatiles-docker
+LABEL org.opencontainers.image.source="https://github.com/versatiles-org/versatiles-docker"
 
 RUN apt update -y && \
     DEBIAN_FRONTEND=noninteractive apt install -y --no-install-recommends \

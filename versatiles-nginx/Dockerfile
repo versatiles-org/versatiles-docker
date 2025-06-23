@@ -10,7 +10,7 @@ RUN curl -Ls https://github.com/versatiles-org/versatiles-rs/raw/main/scripts/in
 # ---------- runtime stage ----------
 FROM alpine:latest AS versatiles-nginx
 LABEL maintainer="Michael Kreil <versatiles@michael-kreil.de>"
-LABEL org.opencontainers.image.source https://github.com/versatiles-org/versatiles-docker
+LABEL org.opencontainers.image.source="https://github.com/versatiles-org/versatiles-docker"
 
 ENV UID=10001 GID=10001 \
     DOMAIN="" \

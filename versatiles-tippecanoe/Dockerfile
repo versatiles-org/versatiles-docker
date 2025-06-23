@@ -31,7 +31,7 @@ RUN make -j"$(nproc)" && \
 FROM versatiles/versatiles:alpine AS versatiles-tippecanoe
 
 LABEL maintainer="Michael Kreil <versatiles@michael-kreil.de>"
-LABEL org.opencontainers.image.source https://github.com/versatiles-org/versatiles-docker
+LABEL org.opencontainers.image.source="https://github.com/versatiles-org/versatiles-docker"
 
 COPY --from=builder /src/tippecanoe /src/tippecanoe-json-tool /src/tippecanoe-decode /src/tile-join /usr/local/bin/
 

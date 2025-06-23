@@ -20,34 +20,14 @@ jobs:
     with:
       name: versatiles
 
-  frontend:
+  rest:
     needs: basic
-    name: Build -frontend
-    uses: ./.github/workflows/build-image.yml
+    name: Build rest
     secrets: inherit
-    with:
-      name: versatiles-frontend
-
-  nginx:
-    needs: basic
-    name: Build -nginx
+    strategy:
+      max-parallel: 1
+      matrix:
+        image: [frontend, nginx, tippecanoe, tilemaker]
     uses: ./.github/workflows/build-image.yml
-    secrets: inherit
     with:
-      name: versatiles-nginx
-
-  tilemaker:
-    needs: basic
-    name: Build -tilemaker
-    uses: ./.github/workflows/build-image.yml
-    secrets: inherit
-    with:
-      name: versatiles-tilemaker
-
-  tippecanoe:
-    needs: basic
-    name: Build -tippecanoe
-    uses: ./.github/workflows/build-image.yml
-    secrets: inherit
-    with:
-      name: versatiles-tippecanoe
+      name: versatiles-${{ matrix.image }}
