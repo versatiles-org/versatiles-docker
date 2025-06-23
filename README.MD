@@ -87,7 +87,7 @@ This repo contains .Dockerfiles and GitHub workflows for building Docker images 
 
 ## Images `versatiles-tippecanoe`
 
-- Contains: [versatiles](https://github.com/versatiles-org/versatiles-rs) ans [tippecanoe](https://github.com/systemed/tilemaker)
+- Contains: [versatiles](https://github.com/versatiles-org/versatiles-rs) ans [tippecanoe](https://github.com/felt/tippecanoe)
 - Supported OS: Alpine
 - Supported architectures: AMD64, ARM64
 - Images are available on [GitHub Container Registry](https://github.com/versatiles-org/versatiles-docker/pkgs/container/versatiles-tippecanoe) and on [Docker Hub](https://hub.docker.com/r/versatiles/versatiles-tippecanoe)
