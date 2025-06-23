@@ -52,8 +52,8 @@ jobs:
       - name: Build nginx
         run: bash ./versatiles-nginx/build.sh --test --push
 
-      - name: Build tilemaker
-        run: bash ./versatiles-tilemaker/build.sh --test --push
-
       - name: Build tippecanoe
         run: bash ./versatiles-tippecanoe/build.sh --test --push
+
+      - name: Build tilemaker
+        run: bash ./versatiles-tilemaker/build.sh --test --push
