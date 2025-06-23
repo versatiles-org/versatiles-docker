@@ -27,12 +27,12 @@ fi
 if $needs_testing; then
     echo "🧪 Running smoke-test …"
     
-    output=$(docker run --rm "versatiles/versatiles-tippecanoe" -v 2>&1 || true)
+    output=$(docker run --rm "versatiles/versatiles-tippecanoe:latest" -v 2>&1 || true)
     if [[ "$output" != "tippecanoe v$VER_TC" ]]; then
         printf "❌ Unexpected output:\n%s\n" "$output" >&2
         exit 1
     fi
-    output=$(docker run --rm --entrypoint "versatiles" "versatiles/versatiles-tippecanoe" -V 2>&1 | head -n 1 || true)
+    output=$(docker run --rm --entrypoint "versatiles" "versatiles/versatiles-tippecanoe:latest" -V 2>&1 | head -n 1 || true)
     if [[ "$output" != "versatiles ${VER_VT:1}" ]]; then
         echo "❌ Version mismatch: expected 'versatiles ${VER_VT:1}', got '$result'" >&2
         exit 1
