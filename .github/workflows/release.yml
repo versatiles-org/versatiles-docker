@@ -13,16 +13,16 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
-  basic:
-    name: Build versatiles
+  base:
+    name: Build base
     uses: ./.github/workflows/build-image.yml
     secrets: inherit
     with:
       name: versatiles
 
-  rest:
-    needs: basic
-    name: Build rest
+  other:
+    needs: base
+    name: Build other
     secrets: inherit
     strategy:
       max-parallel: 1
