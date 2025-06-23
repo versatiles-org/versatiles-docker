@@ -16,7 +16,7 @@ cd "$(dirname "$0")"
 source ../scripts/utils.sh
 parse_arguments "$@"
 VER=$(fetch_release_tag)
-NAME="versatiles/versatiles-frontend"
+NAME="versatiles-frontend"
 
 echo "👷 Building $NAME Docker images for version $VER"
 
@@ -59,9 +59,9 @@ fi
 ###############################################################################
 if $needs_push; then
     echo "🚀 Building and pushing images to Docker Hub"
-    build_push_image versatiles-debian "$NAME" debian "$VER-debian"
-    build_push_image versatiles-alpine "$NAME" alpine "$VER-alpine" latest "$VER"
-    build_push_image versatiles-scratch "$NAME" scratch "$VER-scratch"
+    build_push_image versatiles-debian "$NAME" "debian,$VER-debian"
+    build_push_image versatiles-alpine "$NAME" "alpine,$VER-alpine,latest,$VER"
+    build_push_image versatiles-scratch "$NAME" "scratch,$VER-scratch"
 
     update_docker_description versatiles-frontend
 fi

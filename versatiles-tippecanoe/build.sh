@@ -7,7 +7,7 @@ source ../scripts/utils.sh
 parse_arguments "$@"
 VER_VT=$(fetch_release_tag)
 VER_TC=$(fetch_release_tag "felt/tippecanoe")
-NAME="versatiles/versatiles-tippecanoe"
+NAME="versatiles-tippecanoe"
 BUILD_ARGS="--build-arg TIPPECANOE_VERSION=$VER_TC"
 
 
@@ -18,7 +18,7 @@ echo "👷 Building $NAME Docker images for version $VER_TC"
 ###############################################################################
 if ! $needs_push || $needs_testing; then
     echo "👷 Building image"
-    build_load_image versatiles-tippecanoe "$NAME" latest "${VER_TC}"
+    build_load_image versatiles-tippecanoe "$NAME" "latest"
 fi
 
 ###############################################################################
@@ -46,6 +46,6 @@ fi
 ###############################################################################
 if $needs_push; then
     echo "🚀 Building and pushing multi-arch image …"
-    build_push_image versatiles-tippecanoe "${NAME}" latest "${VER_TC}"
+    build_push_image versatiles-tippecanoe "$NAME" "latest,$VER_TC"
     update_docker_description versatiles-tippecanoe
 fi

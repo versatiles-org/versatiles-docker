@@ -16,7 +16,7 @@ cd "$(dirname "$0")"
 source ../scripts/utils.sh
 parse_arguments "$@"
 VER=$(fetch_release_tag "systemed/tilemaker")
-NAME="versatiles/versatiles-tilemaker"
+NAME="versatiles-tilemaker"
 
 echo "👷 Building $NAME Docker images for version $VER"
 
@@ -25,7 +25,7 @@ echo "👷 Building $NAME Docker images for version $VER"
 ###############################################################################
 if ! $needs_push || $needs_testing; then
     echo "👷 Building image"
-    build_load_image versatiles-tilemaker "$NAME" latest "${VER}"
+    build_load_image versatiles-tilemaker "$NAME" "latest"
 fi
 
 ###############################################################################
@@ -50,6 +50,6 @@ fi
 ###############################################################################
 if $needs_push; then
     echo "🚀 Building and pushing multi-arch image …"
-    build_push_image versatiles-tilemaker "${NAME}" latest "${VER}"
+    build_push_image versatiles-tilemaker "$NAME" "latest,$VER"
     update_docker_description versatiles-tilemaker
 fi

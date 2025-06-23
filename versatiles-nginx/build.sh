@@ -7,7 +7,7 @@ cd "$(dirname "$0")"
 source ../scripts/utils.sh
 parse_arguments "$@"
 VER=$(fetch_release_tag)
-NAME="versatiles/versatiles-nginx"
+NAME="versatiles-nginx"
 
 echo "👷 Building $NAME Docker images for version $VER"
 
@@ -48,6 +48,6 @@ fi
 ###############################################################################
 if $needs_push; then
     echo "🚀 Building and pushing images to Docker Hub"
-    build_push_image versatiles-nginx "$NAME" latest "$VER"
+    build_push_image versatiles-nginx "$NAME" "latest,$VER"
     update_docker_description versatiles
 fi

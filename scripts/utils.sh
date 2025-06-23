@@ -156,30 +156,28 @@ _ensure_builder() {
 # Helper that constructs the common `docker buildx` argument list for tags.
 #
 # Arguments:
-#   $1 = Dockerfile target stage
-#   $2 = base image name  (e.g. "versatiles/versatiles")
-#   $3..$n = tag suffixes (e.g. "latest" "alpine" "v1.2.3-alpine")
-#
-# Prints the argument string on stdout so callers can embed it.
-# --------------------------------------------------------------------------- #
-# Build a single image variant.
-#   $1 = target stage in the Dockerfile
-#   $2 = base image name (e.g. "$NAME")
-#   $3..$n = tag suffixes (e.g. "latest" "debian" "$VER-debian")
+#   $1 = comma‑separated list of **image names** (e.g. "versatiles/versatiles-frontend,ghcr.io/versatiles-org/versatiles-frontend")
+#   $2 = comma‑separated list of **tags** (e.g. "latest-alpine-v1.2.3-alpine")
 build_image_args() {
-    local target="$1"
-    shift
-    local imgname="$1"
-    shift
-    local tags=("$@") # remaining args = tag list
+    local img_csv="$1"
+    local tag_csv="$2"
 
-    # Construct repeated --tag arguments
+    # Split the two CSV arguments into arrays
+    IFS=',' read -ra images <<<"$img_csv"
+    IFS=',' read -ra tags   <<<"$tag_csv"
+
+    # Produce one  --tag  flag for every <image>:<tag> combination
     local tag_args=()
-    for tag in "${tags[@]}"; do
-        tag_args+=(--tag "${imgname}:${tag}")
+    for image in "${images[@]}"; do
+        [[ -z "$image" ]] && continue
+        for tag in "${tags[@]}"; do
+            [[ -z "$tag" ]] && continue
+            tag_args+=(--tag "${image}:${tag}")
+        done
     done
 
-    echo "--target $target ${tag_args[@]}"
+    # Echo the argument string so the caller can embed it
+    echo "${tag_args[*]}"
 }
 
 # --------------------------------------------------------------------------- #
@@ -189,7 +187,7 @@ build_image_args() {
 # the local Docker Engine, enabling smoke‑tests.
 #
 # Example:
-#   build_load_image versatiles-alpine "$NAME" latest "$VER" alpine
+#   build_load_image versatiles-alpine "$NAME" "latest,$VER,alpine"
 # --------------------------------------------------------------------------- #
 build_load_image() {
     echo "  - build, load: $1"
@@ -206,7 +204,7 @@ build_load_image() {
         ;;
     esac
 
-    docker buildx build $(build_image_args "$@") --platform "linux/${host_arch}" ${BUILD_ARGS:-} --load . >/dev/null
+    docker buildx build --target "$1" $(build_image_args "$2" "$3") --platform "linux/${host_arch}" ${BUILD_ARGS:-} --load . >/dev/null
 }
 
 # --------------------------------------------------------------------------- #
@@ -216,13 +214,13 @@ build_load_image() {
 # to the Docker registry in one step.
 #
 # Example:
-#   build_push_image versatiles-alpine "$NAME" latest "$VER" alpine
+#   build_push_image versatiles-alpine "$NAME" "latest,$VER,alpine"
 # --------------------------------------------------------------------------- #
 build_push_image() {
     echo "  - build, push: $1"
     _ensure_builder
 
-    docker buildx build $(build_image_args "$@") --platform linux/amd64,linux/arm64 ${BUILD_ARGS:-} --push . >/dev/null
+    docker buildx build --target "$1" $(build_image_args "versatiles/$2,ghcr.io/versatiles-org/$2" "$3") --platform linux/amd64,linux/arm64 ${BUILD_ARGS:-} --push . >/dev/null
 }
 
 #############################################################################
