@@ -199,7 +199,7 @@ build_load_image() {
         ;;
     esac
 
-    docker buildx build --quiet $(build_image_args "$@") --platform "linux/${host_arch}" ${BUILD_ARGS:-} --load . >/dev/null
+    docker buildx build $(build_image_args "$@") --platform "linux/${host_arch}" ${BUILD_ARGS:-} --load . >/dev/null
 }
 
 # --------------------------------------------------------------------------- #
@@ -215,7 +215,7 @@ build_push_image() {
     echo "  - build, push: $1"
     _ensure_builder
 
-    docker buildx build --quiet $(build_image_args "$@") --platform linux/amd64,linux/arm64 ${BUILD_ARGS:-} --push . >/dev/null
+    docker buildx build $(build_image_args "$@") --platform linux/amd64,linux/arm64 ${BUILD_ARGS:-} --push . >/dev/null
 }
 
 #############################################################################
