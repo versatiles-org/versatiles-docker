@@ -8,6 +8,7 @@ on:
 env:
   CARGO_TERM_COLOR: always
   FORCE_COLOR: 1
+  DOCKERHUB_TOKEN: ${{ secrets.DOCKERHUB_TOKEN }}
 
 concurrency:
   group: release-${{ github.workflow }}-${{ github.ref }}
@@ -42,27 +43,17 @@ jobs:
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: Build versatiles
+      - name: Build base
         run: bash ./versatiles/build.sh --test --push
-        env:
-          DOCKERHUB_TOKEN: ${{ secrets.DOCKERHUB_TOKEN }}
 
       - name: Build frontend
         run: bash ./versatiles-frontend/build.sh --test --push
-        env:
-          DOCKERHUB_TOKEN: ${{ secrets.DOCKERHUB_TOKEN }}
 
       - name: Build nginx
         run: bash ./versatiles-nginx/build.sh --test --push
-        env:
-          DOCKERHUB_TOKEN: ${{ secrets.DOCKERHUB_TOKEN }}
 
       - name: Build tilemaker
         run: bash ./versatiles-tilemaker/build.sh --test --push
-        env:
-          DOCKERHUB_TOKEN: ${{ secrets.DOCKERHUB_TOKEN }}
 
       - name: Build tippecanoe
         run: bash ./versatiles-tippecanoe/build.sh --test --push
-        env:
-          DOCKERHUB_TOKEN: ${{ secrets.DOCKERHUB_TOKEN }}
