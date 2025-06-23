@@ -257,17 +257,17 @@ update_docker_description() {
     }
 
     local short_desc full_desc status data response body
+    (($(cat short.md | wc -c) <= 100)) || {
+        echo "❌ Short description > 100 bytes"
+        return 1
+    }
     short_desc=$(<"short.md")
-    ((${#short_desc} <= 100)) || {
-        echo "❌ Short description > 100 chars"
-        return 1
-    }
 
-    full_desc=$(<"full.md")
-    ((${#full_desc} <= 25000)) || {
-        echo "❌ Full description > 25 000 chars"
+    (($(cat full.md | wc -c) <= 25000)) || {
+        echo "❌ Full description > 25 000 bytes"
         return 1
     }
+    full_desc=$(<"full.md")
 
     data=$(jq -n --arg short "$short_desc" --arg full "$full_desc" \
         '{description: $short, full_description: $full}')
