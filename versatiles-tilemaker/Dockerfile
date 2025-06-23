@@ -1,6 +1,6 @@
 # syntax=docker/dockerfile:1
 
-FROM versatiles/versatiles:debian
+FROM versatiles/versatiles:debian AS versatiles-tilemaker
 
 RUN apt update -y && \
     DEBIAN_FRONTEND=noninteractive apt install -y --no-install-recommends \

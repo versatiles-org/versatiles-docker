@@ -28,7 +28,7 @@ RUN make -j"$(nproc)" && \
 # 🚀 Runtime stage
 ###############################################################################
 
-FROM versatiles/versatiles:alpine
+FROM versatiles/versatiles:alpine AS versatiles-tippecanoe
 
 COPY --from=builder /src/tippecanoe /src/tippecanoe-json-tool /src/tippecanoe-decode /src/tile-join /usr/local/bin/
 

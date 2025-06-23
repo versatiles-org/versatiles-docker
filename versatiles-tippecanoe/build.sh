@@ -1,43 +1,51 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-cd $(dirname "$0")
+cd "$(dirname "$0")"
 
-# Load shared helpers
 source ../scripts/utils.sh
-# Parse CLI flags → sets needs_push / needs_testing
 parse_arguments "$@"
-
 VER_VT=$(fetch_release_tag)
 VER_TC=$(fetch_release_tag "felt/tippecanoe")
-ARGS=$(setup_buildx "$@")
+NAME="versatiles/versatiles-tippecanoe"
+BUILD_ARGS="--build-arg TIPPECANOE_VERSION=$VER_TC"
 
-echo "👷 Building versatiles-tippecanoe Docker images for version $VER_TC"
-docker buildx build --quiet \
-    --tag "versatiles/versatiles-tippecanoe:latest" \
-    --tag "versatiles/versatiles-tippecanoe:$VER_TC" \
-    --build-arg TIPPECANOE_VERSION="$VER_TC" \
-    $ARGS \
-    .
 
+echo "👷 Building $NAME Docker images for version $VER_TC"
+
+###############################################################################
+# 1. Host‑arch build & load (needed for local tests)
+###############################################################################
+if ! $needs_push || $needs_testing; then
+    echo "👷 Building image"
+    build_load_image versatiles-tippecanoe "$NAME" latest "${VER_TC}"
+fi
+
+###############################################################################
+# 2. Optional smoke‑tests
+###############################################################################
 if $needs_testing; then
-    echo "🧪 Running tests"
-
-    result=$(docker run --rm "versatiles/versatiles-tippecanoe" -v 2>&1 || true)
-    if [ "$result" != "tippecanoe v$VER_TC" ]; then
-        echo "❌ Version mismatch: expected 'tippecanoe v${VER_VT:1}', got '$result'" >&2
+    echo "🧪 Running smoke-test …"
+    
+    output=$(docker run --rm "versatiles/versatiles-tippecanoe" -v 2>&1 || true)
+    if [[ "$output" != "tippecanoe v$VER_TC" ]]; then
+        printf "❌ Unexpected output:\n%s\n" "$output" >&2
         exit 1
     fi
-
-    result=$(docker run --rm --entrypoint "versatiles" "versatiles/versatiles-tippecanoe" -V 2>&1 | head -n 1 || true)
-    if [ "$result" != "versatiles ${VER_VT:1}" ]; then
+    output=$(docker run --rm --entrypoint "versatiles" "versatiles/versatiles-tippecanoe" -V 2>&1 | head -n 1 || true)
+    if [[ "$output" != "versatiles ${VER_VT:1}" ]]; then
         echo "❌ Version mismatch: expected 'versatiles ${VER_VT:1}', got '$result'" >&2
         exit 1
     fi
-
-    echo "✅ Images started successfully."
+    
+    echo "✅ Image tested successfully."
 fi
 
+###############################################################################
+# 3. Multi‑arch push (only if requested)
+###############################################################################
 if $needs_push; then
+    echo "🚀 Building and pushing multi-arch image …"
+    build_push_image versatiles-tippecanoe "${NAME}" latest "${VER_TC}"
     update_docker_description versatiles-tippecanoe
 fi

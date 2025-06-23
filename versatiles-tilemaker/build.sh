@@ -1,36 +1,55 @@
 #!/usr/bin/env bash
+# Build script for the "versatiles‑tilemaker" image.
+#
+# Flow
+# ────
+#  1. Build a host‑architecture image (`--load`) so we can smoke–test it locally
+#     unless the user asked for `--push` *without* tests.
+#  2. Optionally run a quick container‑starts smoke‑test (`--testing` flag).
+#  3. Optionally build & push the real multi‑arch image (`--push` flag).
+#
+# Flags are parsed by utils.sh → parse_arguments.
+#
 set -euo pipefail
+cd "$(dirname "$0")"
 
-cd $(dirname "$0")
-
-# Load shared helpers
 source ../scripts/utils.sh
-# Parse CLI flags → sets needs_push / needs_testing
 parse_arguments "$@"
-
 VER=$(fetch_release_tag "systemed/tilemaker")
-ARGS=$(setup_buildx "$@")
+NAME="versatiles/versatiles-tilemaker"
 
-echo "👷 Building versatiles-tilemaker Docker images for version $VER"
-docker buildx build --quiet \
-    --tag "versatiles/versatiles-tilemaker:latest" \
-    --tag "versatiles/versatiles-tilemaker:$VER" \
-    $ARGS \
-    .
+echo "👷 Building $NAME Docker images for version $VER"
 
-if $needs_testing; then
-    echo "🧪 Running test"
-
-    result=$(docker run --rm "versatiles/versatiles-tilemaker" || true)
-
-    if [ "$result" != $'Arguments required: <pbf-url> <name> [bbox]\n       bbox default: -180,-86,180,86' ]; then
-        printf "❌ Result mismatch for versatiles/versatiles-tilemaker, got '%q'\n" "$result" >&2
-        exit 1
-    fi
-
-    echo "✅ Images started successfully."
+###############################################################################
+# 1. Host‑arch build & load (needed for local tests)
+###############################################################################
+if ! $needs_push || $needs_testing; then
+    echo "👷 Building image"
+    build_load_image versatiles-tilemaker "$NAME" latest "${VER}"
 fi
 
+###############################################################################
+# 2. Optional smoke‑tests
+###############################################################################
+if $needs_testing; then
+    echo "🧪 Running smoke-test …"
+    expected=$'Arguments required: <pbf-url> <name> [bbox]\n       bbox default: -180,-86,180,86'
+
+    output=$(docker run --rm "${NAME}:latest" || true)
+
+    if [[ "$output" != "$expected" ]]; then
+        printf "❌  Unexpected output:\n%s\n" "$output" >&2
+        exit 1
+    fi
+    
+    echo "✅ Images tested successfully."
+fi
+
+###############################################################################
+# 3. Multi‑arch push (only if requested)
+###############################################################################
 if $needs_push; then
+    echo "🚀 Building and pushing multi-arch image …"
+    build_push_image versatiles-tilemaker "${NAME}" latest "${VER}"
     update_docker_description versatiles-tilemaker
 fi
