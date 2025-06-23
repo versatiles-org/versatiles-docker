@@ -68,8 +68,15 @@ shopt -s extglob
 # Prints the latest Git tag of a GitHub project (defaults to versatiles‑rs).
 fetch_release_tag() {
     local repo=${1:-"versatiles-org/versatiles-rs"}
-    curl -s "https://api.github.com/repos/${repo}/releases/latest" |
-        jq -r '.tag_name'
+    local tag
+    tag=$(curl -s "https://api.github.com/repos/${repo}/releases/latest" | jq -r '.tag_name')
+
+    if [[ "$tag" == "null" || -z "$tag" ]]; then
+        echo "❌ Failed to fetch release tag for repository: $repo" >&2
+        return 1
+    fi
+
+    echo "$tag"
 }
 
 #############################################################################
