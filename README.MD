@@ -70,7 +70,30 @@ This repo contains .Dockerfiles and GitHub workflows for building Docker images 
 </tr>
 </table>
 
-## Images `versatiles-tilemaker`
+## Image `versatiles-nginx`
+
+- Contains: [versatiles](https://github.com/versatiles-org/versatiles-rs), **nginx** (as reverse‑proxy) and **certbot** for automatic Let's Encrypt certificates  
+- Supported OS: Alpine  
+- Supported architectures: AMD64, ARM64  
+- See the [Dockerfile README](versatiles-nginx/README.md) for detailed information and usage instructions.  
+- Images are available on [GitHub Container Registry](https://github.com/versatiles-org/versatiles-docker/pkgs/container/versatiles-nginx) and on [Docker Hub](https://hub.docker.com/r/versatiles/versatiles-nginx)
+
+[![Docker Hub Pulls](https://img.shields.io/docker/pulls/versatiles/versatiles-nginx)](https://hub.docker.com/r/versatiles/versatiles-nginx)
+
+<table>
+<tr>
+	<th>OS</th>
+	<th>VersaTiles Version</th>
+	<th>Image Size</th>
+</tr>
+<tr>
+	<td>Alpine</td>
+	<td><img src="https://img.shields.io/docker/v/versatiles/versatiles-nginx/latest?label=" alt="Docker Image version versatiles-nginx"></td>
+	<td><img src="https://img.shields.io/docker/image-size/versatiles/versatiles-nginx/latest?label=" alt="Docker Image size versatiles-nginx"></td>
+</tr>
+</table>
+
+## Image `versatiles-tilemaker`
 
 - Contains: [versatiles](https://github.com/versatiles-org/versatiles-rs), [tilemaker](https://github.com/systemed/tilemaker) and some helpers like: [aria2](https://aria2.github.io), [curl](https://curl.se/), [gdal](https://gdal.org), [osmium tool](https://osmcode.org/osmium-tool/)
 - Supported OS: Debian
@@ -93,7 +116,7 @@ This repo contains .Dockerfiles and GitHub workflows for building Docker images 
 </tr>
 </table>
 
-## Images `versatiles-tippecanoe`
+## Image `versatiles-tippecanoe`
 
 - Contains: [versatiles](https://github.com/versatiles-org/versatiles-rs) and [felt/tippecanoe](https://github.com/felt/tippecanoe)
 - Supported OS: Alpine
