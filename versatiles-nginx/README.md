@@ -22,12 +22,14 @@ docker run -d --name maps \
   -e DOMAIN=maps.example.com \
   -e EMAIL=admin@example.com \
   -e TILE_SOURCES=osm.versatiles \
+  -e BBOX="9.5,46.3,17.2,49.1" \ # optional: limit download to e.g. Austria
   -e FRONTEND=default \
   versatiles/versatiles-nginx:latest
 ```
 
 - The first start obtains a **Let’s Encrypt** certificate for `maps.example.com` via ACME HTTP‑01 (port 80 must be reachable). Renewal checks run automatically in the background.
 - It also fetches the latest frontend and map data.
+- Setting `BBOX` limits the map data download to that geographic window, which speeds up startup and saves disk space.
 
 ---
 
@@ -39,6 +41,7 @@ docker run -d --name maps \
 | `EMAIL`               | **Yes**  | –                | Contact e‑mail passed to Certbot during ACME registration.                                         |
 | `FRONTEND`            | **Yes**  | -                | UI bundle to serve: `default`, `dev`, `min`, or `none`.                                            |
 | `TILE_SOURCES`        | **Yes**  | -                | Comma‑separated list of `.versatiles`, `.mbtiles`, or `.pmtiles` that are fetched once at startup. |
+| `BBOX`                | No       | –                | Restrict the map download to the bounding box `lng_min,lat_min,lng_max,lat_max`.                   |
 | `CACHE_SIZE_KEYS`     | No       | auto (≈20 % RAM) | Nginx `keys_zone` size, e.g. `128m`.                                                               |
 | `CACHE_SIZE_MAX`      | No       | auto (≈60 % RAM) | Maximum cached bytes, e.g. `2g`.                                                                   |
 | `CERT_MIN_DAYS`       | No       | `30`             | Skip ACME on startup if the current cert is valid for more than this many days.                    |

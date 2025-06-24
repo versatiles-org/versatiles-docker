@@ -13,6 +13,7 @@ LABEL maintainer="Michael Kreil <versatiles@michael-kreil.de>"
 LABEL org.opencontainers.image.source="https://github.com/versatiles-org/versatiles-docker"
 
 ENV UID=10001 GID=10001 \
+    BBOX="" \
     DOMAIN="" \
     EMAIL="" \
     FRONTEND="" \

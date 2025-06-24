@@ -4,6 +4,14 @@ set -euo pipefail
 
 require TILE_SOURCES "comma-separated list of *.versatiles, *.mbtiles or *.pmtiles"
 
+# Validate BBOX format (expected: "lng_min,lat_min,lng_max,lat_max")
+if [ -n "${BBOX:-}" ]; then
+    if ! echo "$BBOX" | grep -Eq '^-?[0-9]+(\.[0-9]+)?,-?[0-9]+(\.[0-9]+)?,-?[0-9]+(\.[0-9]+)?,-?[0-9]+(\.[0-9]+)?$'; then
+        log "Malformed BBOX: '$BBOX'. Expected 'lng_min,lat_min,lng_max,lat_max'." ERROR
+        exit 1
+    fi
+fi
+
 [ -z "$TILE_SOURCES" ] && {
     log "No tile sources requested." INFO
     return 0
@@ -19,14 +27,25 @@ for src in "${TS[@]}"; do
     if [ ! -f "$target" ]; then
         tmp="${target}.part"
         url="https://download.versatiles.org/$src"
-        log "Fetching $src …" INFO
 
-        if curl -fL --retry 3 --retry-delay 2 --retry-max-time 30 "$url" -o "$tmp"; then
-            mv "$tmp" "$target"
+        if [ -n "${BBOX:-}" ]; then
+            log "Fetching $src inside bounding box $BBOX …" INFO
+            if versatiles convert --bbox "$BBOX" --bbox-border 3 "$url" "$tmp"; then
+                mv "$tmp" "$target"
+            else
+                rm -f "$tmp"
+                log "versatiles convert failed for $src" ERROR
+                exit 1
+            fi
         else
-            rm -f "$tmp"
-            log "Download failed for $src" ERROR
-            exit 1
+            log "Fetching $src …" INFO
+            if curl -fL --retry 3 --retry-delay 2 --retry-max-time 30 "$url" -o "$tmp"; then
+                mv "$tmp" "$target"
+            else
+                rm -f "$tmp"
+                log "Download failed for $src" ERROR
+                exit 1
+            fi
         fi
     fi
 
