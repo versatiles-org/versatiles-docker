@@ -14,6 +14,7 @@ LABEL org.opencontainers.image.source="https://github.com/versatiles-org/versati
 
 ENV UID=10001 GID=10001 \
     BBOX="" \
+    HTTP_ONLY="" \
     DOMAIN="" \
     EMAIL="" \
     FRONTEND="" \

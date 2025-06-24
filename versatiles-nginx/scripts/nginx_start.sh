@@ -8,11 +8,19 @@ set -euo pipefail
 # -----------------------------------------------------------------------------
 require DOMAIN "domain name for this instance"
 
+# Set to any non‑empty value to skip certificates and run HTTP‑only
+HTTP_ONLY=${HTTP_ONLY:-}
+
+# Graceful shutdown: forward SIGTERM/SIGINT to nginx, then exit
+trap 'log "Shutdown signal received — quitting nginx …" INFO; nginx -s quit; exit 0' TERM INT
+
 # -----------------------------------------------------------------------------
 # Ensure log directories and certificates
 # -----------------------------------------------------------------------------
 mkdir -p /data/log
-/scripts/cert_ensure.sh
+if [ -z "$HTTP_ONLY" ]; then
+    /scripts/cert_ensure.sh
+fi
 
 # -----------------------------------------------------------------------------
 # Calculate cache sizes (20 % keys_zone, 60 % data) unless overridden
@@ -30,8 +38,57 @@ CACHE_MAX=${CACHE_SIZE_MAX:-$MAX_AUTO}
 log "Cache keys=${CACHE_KEYS}, max=${CACHE_MAX}" INFO
 
 # -----------------------------------------------------------------------------
-# Write full HTTPS nginx config
+# Generate nginx.conf (HTTP‑only or HTTPS) in a single pass
 # -----------------------------------------------------------------------------
+
+NGINX_LOCATION_CACHE=$(
+    cat <<EOF
+      location / {
+        proxy_pass http://127.0.0.1:8080;
+        proxy_cache tiles;
+        proxy_cache_valid any 5m;
+        add_header X-Cache \$upstream_cache_status;
+      }
+EOF
+)
+
+if [ -n "$HTTP_ONLY" ]; then
+    SERVER_BLOCK=$(
+        cat <<EOF
+    # HTTP server only (no TLS)
+    server {
+      listen 80 default_server;
+      server_name ${DOMAIN};
+
+        ${NGINX_LOCATION_CACHE}
+    }
+EOF
+    )
+else
+    SERVER_BLOCK=$(
+        cat <<EOF
+    # redirect HTTP → HTTPS
+    server {
+      listen 80 default_server;
+      server_name ${DOMAIN};
+      return 301 https://\$host\$request_uri;
+    }
+
+    # HTTPS server
+    server {
+      listen 443 ssl;
+      http2 on;
+      server_name ${DOMAIN};
+
+      ssl_certificate     /data/certificates/live/${DOMAIN}/fullchain.pem;
+      ssl_certificate_key /data/certificates/live/${DOMAIN}/privkey.pem;
+
+        ${NGINX_LOCATION_CACHE}
+    }
+EOF
+    )
+fi
+
 cat >/etc/nginx/nginx.conf <<EOF
 worker_processes auto;
 error_log /data/log/error.log info;
@@ -54,30 +111,7 @@ http {
     location /_nginx_status { stub_status; allow 127.0.0.1; deny all; }
   }
 
-  # redirect HTTP → HTTPS
-  server {
-    listen 80 default_server;
-    server_name ${DOMAIN};
-    return 301 https://\$host\$request_uri;
-  }
-
-  # HTTPS server
-  server {
-    listen 443 ssl;
-    http2 on;
-    server_name ${DOMAIN};
-
-    ssl_certificate     /data/certificates/live/${DOMAIN}/fullchain.pem;
-    ssl_certificate_key /data/certificates/live/${DOMAIN}/privkey.pem;
-
-    # frontend (if any)
-    location / {
-      proxy_pass http://127.0.0.1:8080;
-      proxy_cache tiles;
-      proxy_cache_valid any 5m;
-      add_header X-Cache \$upstream_cache_status;
-    }
-  }
+  ${SERVER_BLOCK}
 }
 EOF
 
@@ -95,4 +129,6 @@ fi
 # -----------------------------------------------------------------------------
 # Background certificate renewal loop
 # -----------------------------------------------------------------------------
-/scripts/cert_renew.sh &
+if [ -z "$HTTP_ONLY" ]; then
+    /scripts/cert_renew.sh &
+fi
