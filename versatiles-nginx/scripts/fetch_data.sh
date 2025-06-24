@@ -25,7 +25,7 @@ for src in "${TS[@]}"; do
     target="/data/tiles/$src"
 
     if [ ! -f "$target" ]; then
-        tmp="${target}.part"
+        tmp="${target%.*}.part.${target##*.}"
         url="https://download.versatiles.org/$src"
 
         if [ -n "${BBOX:-}" ]; then
