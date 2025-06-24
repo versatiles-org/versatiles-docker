@@ -256,7 +256,7 @@ update_docker_description() {
         return 1
     }
     
-    local full_desc=$(<"readme.md")
+    local full_desc=$(<"README.md")
     (($(echo "$full_desc" | wc -c) <= 25000)) || {
         echo "❌ Full description > 25000 bytes"
         return 1
