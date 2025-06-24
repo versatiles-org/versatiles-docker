@@ -164,7 +164,7 @@ build_image_args() {
 
     # Split the two CSV arguments into arrays
     IFS=',' read -ra images <<<"$img_csv"
-    IFS=',' read -ra tags   <<<"$tag_csv"
+    IFS=',' read -ra tags <<<"$tag_csv"
 
     # Produce one  --tag  flag for every <image>:<tag> combination
     local tag_args=()
@@ -255,25 +255,24 @@ update_docker_description() {
         echo "❌ DOCKERHUB_TOKEN not set."
         return 1
     }
+    
+    local full_desc=$(<"readme.md")
+    (($(echo "$full_desc" | wc -c) <= 25000)) || {
+        echo "❌ Full description > 25000 bytes"
+        return 1
+    }
 
-    local short_desc full_desc status data response body
-    (($(cat short.md | wc -c) <= 100)) || {
+    local short_desc=$(<"short.md")
+    (($(echo "$short_desc" | wc -c) <= 100)) || {
         echo "❌ Short description > 100 bytes"
         return 1
     }
-    short_desc=$(<"short.md")
 
-    (($(cat full.md | wc -c) <= 25000)) || {
-        echo "❌ Full description > 25 000 bytes"
-        return 1
-    }
-    full_desc=$(<"full.md")
-
-    data=$(jq -n --arg short "$short_desc" --arg full "$full_desc" \
+    local data=$(jq -n --arg short "$short_desc" --arg full "$full_desc" \
         '{description: $short, full_description: $full}')
 
     # Perform the PATCH request, capturing *both* body and status code
-    response=$(curl --silent --show-error \
+    local response=$(curl --silent --show-error \
         --retry 3 --retry-delay 2 \
         -X PATCH \
         -H "Content-Type: application/json" \
@@ -284,8 +283,8 @@ update_docker_description() {
         "https://hub.docker.com/v2/namespaces/versatiles/repositories/${repository}")
 
     # Separate HTTP status code from body (last line)
-    status=$(echo "$response" | tail -n1)
-    body=$(echo "$response" | sed '$d')
+    local status=$(echo "$response" | tail -n1)
+    local body=$(echo "$response" | sed '$d')
 
     if [[ "$status" == "200" ]]; then
         echo "✅ Description updated."
