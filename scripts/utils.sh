@@ -159,17 +159,14 @@ _ensure_builder() {
 #
 # It outputs nothing when:
 #   • the script is not running inside GitHub Actions ($GITHUB_ACTIONS not set)
-#   • or $DISABLE_GHA_CACHE is non‑empty.
 #
 # Usage:
 #   docker buildx build $(buildx_cache_args) …
 #
 # --------------------------------------------------------------------------- #
 buildx_cache_args() {
-    if [[ -n "${DISABLE_GHA_CACHE:-}" ]]; then
-        return
-    fi
     if [[ -n "${GITHUB_ACTIONS:-}" ]]; then
+        echo "Setting up Buildx cache for GitHub Actions…" 1>&2
         echo "--cache-from type=gha --cache-to type=gha,mode=max"
     fi
 }
