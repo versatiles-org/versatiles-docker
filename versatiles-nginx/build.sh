@@ -26,17 +26,17 @@ fi
 if $needs_testing; then
     echo "🧪 Running smoke-tests"
 
-    output="'FRONTEND' is required (Allowed: default|dev|min|none)"
+    output="'FRONTEND' is required (Allowed: standard|dev|min|none)"
     result=$(docker run --rm "$NAME:latest" 2>&1 || true)
     if [[ "$result" != *"$output"* ]]; then
-        echo "❌ Test failed: expected '$result' contains '$output'" >&2
+        echo "❌ Test failed: expected \"$result\" to contain \"$output\"" >&2
         exit 1
     fi
 
     output="'TILE_SOURCES' is required"
     result=$(docker run --rm -e "FRONTEND=min" "$NAME:latest" 2>&1 || true)
     if [[ "$result" != *"$output"* ]]; then
-        echo "❌ Test failed: expected '$result' contains '$output'" >&2
+        echo "❌ Test failed: expected \"$result\" to contain \"$output\"" >&2
         exit 1
     fi
 

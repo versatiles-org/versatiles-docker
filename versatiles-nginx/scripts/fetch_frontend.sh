@@ -1,10 +1,10 @@
 #!/usr/bin/env bash
 set -euo pipefail
 . /scripts/utils.sh
-require FRONTEND "Allowed: default|dev|min|none"
+require FRONTEND "Allowed: standard|dev|min|none"
 
 case "$FRONTEND" in
-"default" | "standard" | "" | "1") variant="frontend" ;;
+"default" | "standard" | "" | "1" | "true" | "yes") variant="frontend" ;;
 "dev") variant="frontend-dev" ;;
 "min") variant="frontend-min" ;;
 "none" | "no" | "0" | "false" | "off" | "disabled")
@@ -12,7 +12,7 @@ case "$FRONTEND" in
     exit 0
     ;;
 *)
-    log "Unknown FRONTEND \"${FRONTEND}\". Allowed: default|dev|min|none" ERROR
+    log "Unknown FRONTEND \"${FRONTEND}\". Allowed: standard|dev|min|none" ERROR
     exit 1
     ;;
 esac

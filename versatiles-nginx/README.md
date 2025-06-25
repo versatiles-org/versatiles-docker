@@ -15,23 +15,22 @@ in **one single container**.
 
 Setup a domain (e.g. `maps.example.com`) and point it to the server. Then run:
 
+**ENSURE YOU SET `DOMAIN` AND `EMAIL` CORRECTLY BEFORE RUNNING THE CONTAINER**
 ```bash
-docker run -d --name maps \
+docker run -d --name versatiles \
   -p 80:80 -p 443:443 \
-  -v $(pwd)/data:/data \
+  -v "$(pwd)/data:/data" \
   -e DOMAIN=maps.example.com \
   -e EMAIL=admin@example.com \
+  -e FRONTEND=standard \
   -e TILE_SOURCES=osm.versatiles \
-  -e BBOX="9.5,46.3,17.2,49.1" \ # optional: limit download to e.g. Austria
-  # -e HTTP_ONLY=1 \ # uncomment to run without HTTPS
-  -e FRONTEND=default \
+  -e BBOX="9.5,46.3,17.2,49.1" \
   versatiles/versatiles-nginx:latest
 ```
 
 - The first start obtains a **Let’s Encrypt** certificate for `maps.example.com` via ACME HTTP‑01 (port 80 must be reachable). Renewal checks run automatically in the background.
-- It also fetches the latest frontend and map data.
+- It also fetches the latest frontend ("standard") and map data (osm.versatiles, but with BBOX).
 - Setting `BBOX` limits the map data download to that geographic window, which speeds up startup and saves disk space.
-- Set `HTTP_ONLY` (and you may omit `-p 443:443`) to run the container in plain‑HTTP mode, handy when another reverse‑proxy terminates TLS in front of it.
 
 ---
 
@@ -41,7 +40,7 @@ docker run -d --name maps \
 |-----------------------|----------|------------------|----------------------------------------------------------------------------------------------------|
 | `DOMAIN`              | **Yes**  | –                | A fully qualified domain name served by Nginx and used for ACME certificate issuance.              |
 | `EMAIL`               | **Yes**  | –                | Contact e‑mail passed to Certbot during ACME registration.                                         |
-| `FRONTEND`            | **Yes**  | -                | UI bundle to serve: `default`, `dev`, `min`, or `none`.                                            |
+| `FRONTEND`            | **Yes**  | -                | UI bundle to serve: `standard`, `dev`, `min`, or `none`.                                            |
 | `TILE_SOURCES`        | **Yes**  | -                | Comma‑separated list of `.versatiles`, `.mbtiles`, or `.pmtiles` that are fetched once at startup. |
 | `BBOX`                | No       | –                | Restrict the map download to the bounding box `lng_min,lat_min,lng_max,lat_max`.                   |
 | `HTTP_ONLY`           | No       | –                | When set, disables certificate issuance/renewal and serves plain HTTP on port 80 only.             |
@@ -69,7 +68,7 @@ The container needs **one** bind‑mount at */data*:
 Bind it like so:
 
 ```bash
--v $(pwd)/data:/data
+-v "$(pwd)/data:/data"
 ```
 
 ---
@@ -78,13 +77,16 @@ Bind it like so:
 
 ```bash
 # Inspect container health
-docker inspect --format='{{json .State.Health}}' maps
+docker inspect --format='{{json .State.Health}}' versatiles
 
 # Clear the in‑memory tile cache
-docker exec maps /scripts/nginx_clear.sh
+docker exec versatiles /scripts/nginx_clear.sh
 
 # View realtime Nginx stats (stub_status)
-docker exec maps curl -s http://127.0.0.1:8090/_nginx_status
+docker exec versatiles curl -s http://127.0.0.1:8090/_nginx_status
+
+# Watch startup & runtime logs (nginx logs are under /data/log)
+docker logs -f versatiles
 ```
 
 ---

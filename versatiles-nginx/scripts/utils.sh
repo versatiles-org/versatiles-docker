@@ -25,7 +25,7 @@ log() {
         INFO) color="$color_green" ;;
         esac
     fi
-    printf '%b[%s] [%s] %s%b\n' "$color" "$(/bin/date +%FT%T%z)" "$level" "$1" "$color_reset"
+    printf '%b[%s] [%s] %s%b\n' "$color" "$(/bin/date +%FT%T%z)" "$level" "$1" "$color_reset" >&2
 }
 
 require() {
