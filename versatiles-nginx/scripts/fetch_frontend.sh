@@ -25,7 +25,7 @@ if [ ! -f "$filepath" ]; then
     tmpfile="${filepath}.part"
     url="https://github.com/versatiles-org/versatiles-frontend/releases/latest/download/${filename}.gz"
     log "Downloading $filename …"
-    if curl -fL --retry 3 --retry-delay 2 --retry-max-time 30 "$url" | gzip -cd >"$tmpfile"; then
+    if curl -#fL --retry 3 --retry-delay 2 --retry-max-time 30 "$url" | gzip -cd >"$tmpfile"; then
         mv "$tmpfile" "$filepath"
     else
         rm -f "$tmpfile"

@@ -12,9 +12,9 @@ chown -R vs:vs /data || true
 # user defined static files
 mkdir -p /data/static
 versatiles_args="--static /data/static"
-
 versatiles_args+=" $(/scripts/fetch_frontend.sh)"
 versatiles_args+=" $(/scripts/fetch_data.sh)"
+
 /scripts/nginx_start.sh
 
 ############### start VersaTiles ############
