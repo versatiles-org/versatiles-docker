@@ -151,6 +151,30 @@ _ensure_builder() {
 }
 
 # --------------------------------------------------------------------------- #
+#  buildx_cache_args (internal)
+# --------------------------------------------------------------------------- #
+# Returns the two Buildx flags that hook the GitHub‑Actions cache backend
+#     --cache-from type=gha
+#     --cache-to   type=gha,mode=max
+#
+# It outputs nothing when:
+#   • the script is not running inside GitHub Actions ($GITHUB_ACTIONS not set)
+#   • or $DISABLE_GHA_CACHE is non‑empty.
+#
+# Usage:
+#   docker buildx build $(buildx_cache_args) …
+#
+# --------------------------------------------------------------------------- #
+buildx_cache_args() {
+    if [[ -n "${DISABLE_GHA_CACHE:-}" ]]; then
+        return
+    fi
+    if [[ -n "${GITHUB_ACTIONS:-}" ]]; then
+        echo "--cache-from type=gha --cache-to type=gha,mode=max"
+    fi
+}
+
+# --------------------------------------------------------------------------- #
 #  build_image_args (internal)
 # --------------------------------------------------------------------------- #
 # Helper that constructs the common `docker buildx` argument list for tags.
@@ -204,7 +228,7 @@ build_load_image() {
         ;;
     esac
 
-    docker buildx build --target "$1" $(build_image_args "$2" "$3") --platform "linux/${host_arch}" ${BUILD_ARGS:-} --load . >/dev/null
+    docker buildx build --target "$1" $(build_image_args "$2" "$3") --platform "linux/${host_arch}" $(buildx_cache_args) ${BUILD_ARGS:-} --load . >/dev/null
 }
 
 # --------------------------------------------------------------------------- #
@@ -220,7 +244,7 @@ build_push_image() {
     echo "  - build, push: $1"
     _ensure_builder
 
-    docker buildx build --target "$1" $(build_image_args "versatiles/$2,ghcr.io/versatiles-org/$2" "$3") --platform linux/amd64,linux/arm64 ${BUILD_ARGS:-} --push . >/dev/null
+    docker buildx build --target "$1" $(build_image_args "versatiles/$2,ghcr.io/versatiles-org/$2" "$3") --platform linux/amd64,linux/arm64 $(buildx_cache_args) ${BUILD_ARGS:-} --push . >/dev/null
 }
 
 #############################################################################
@@ -255,7 +279,7 @@ update_docker_description() {
         echo "❌ DOCKERHUB_TOKEN not set."
         return 1
     }
-    
+
     local full_desc=$(<"README.md")
     (($(echo "$full_desc" | wc -c) <= 25000)) || {
         echo "❌ Full description > 25000 bytes"
