@@ -4,13 +4,13 @@ set -euo pipefail
 require FRONTEND "Allowed: default|dev|min|none"
 
 case "$FRONTEND" in
-"default" | "standard") variant="frontend" ;;
-"none" | "off" | "disabled")
-    log "Frontend disabled."
-    return 0
-    ;;
+"default" | "standard" | "" | "1") variant="frontend" ;;
 "dev") variant="frontend-dev" ;;
 "min") variant="frontend-min" ;;
+"none" | "no" | "0" | "false" | "off" | "disabled")
+    log "Frontend disabled."
+    exit 0
+    ;;
 *)
     log "Unknown FRONTEND \"${FRONTEND}\". Allowed: default|dev|min|none" ERROR
     exit 1
@@ -34,4 +34,5 @@ if [ ! -f "$filepath" ]; then
     fi
 fi
 
-declare -g VERSATILES_ARGS="${VERSATILES_ARGS-} --static $filepath"
+# print argument string for entrypoint.sh to capture
+echo "--static $filepath"

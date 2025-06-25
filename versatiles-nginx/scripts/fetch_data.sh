@@ -12,17 +12,19 @@ if [ -n "${BBOX:-}" ]; then
     fi
 fi
 
-[ -z "$TILE_SOURCES" ] && {
+if [ -z "$TILE_SOURCES" ]; then
     log "No tile sources requested." INFO
-    return 0
-}
+    exit 0
+fi
 
 mkdir -p /data/tiles
 IFS=',' read -ra TS <<<"$TILE_SOURCES"
+args=""
 
 for src in "${TS[@]}"; do
     [ -z "$src" ] && continue
     target="/data/tiles/$src"
+    args+=" $target"
 
     if [ ! -f "$target" ]; then
         tmp="${target%.*}.part.${target##*.}"
@@ -48,7 +50,6 @@ for src in "${TS[@]}"; do
             fi
         fi
     fi
-
-    # export so parent script sees the update even when sourced
-    declare -g VERSATILES_ARGS="${VERSATILES_ARGS-} $target"
 done
+
+printf '%s' "${args}"
