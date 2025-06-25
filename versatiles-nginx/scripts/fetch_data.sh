@@ -13,7 +13,7 @@ if [ -n "${BBOX:-}" ]; then
 fi
 
 if [ -z "$TILE_SOURCES" ]; then
-    log "No tile sources requested." INFO
+    log "No tile sources requested." WARN
     exit 0
 fi
 
@@ -31,7 +31,7 @@ for src in "${TS[@]}"; do
         url="https://download.versatiles.org/$src"
 
         if [ -n "${BBOX:-}" ]; then
-            log "Fetching $src inside bounding box $BBOX …" INFO
+            log "Fetching $src inside bounding box $BBOX …"
             if versatiles convert --bbox "$BBOX" --bbox-border 3 "$url" "$tmp"; then
                 mv "$tmp" "$target"
             else
@@ -40,7 +40,7 @@ for src in "${TS[@]}"; do
                 exit 1
             fi
         else
-            log "Fetching $src …" INFO
+            log "Fetching $src …"
             if curl -fL --retry 3 --retry-delay 2 --retry-max-time 30 "$url" -o "$tmp"; then
                 mv "$tmp" "$target"
             else

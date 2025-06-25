@@ -7,7 +7,7 @@ INTERVAL=${CERT_RENEW_INTERVAL:-86400}
 
 trap 'log "cert_renew loop terminated." INFO; exit 0' INT TERM
 
-log "Starting background renew loop every $((INTERVAL / 3600)) h." INFO
+log "Starting background renew loop every $((INTERVAL / 3600)) h."
 
 while sleep "$INTERVAL"; do
     if certbot renew --quiet \
@@ -15,7 +15,7 @@ while sleep "$INTERVAL"; do
         --work-dir /data/certificates/work \
         --logs-dir /data/certificates/logs \
         --deploy-hook "nginx -s reload"; then
-        log "certbot renew: nothing to do." INFO
+        log "certbot renew: nothing to do."
     else
         log "certbot renew failed." ERROR
     fi

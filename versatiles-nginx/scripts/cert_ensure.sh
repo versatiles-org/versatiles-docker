@@ -14,15 +14,12 @@ mkdir -p /data/certificates /data/certificates/work /data/certificates/logs
 CERT_PATH="/data/certificates/live/${DOMAIN}/fullchain.pem"
 
 # ----- FAST PATH ---------------------------------------------------------
+# If a certificate exists and is still valid for more than $CERT_MIN_DAYS,
+# skip ACME. openssl -checkend expects seconds.
 if [ -f "$CERT_PATH" ]; then
-    # days until expiry
-    DAYS_LEFT=$(openssl x509 -noout -enddate -in "$CERT_PATH" |
-        cut -d= -f2 | xargs -I{} date -d {} +%s)
-    DAYS_LEFT=$(((DAYS_LEFT - $(date +%s)) / 86400))
-
-    if [ "$DAYS_LEFT" -gt "$CERT_MIN_DAYS" ]; then
-        log "Existing cert valid for ${DAYS_LEFT} days (> ${CERT_MIN_DAYS}) - skipping ACME." INFO
-        return 0
+    if openssl x509 -checkend "$((CERT_MIN_DAYS * 86400))" -noout -in "$CERT_PATH"; then
+        log "Existing cert valid for more than ${CERT_MIN_DAYS} days - skipping ACME."
+        exit 0
     fi
 fi
 
@@ -75,4 +72,4 @@ fi
 # Stop nginx stub
 kill -TERM "$NGINX_STUB_PID" || true
 wait "$NGINX_STUB_PID" || true
-log "Certificate obtained; stub stopped." INFO
+log "Certificate obtained; stub stopped."

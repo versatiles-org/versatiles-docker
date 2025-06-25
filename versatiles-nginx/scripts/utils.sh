@@ -18,24 +18,17 @@ log() {
     # usage: log "message" [LEVEL]
     local level=${2:-INFO}
     local color=""
-    local symbol=""
     if [ -t 1 ]; then
         case "$level" in
-        ERROR)
-            color="$color_red"
-            symbol="🌶️"
-            ;;
-        WARN)
-            color="$color_yellow"
-            symbol="🍋"
-            ;;
-        INFO)
+        ERROR) color="$color_red" ;;
+        WARN) color="$color_yellow" ;;
+        *)
+            level="INFO"
             color="$color_green"
-            symbol="🥦"
             ;;
         esac
     fi
-    printf '%b[%s] [%s] %s %s%b\n' "$color" "$(/bin/date +%FT%T%z)" "$level" "$symbol" "$1" "$color_reset" >&2
+    printf '%b[%s] [%s] %s%b\n' "$color" "$(/bin/date -u '+%F %T')" "$level" "$1" "$color_reset" >&2
 }
 
 require() {

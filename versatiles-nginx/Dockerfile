@@ -24,7 +24,7 @@ ENV UID=10001 GID=10001 \
     PATH="/scripts:$PATH"
 
 # core packages
-RUN apk add --no-cache nginx certbot certbot-nginx curl bash su-exec tzdata tini gzip && \
+RUN apk add --no-cache bash certbot certbot-nginx curl gzip nginx openssl su-exec tini tzdata && \
     mkdir -p /var/cache/nginx /etc/nginx/templates /data && \
     addgroup -g "$GID" vs && adduser -D -s /sbin/nologin -G vs -u "$UID" vs
 

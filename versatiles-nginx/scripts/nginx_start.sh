@@ -35,7 +35,7 @@ calc_cache
 CACHE_KEYS=${CACHE_SIZE_KEYS:-$KEY_AUTO}
 CACHE_MAX=${CACHE_SIZE_MAX:-$MAX_AUTO}
 
-log "Cache keys=${CACHE_KEYS}, max=${CACHE_MAX}" INFO
+log "Cache keys=${CACHE_KEYS}, max=${CACHE_MAX}"
 
 # -----------------------------------------------------------------------------
 # Generate nginx.conf (HTTP‑only or HTTPS) in a single pass
@@ -119,10 +119,10 @@ EOF
 # Start or reload nginx
 # -----------------------------------------------------------------------------
 if [ ! -s /run/nginx.pid ] || ! kill -0 "$(cat /run/nginx.pid 2>/dev/null)" 2>/dev/null; then
-    log "Starting nginx …" INFO
+    log "Starting nginx …"
     nginx
 else
-    log "Reloading nginx …" INFO
+    log "Reloading nginx …"
     nginx -s reload
 fi
 
