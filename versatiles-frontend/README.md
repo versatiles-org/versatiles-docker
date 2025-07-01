@@ -1,25 +1,56 @@
 # Docker Image: versatiles/versatiles-frontend
 
-A production-ready Docker image running a [VersaTiles server](https://github.com/versatiles-org/versatiles-rs) with the [developer frontend](https://github.com/versatiles-org/versatiles-frontend).
+A production‑ready Docker image that runs a [VersaTiles server](https://github.com/versatiles-org/versatiles-rs) bundled with the [developer front‑end](https://github.com/versatiles-org/versatiles-frontend).
 
-## Quick Start
+## Quick Start
 
-Pull and run the image:
-
-```sh
-docker run -it versatiles/versatiles-frontend osm.versatiles
-```
-
-You can pass any [`versatiles serve` command-line arguments](https://github.com/versatiles-org/versatiles-rs?tab=readme-ov-file#serve-tiles). For example, to serve on port 80:
+Pull the image and display its built‑in help:
 
 ```sh
-docker run -it versatiles/versatiles-frontend --port 80 osm.mbtiles
+docker run -it --rm versatiles/versatiles-frontend --help
 ```
 
-## About
+## Usage
 
-This Docker image is built from the [versatiles-org/versatiles-docker](https://github.com/versatiles-org/versatiles-docker) repository, specifically the [versatiles-frontend/](https://github.com/versatiles-org/versatiles-docker/tree/main/versatiles-frontend) subfolder.
+To serve a VersaTiles container together with the web front‑end using the latest image:
+
+1. Navigate to the directory that contains an `osm.versatiles` (or any other `*.versatiles`) file.  
+2. Start the server with:
+
+```bash
+docker run \
+  -p 8080:8080 \
+  --mount src="$(pwd)",dst=/tiles,type=bind,readonly \
+  versatiles/versatiles-frontend:latest-alpine \
+  -s frontend-dev.br.tar \
+  '/tiles/osm.versatiles'
+```
+
+Open <http://localhost:8080/> in your browser. You should see something like this: [screenshot](../assets/screenshots/frontend_index.png).
+
+## Command Breakdown
+
+- **`docker run`** — Launches the container.  
+- **`-p 8080:8080`** — Maps port **8080** inside the container to **8080** on the host.  
+- **`--mount src="$(pwd)",dst=/tiles,type=bind,readonly`** — Binds the current directory to **/tiles** inside the container (read‑only).  
+- **`versatiles/versatiles-frontend:latest-alpine`** — Specifies the Docker image (see [other tags](https://github.com/versatiles-org/versatiles-docker#images-versatiles-frontend)).
+
+Everything after the image name is passed to `versatiles server`:
+
+- **`-s frontend-dev.br.tar`** — Adds the bundled developer front‑end.  
+- **`'/tiles/osm.versatiles'`** — Serves the mounted `osm.versatiles` file (adjust the path if your file is named differently).
+
+## Resources
+
+- **Server** — [versatiles‑rs](https://github.com/versatiles-org/versatiles-rs) (Rust)  
+- **Dockerfiles** — [versatiles‑docker](https://github.com/versatiles-org/versatiles-docker)  
+- **Front‑end** — [versatiles‑frontend](https://github.com/versatiles-org/versatiles-frontend) · [latest release](https://github.com/versatiles-org/versatiles-frontend/releases/latest/)  
+- **Tile data** — <https://download.versatiles.org>
+
+## About This Image
+
+This image is built from the [`versatiles-frontend`](https://github.com/versatiles-org/versatiles-docker/tree/main/versatiles-frontend) directory in the [versatiles‑docker](https://github.com/versatiles-org/versatiles-docker) repository.
 
 ## License
 
-Distributed under the MIT License.
+MIT
