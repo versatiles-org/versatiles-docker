@@ -100,9 +100,3 @@ docker logs -f versatiles
    * ensures a valid **TLS certificate** (launching a minimal Nginx for the ACME challenge if needed).  
 2. The main Nginx process starts (or reloads) and a loop renews the certificate.  
 3. `versatiles serve` – running as the unprivileged `vs` user – answers all `/tile/{z}/{x}/{y}` requests.
-
----
-
-## License
-
-MIT — © 2024–2025 VersaTiles & contributors
