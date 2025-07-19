@@ -267,6 +267,8 @@ build_push_image() {
 # Hub description of the given repository (under n/s "versatiles/").
 #
 update_docker_description() {
+    local DOCKERHUB_USERNAME="versatiles"
+
     local repository=${1:-}
     [[ -n "$repository" ]] || {
         echo "❌ Repository name required"
@@ -289,19 +291,36 @@ update_docker_description() {
         return 1
     }
 
-    local data=$(jq -n --arg short "$short_desc" --arg full "$full_desc" \
+    local data=$(jq -n \
+        --arg username "${DOCKERHUB_USERNAME}" \
+        --arg password "${DOCKERHUB_TOKEN}" \
+        '{username: $username, password: $password}')
+
+    local jwt_token=$(curl --silent --show-error --retry 3 --retry-delay 3 \
+        -X POST \
+        -H "Content-Type: application/json" \
+        -d "$data" \
+        "https://hub.docker.com/v2/users/login" | jq -r '.access_token')
+
+    if [[ -z "$jwt_token" || "$jwt_token" == "null" ]]; then
+        echo "❌ Authentication failed - could not obtain JWT." >&2
+        return 1
+    fi
+
+    local data=$(jq -n \
+        --arg short "$short_desc" \
+        --arg full "$full_desc" \
         '{description: $short, full_description: $full}')
 
     # Perform the PATCH request, capturing *both* body and status code
-    local response=$(curl --silent --show-error \
-        --retry 3 --retry-delay 2 \
+    local response=$(curl --silent --show-error --retry 3 --retry-delay 3 \
         -X PATCH \
         -H "Content-Type: application/json" \
-        -H "Authorization: JWT ${DOCKERHUB_TOKEN}" \
+        -H "Authorization: Bearer ${jwt_token}" \
         -H "Accept: application/json" \
         -d "$data" \
         -w "\n%{http_code}" \
-        "https://hub.docker.com/v2/namespaces/versatiles/repositories/${repository}")
+        "https://hub.docker.com/v2/namespaces/${DOCKERHUB_USERNAME}/repositories/${repository}")
 
     # Separate HTTP status code from body (last line)
     local status=$(echo "$response" | tail -n1)
