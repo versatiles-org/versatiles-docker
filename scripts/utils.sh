@@ -294,13 +294,13 @@ update_docker_description() {
     local data=$(jq -n \
         --arg username "${DOCKERHUB_USERNAME}" \
         --arg password "${DOCKERHUB_TOKEN}" \
-        '{username: $username, password: $password}')
+        '{identifier: $username, secret: $password}')
 
     local jwt_token=$(curl --silent --show-error --retry 3 --retry-delay 3 \
         -X POST \
         -H "Content-Type: application/json" \
         -d "$data" \
-        "https://hub.docker.com/v2/users/login" | jq -r '.access_token')
+        "https://hub.docker.com/v2/auth/token" | jq -r '.access_token')
 
     if [[ -z "$jwt_token" || "$jwt_token" == "null" ]]; then
         echo "❌ Authentication failed - could not obtain JWT." >&2
