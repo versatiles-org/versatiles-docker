@@ -1,6 +1,6 @@
 # syntax=docker/dockerfile:1
 
-FROM versatiles/versatiles:debian AS versatiles-tilemaker
+FROM debian:stable-slim AS versatiles-tilemaker
 LABEL maintainer="Michael Kreil <versatiles@michael-kreil.de>"
 LABEL org.opencontainers.image.source="https://github.com/versatiles-org/versatiles-docker"
 
@@ -37,6 +37,8 @@ RUN git clone --depth 1 -q --branch versatiles https://github.com/versatiles-org
     bash /opt/shortbread/get-shapefiles.sh && \
     rm /opt/shortbread/data/*.zip && \
     rm -rf /opt/shortbread/.git /opt/shortbread/data/simplified-water-polygons-split-3857
+
+RUN curl -Ls "https://github.com/versatiles-org/versatiles-rs/raw/main/scripts/install-unix.sh" | sh
 
 WORKDIR /opt/shortbread
 
