@@ -27,6 +27,7 @@ RUN apt update -y && \
         zlib1g-dev && \
     rm -rf /var/lib/apt/lists/*
 
+# Add Tilemaker
 RUN git clone --depth 1 https://github.com/systemed/tilemaker.git /tmp/tilemaker && \
     make -C /tmp/tilemaker && \
     make -C /tmp/tilemaker install && \
@@ -38,6 +39,7 @@ RUN git clone --depth 1 -q --branch versatiles https://github.com/versatiles-org
     rm /opt/shortbread/data/*.zip && \
     rm -rf /opt/shortbread/.git /opt/shortbread/data/simplified-water-polygons-split-3857
 
+# Add VersaTiles
 RUN curl -Ls "https://github.com/versatiles-org/versatiles-rs/raw/main/scripts/install-unix.sh" | sh
 
 WORKDIR /opt/shortbread
