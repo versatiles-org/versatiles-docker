@@ -4,11 +4,25 @@ on:
     - cron: '0 0 * * 4' # Every Thursday at midnight UTC
   repository_dispatch:
   workflow_dispatch:
+    inputs:
+      target:
+        description: 'Which Docker image to build (defaults to all)'
+        required: false
+        default: 'all'
+        type: choice
+        options:
+          - all
+          - base
+          - frontend
+          - nginx
+          - tippecanoe
+          - tilemaker
 
 env:
   CARGO_TERM_COLOR: always
   FORCE_COLOR: 1
   DOCKERHUB_TOKEN: ${{ secrets.DOCKERHUB_TOKEN }}
+  TARGET: ${{ github.event.inputs.target || 'all' }}
 
 concurrency:
   group: release-${{ github.workflow }}-${{ github.ref }}
@@ -46,16 +60,21 @@ jobs:
           password: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Build base
+        if: ${{ github.event_name != 'workflow_dispatch' || env.TARGET == 'all' || env.TARGET == 'base' }}
         run: bash ./versatiles/build.sh --test --push
 
       - name: Build frontend
+        if: ${{ github.event_name != 'workflow_dispatch' || env.TARGET == 'all' || env.TARGET == 'frontend' }}
         run: bash ./versatiles-frontend/build.sh --test --push
 
       - name: Build nginx
+        if: ${{ github.event_name != 'workflow_dispatch' || env.TARGET == 'all' || env.TARGET == 'nginx' }}
         run: bash ./versatiles-nginx/build.sh --test --push
 
       - name: Build tippecanoe
+        if: ${{ github.event_name != 'workflow_dispatch' || env.TARGET == 'all' || env.TARGET == 'tippecanoe' }}
         run: bash ./versatiles-tippecanoe/build.sh --test --push
 
       - name: Build tilemaker
+        if: ${{ github.event_name != 'workflow_dispatch' || env.TARGET == 'all' || env.TARGET == 'tilemaker' }}
         run: bash ./versatiles-tilemaker/build.sh --test --push
