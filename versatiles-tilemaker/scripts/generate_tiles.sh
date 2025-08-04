@@ -102,7 +102,6 @@ rm "$WORKDIR/input.pbf"
 # 🖼  Generate MBTiles with Tilemaker
 ###########################################################################
 echo "🧱  Rendering tiles…"
-pushd shortbread-tilemaker >/dev/null
 time tilemaker \
     --input "$WORKDIR/prepared.pbf" \
     --config config.json \
@@ -111,9 +110,9 @@ time tilemaker \
     --output "$WORKDIR/output.mbtiles" \
     --compact \
     --store "$TMPDIR"
-popd >/dev/null
 
-rm -rf "$TMPDIR" "$WORKDIR/prepared.pbf"
+rm -rf "$TMPDIR"
+rm -f "$WORKDIR/prepared.pbf"
 
 ###########################################################################
 # 🔄  Convert MBTiles → Versatiles
