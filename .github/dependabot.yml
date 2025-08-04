@@ -2,9 +2,9 @@ version: 2
 updates:
   - package-ecosystem: docker
     directory: /
-    schedule: { interval: monthly }
+    schedule: { interval: weekly }
     groups: { docker: { patterns: ['*'] } }
   - package-ecosystem: github-actions
     directory: /
-    schedule: { interval: monthly }
+    schedule: { interval: weekly }
     groups: { github-action: { patterns: ['*'] } }
