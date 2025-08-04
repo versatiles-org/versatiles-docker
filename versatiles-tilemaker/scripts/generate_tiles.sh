@@ -3,7 +3,7 @@
 # generate_tiles.sh  <PBF‑URL>  <NAME>  [BBOX]
 #
 # Downloads an OpenStreetMap PBF extract, converts it to MBTiles via Tilemaker,
-# then re‑encodes it to Versatiles format. The resulting archive is placed in
+# then re‑encodes it to VersaTiles format. The resulting archive is placed in
 # /app/result/<NAME>.versatiles.
 #
 # Dependencies: aria2c, osmium, tilemaker, versatiles, mount, stat, perl
@@ -115,9 +115,9 @@ rm -rf "$TMPDIR"
 rm -f "$DATADIR/prepared.pbf"
 
 ###########################################################################
-# 🔄  Convert MBTiles → Versatiles
+# 🔄  Convert MBTiles → VersaTiles
 ###########################################################################
-echo "🚀  Converting to Versatiles…"
+echo "🚀  Converting to VersaTiles…"
 FILE_SIZE_BYTES=$(stat -c %s "$DATADIR/output.mbtiles")
 
 if [[ -n "${TMPFS_SIZE_GB:-}" ]]; then
