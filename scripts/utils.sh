@@ -167,7 +167,7 @@ _ensure_builder() {
 buildx_cache_args() {
     if [[ -n "${GITHUB_ACTIONS:-}" ]]; then
         echo "Setting up Buildx cache for GitHub Actions…" 1>&2
-        echo "--cache-from type=gha --cache-to type=gha,mode=max"
+        echo "--cache-from type=gha,scope=versatiles-docker --cache-to type=gha,scope=versatiles-docker,mode=max"
     fi
 }
 
@@ -225,7 +225,7 @@ build_load_image() {
         ;;
     esac
 
-    docker buildx build --target "$1" $(build_image_args "$2" "$3") --platform "linux/${host_arch}" $(buildx_cache_args) ${BUILD_ARGS:-} --load . >/dev/null
+    docker buildx build --target "$1" $(build_image_args "$2" "$3") --platform "linux/${host_arch}" $(buildx_cache_args) ${BUILD_ARGS:-} --load .
 }
 
 # --------------------------------------------------------------------------- #
