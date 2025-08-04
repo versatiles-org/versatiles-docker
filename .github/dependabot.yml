@@ -1,7 +1,12 @@
 version: 2
 updates:
   - package-ecosystem: docker
-    directory: /
+    directories:
+      - /versatiles
+      - /versatiles-frontend
+      - /versatiles-nginx
+      - /versatiles-tilemaker
+      - /versatiles-tippecanoe
     schedule: { interval: weekly }
     groups: { docker: { patterns: ['*'] } }
   - package-ecosystem: github-actions
