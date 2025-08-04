@@ -9,7 +9,7 @@
 # Dependencies: aria2c, osmium, tilemaker, versatiles, mount, stat, perl
 #
 # Environment variables:
-#   WORKDIR        Working directory for intermediate artefacts (default: ./data)
+#   DATADIR        Working directory for intermediate artefacts (default: /app/data)
 #   TMPFS_SIZE_GB  Override automatic tmpfs sizing in GB
 #
 
@@ -56,11 +56,11 @@ done
 ###########################################################################
 # 📁  Directory layout
 ###########################################################################
-WORKDIR="${WORKDIR:-$(pwd)/data}"
-TMPDIR="${WORKDIR}/tmp"
-RAMDISK_MOUNT="${WORKDIR}/ramdisk"
+DATADIR="${DATADIR:-/app/data}"
+TMPDIR="${DATADIR}/tmp"
+RAMDISK_MOUNT="${DATADIR}/ramdisk"
 
-mkdir -p "$WORKDIR" "$TMPDIR"
+mkdir -p "$DATADIR" "$TMPDIR"
 
 ###########################################################################
 # 🚿  Cleanup on exit
@@ -81,44 +81,44 @@ echo "   NAME: $TILE_NAME"
 echo "   BBOX: $TILE_BBOX"
 
 echo "📥  Downloading data…"
-aria2c --seed-time=0 --dir="$WORKDIR" "$PBF_URL"
+aria2c --seed-time=0 --dir="$DATADIR" "$PBF_URL"
 
-PBF_FILE=$(find "$WORKDIR" -maxdepth 1 -type f -name '*.pbf' | head -n 1)
+PBF_FILE=$(find "$DATADIR" -maxdepth 1 -type f -name '*.pbf' | head -n 1)
 [[ -n "$PBF_FILE" ]] || {
     echo "No PBF file found after download"
     exit 1
 }
 
-mv "$PBF_FILE" "$WORKDIR/input.pbf"
+mv "$PBF_FILE" "$DATADIR/input.pbf"
 
 ###########################################################################
 # 🛠  Prepare PBF for Tilemaker
 ###########################################################################
 echo "🔃  Renumbering PBF…"
-time osmium renumber --progress -o "$WORKDIR/prepared.pbf" "$WORKDIR/input.pbf"
-rm "$WORKDIR/input.pbf"
+time osmium renumber --progress -o "$DATADIR/prepared.pbf" "$DATADIR/input.pbf"
+rm "$DATADIR/input.pbf"
 
 ###########################################################################
 # 🖼  Generate MBTiles with Tilemaker
 ###########################################################################
 echo "🧱  Rendering tiles…"
 time tilemaker \
-    --input "$WORKDIR/prepared.pbf" \
+    --input "$DATADIR/prepared.pbf" \
     --config config.json \
     --process process.lua \
     --bbox "$TILE_BBOX" \
-    --output "$WORKDIR/output.mbtiles" \
+    --output "$DATADIR/output.mbtiles" \
     --compact \
     --store "$TMPDIR"
 
 rm -rf "$TMPDIR"
-rm -f "$WORKDIR/prepared.pbf"
+rm -f "$DATADIR/prepared.pbf"
 
 ###########################################################################
 # 🔄  Convert MBTiles → Versatiles
 ###########################################################################
 echo "🚀  Converting to Versatiles…"
-FILE_SIZE_BYTES=$(stat -c %s "$WORKDIR/output.mbtiles")
+FILE_SIZE_BYTES=$(stat -c %s "$DATADIR/output.mbtiles")
 
 if [[ -n "${TMPFS_SIZE_GB:-}" ]]; then
     RAM_GB="$TMPFS_SIZE_GB"
@@ -129,17 +129,17 @@ fi
 mkdir -p "$RAMDISK_MOUNT"
 mount -t tmpfs -o size=${RAM_GB}G tmpfs "$RAMDISK_MOUNT"
 
-mv "$WORKDIR/output.mbtiles" "$RAMDISK_MOUNT"
+mv "$DATADIR/output.mbtiles" "$RAMDISK_MOUNT"
 
 time versatiles convert -c brotli \
     "$RAMDISK_MOUNT/output.mbtiles" \
-    "$WORKDIR/output.versatiles"
+    "$DATADIR/output.versatiles"
 
 ###########################################################################
 # 📦  Deliver result
 ###########################################################################
 echo "📤  Moving result to /app/result…"
 mkdir -p /app/result
-mv "$WORKDIR/output.versatiles" "/app/result/${TILE_NAME}.versatiles"
+mv "$DATADIR/output.versatiles" "/app/result/${TILE_NAME}.versatiles"
 
 echo "✅  Done: /app/result/${TILE_NAME}.versatiles"

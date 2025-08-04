@@ -39,6 +39,9 @@ RUN git clone --depth 1 -q --branch versatiles https://github.com/versatiles-org
     rm -rf /opt/shortbread/.git /opt/shortbread/data/simplified-water-polygons-split-3857
 
 WORKDIR /opt/shortbread
+
+ENV DATADIR=/app
+
 COPY --chmod=0755 scripts/generate_tiles.sh /usr/local/bin/generate_tiles
 
 ENTRYPOINT ["generate_tiles"]
