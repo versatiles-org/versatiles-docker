@@ -13,7 +13,7 @@
 #   TMPFS_SIZE_GB  Override automatic tmpfs sizing in GB
 #
 
-set -euo pipefail
+set -euxo pipefail
 
 ###########################################################################
 # 🛠  Helper functions
