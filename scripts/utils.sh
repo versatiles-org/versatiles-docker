@@ -69,10 +69,17 @@ shopt -s extglob
 fetch_release_tag() {
     local repo=${1:-"versatiles-org/versatiles-rs"}
     local tag
-    tag=$(curl -s "https://api.github.com/repos/${repo}/releases/latest" | jq -r '.tag_name')
+    local response
+    response=$(curl --silent --show-error --location --fail "https://api.github.com/repos/${repo}/releases/latest") || {
+        echo "❌ curl failed while fetching release info for repository: $repo" >&2
+        return 1
+    }
+    tag=$(echo "$response" | jq -r '.tag_name')
 
     if [[ "$tag" == "null" || -z "$tag" ]]; then
         echo "❌ Failed to fetch release tag for repository: $repo" >&2
+        echo "Full API response was:" >&2
+        echo "$response" >&2
         return 1
     fi
 
