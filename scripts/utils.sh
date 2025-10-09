@@ -70,7 +70,7 @@ fetch_release_tag() {
     local repo=${1:-"versatiles-org/versatiles-rs"}
     local tag
     local response
-    response=$(curl --silent --show-error --location --fail "https://api.github.com/repos/${repo}/releases/latest") || {
+    response=$(curl --retry 3 --silent --show-error --location --fail "https://api.github.com/repos/${repo}/releases/latest") || {
         echo "❌ curl failed while fetching release info for repository: $repo" >&2
         return 1
     }

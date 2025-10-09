@@ -40,7 +40,7 @@ RUN git clone --depth 1 -q --branch versatiles https://github.com/versatiles-org
     rm -rf /opt/shortbread/.git /opt/shortbread/data/simplified-water-polygons-split-3857
 
 # Add VersaTiles
-RUN curl -Ls "https://github.com/versatiles-org/versatiles-rs/raw/main/scripts/install-unix.sh" | sh
+RUN curl --retry 3 -Ls "https://github.com/versatiles-org/versatiles-rs/raw/main/scripts/install-unix.sh" | sh
 
 WORKDIR /opt/shortbread
 
