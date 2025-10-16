@@ -49,5 +49,5 @@ fi
 if $needs_push; then
     echo "🚀 Building and pushing images to Docker Hub"
     build_push_image versatiles-nginx "$NAME" "latest,$VER"
-    update_docker_description versatiles
+    update_docker_description versatiles-nginx
 fi
