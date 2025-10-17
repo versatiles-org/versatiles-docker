@@ -48,7 +48,7 @@ concurrency:
 jobs:
   build:
     name: Building
-    runs-on: macos-latest
+    runs-on: ubuntu-latest
     permissions:
       contents: read
       packages: write
