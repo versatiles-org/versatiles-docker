@@ -13,7 +13,7 @@ docker run -it versatiles/versatiles
 You can pass any [versatiles-rs command-line arguments](https://github.com/versatiles-org/versatiles-rs?tab=readme-ov-file#usage). For example, to convert an MBTiles file to the VersaTiles format:
 
 ```sh
-docker run -it versatiles/versatiles convert osm.mbtiles osm.versatiles
+docker run -it --rm -v $(pwd):/data versatiles/versatiles convert osm.mbtiles osm.versatiles
 ```
 
 ## About

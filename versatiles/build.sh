@@ -36,6 +36,20 @@ if $needs_testing; then
             echo "❌ Version mismatch for $image: expected 'versatiles ${VER:1}', got '$result'" >&2
             exit 1
         fi
+        
+        mkdir -p ../testdata/temp
+        output=$(docker run --rm -v ../testdata:/data "$image" convert chioggia.versatiles ./temp/chioggia.pmtiles 2>&1 || true)
+        expected="finished converting tiles"
+        if [[ "$output" != *"$expected" ]]; then
+            echo "❌ Test 2 failed: expected output to end with '$expected', got '$output'" >&2
+            exit 1
+        fi
+        file_size=$(ls -lh ../testdata/temp/chioggia.pmtiles | awk '{print $5}')
+        rm -rf ../testdata/temp
+        if [[ $file_size != "12M" ]]; then
+            echo "❌ Test 2 failed: expected output file size to be '12MB', got '$file_size'" >&2
+            exit 1
+        fi
     }
 
     test_image "$NAME:debian"

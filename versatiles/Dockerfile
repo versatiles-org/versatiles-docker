@@ -27,8 +27,8 @@ LABEL maintainer="Michael Kreil <versatiles@michael-kreil.de>"
 LABEL org.opencontainers.image.source="https://github.com/versatiles-org/versatiles-docker"
 WORKDIR /app
 COPY --from=builder-musl --chmod=0755 --chown=root /app/versatiles .
-ENV PATH="/app:$PATH"
-ENTRYPOINT ["versatiles"]
+WORKDIR /data
+ENTRYPOINT ["/app/versatiles"]
 
 # ==== 2. Scratch (static musl) ==============================================
 FROM scratch AS versatiles-scratch
@@ -36,8 +36,8 @@ LABEL maintainer="Michael Kreil <versatiles@michael-kreil.de>"
 LABEL org.opencontainers.image.source="https://github.com/versatiles-org/versatiles-docker"
 WORKDIR /app
 COPY --from=builder-musl --chmod=0755 /app/versatiles .
-ENV PATH="/app"
-ENTRYPOINT ["versatiles"]
+WORKDIR /data
+ENTRYPOINT ["/app/versatiles"]
 
 # ==== 3. Debian slim (glibc) =================================================
 FROM debian:stable-slim AS versatiles-debian
@@ -45,5 +45,5 @@ LABEL maintainer="Michael Kreil <versatiles@michael-kreil.de>"
 LABEL org.opencontainers.image.source="https://github.com/versatiles-org/versatiles-docker"
 WORKDIR /app
 COPY --from=builder-gnu --chmod=0755 --chown=root /app/versatiles .
-ENV PATH="/app:$PATH"
-ENTRYPOINT ["versatiles"]
+WORKDIR /data
+ENTRYPOINT ["/app/versatiles"]
