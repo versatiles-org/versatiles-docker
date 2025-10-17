@@ -45,10 +45,10 @@ if $needs_testing; then
             echo "❌ Test 2 failed: expected output to end with '$expected', got '$output'" >&2
             exit 1
         fi
-        file_size=$(ls -lh $TEST_DIR/temp/chioggia.pmtiles | awk '{print $5}')
+        file_size=$(wc -c $TEST_DIR/temp/chioggia.pmtiles | awk '{print $1}')
         rm -rf $TEST_DIR/temp
-        if [[ $file_size != "12M" ]]; then
-            echo "❌ Test 2 failed: expected output file size to be '12MB', got '$file_size'" >&2
+        if [[ $file_size -lt 12500000 ]]; then
+            echo "❌ Test 2 failed: expected output file size to be greater than 12.5 MB, got '$file_size'" >&2
             exit 1
         fi
     }
