@@ -1,4 +1,4 @@
-name: Build all Docker images
+name: Build Docker Images
 on:
   schedule:
     - cron: '0 0 * * 4' # Every Thursday at midnight UTC
