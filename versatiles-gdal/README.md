@@ -20,7 +20,7 @@ You can pass any [VersaTiles CLI arguments](https://github.com/versatiles-org/ve
 For example, convert a GeoTIFF into map tiles:
 ```sh
 echo 'from_gdal_raster filename=satellite.tif' > satellite.vpl
-docker run -it versatiles/versatiles-gdal convert satellite.vpl satellite.versatiles
+docker run -it --rm -v $(pwd):/data versatiles/versatiles-gdal convert satellite.vpl satellite.versatiles
 ```
 
 ## About

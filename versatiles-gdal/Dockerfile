@@ -49,6 +49,5 @@ RUN \
   dpkg-query -Wf '${Installed-Size}\t${Package}\n' | sort -n
   
 ENV LD_LIBRARY_PATH=/app/gdal/lib
-WORKDIR /app
-ENV PATH="/app:$PATH"
-ENTRYPOINT ["versatiles"]
+WORKDIR /data
+ENTRYPOINT ["/app/versatiles"]
