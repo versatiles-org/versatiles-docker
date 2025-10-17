@@ -36,14 +36,14 @@ if $needs_testing; then
     mkdir -p ../testdata/temp
     output=$(docker run --rm -v ../testdata:/data versatiles-gdal convert liechtenstein.vpl ./temp/liechtenstein.mbtiles 2>&1 || true)
     expected="finished converting tiles"
-    file_size=$(ls -lh ../testdata/temp/liechtenstein.mbtiles | awk '{print $5}')
-    rm -rf ../testdata/temp
     if [[ "$output" != *"$expected" ]]; then
         echo "❌ Test 2 failed: expected output to end with '$expected', got '$output'" >&2
         exit 1
     fi
-    if [[ $file_size == "16M" ]]; then
-        echo "❌ Test 2 failed: expected output file size to be '16 MB', got '$file_size'" >&2
+    file_size=$(ls -lh ../testdata/temp/liechtenstein.mbtiles | awk '{print $5}')
+    rm -rf ../testdata/temp
+    if [[ $file_size != "16M" ]]; then
+        echo "❌ Test 2 failed: expected output file size to be '16MB', got '$file_size'" >&2
         exit 1
     fi
 
