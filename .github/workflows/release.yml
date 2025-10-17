@@ -14,8 +14,8 @@ on:
           - all
           - base
           - frontend
-          - gdal
           - nginx
+          - gdal
           - tippecanoe
           - tilemaker
 
@@ -68,13 +68,13 @@ jobs:
         if: ${{ github.event_name != 'workflow_dispatch' || env.TARGET == 'all' || env.TARGET == 'frontend' }}
         run: bash ./versatiles-frontend/build.sh --test --push
 
-      - name: Build gdal
-        if: ${{ github.event_name != 'workflow_dispatch' || env.TARGET == 'all' || env.TARGET == 'gdal' }}
-        run: bash ./versatiles-gdal/build.sh --test --push
-
       - name: Build nginx
         if: ${{ github.event_name != 'workflow_dispatch' || env.TARGET == 'all' || env.TARGET == 'nginx' }}
         run: bash ./versatiles-nginx/build.sh --test --push
+
+      - name: Build gdal
+        if: ${{ github.event_name != 'workflow_dispatch' || env.TARGET == 'all' || env.TARGET == 'gdal' }}
+        run: bash ./versatiles-gdal/build.sh --test --push
 
       - name: Build tippecanoe
         if: ${{ github.event_name != 'workflow_dispatch' || env.TARGET == 'all' || env.TARGET == 'tippecanoe' }}
