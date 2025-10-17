@@ -48,7 +48,7 @@ concurrency:
 jobs:
   build:
     name: Building
-    runs-on: ubuntu-24.04-arm
+    runs-on: macos-latest
     permissions:
       contents: read
       packages: write
