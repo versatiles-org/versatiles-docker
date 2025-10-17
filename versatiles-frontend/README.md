@@ -20,10 +20,9 @@ To serve a VersaTiles container together with the web front‑end using the late
 ```bash
 docker run \
   -p 8080:8080 \
-  --mount src="$(pwd)",dst=/tiles,type=bind,readonly \
+  -v "$(pwd)":/data:ro \
   versatiles/versatiles-frontend:latest-alpine \
-  -s frontend-dev.br.tar \
-  '/tiles/osm.versatiles'
+  osm.versatiles
 ```
 
 Open <http://localhost:8080/> in your browser. You should see something like this: [screenshot](../assets/screenshots/frontend_index.png).
@@ -32,13 +31,12 @@ Open <http://localhost:8080/> in your browser. You should see something like thi
 
 - **`docker run`** — Launches the container.  
 - **`-p 8080:8080`** — Maps port **8080** inside the container to **8080** on the host.  
-- **`--mount src="$(pwd)",dst=/tiles,type=bind,readonly`** — Binds the current directory to **/tiles** inside the container (read‑only).  
+- **`-v "$(pwd)":/data:ro`** — Binds the current directory to **/data** inside the container (read‑only).  
 - **`versatiles/versatiles-frontend:latest-alpine`** — Specifies the Docker image (see [other tags](https://github.com/versatiles-org/versatiles-docker#images-versatiles-frontend)).
 
 Everything after the image name is passed to `versatiles server`:
 
-- **`-s frontend-dev.br.tar`** — Adds the bundled developer front‑end.  
-- **`'/tiles/osm.versatiles'`** — Serves the mounted `osm.versatiles` file (adjust the path if your file is named differently).
+- **`'osm.versatiles'`** — Serves the mounted `osm.versatiles` file (adjust the path if your file is named differently).
 
 ## Resources
 
