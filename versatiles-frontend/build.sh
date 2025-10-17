@@ -40,11 +40,11 @@ if $needs_testing; then
 
     test_image() {
         local image="$1"
-        echo "Testing '$image'"
+        echo "  🧪 Testing: $image"
 
         TMP_DIR=$(mktemp -d)
         # Start the container in background (serves chioggia.versatiles)
-        echo "  ▶️ Starting server..."
+        echo "    ▶️ Starting server..."
         CONTAINER_ID=$(docker run -d --rm -v "$TEST_DIR":/data -p 8080:8080 "$image" chioggia.versatiles)
 
         # Wait for the server to come up
@@ -53,9 +53,9 @@ if $needs_testing; then
         # Try fetching a single tile
         TILE_URL="http://localhost:8080/tiles/chioggia/14/8750/5880"
         TILE_PATH="$TMP_DIR/tile.pbf"
-        echo "  ⬇️ Downloading $TILE_URL"
+        echo "    ⬇️ Downloading $TILE_URL"
         curl -s "$TILE_URL" -o "$TILE_PATH" || {
-            echo "❌ Failed to download tile from $TILE_URL"
+            echo "    ❌ Failed to download tile from $TILE_URL"
             docker logs "$CONTAINER_ID" || true
             docker kill "$CONTAINER_ID" >/dev/null 2>&1 || true
             exit 1
@@ -66,15 +66,13 @@ if $needs_testing; then
 
         # Check tile file size
         TILE_SIZE=$(wc -c "$TILE_PATH" | awk '{print $1}')
-        echo "  📦 Tile size: $TILE_SIZE"
+        echo "    📦 Tile size: $TILE_SIZE"
 
         # Sanity check: ensure nonzero tile
         if [[ "$TILE_SIZE" != 48679 ]]; then
-            echo "❌ Tile size check failed (expected 48679 bytes, got $TILE_SIZE)"
+            echo "    ❌ Tile size check failed (expected 48679 bytes, got $TILE_SIZE)"
             exit 1
         fi
-
-        echo "  ✅ Tile test succeeded"
     }
 
     test_image "$NAME:debian"

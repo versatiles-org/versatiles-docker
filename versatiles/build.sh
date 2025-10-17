@@ -30,10 +30,10 @@ if $needs_testing; then
 
     test_image() {
         local image="$1"
-        echo "  - $image"
+        echo "  🧪 Testing: $image"
         result=$(docker run --rm "$image" --version)
         if [ "$result" != "versatiles ${VER:1}" ]; then
-            echo "❌ Version mismatch for $image: expected 'versatiles ${VER:1}', got '$result'" >&2
+            echo "  ❌ Version mismatch for $image: expected 'versatiles ${VER:1}', got '$result'" >&2
             exit 1
         fi
         
@@ -42,13 +42,13 @@ if $needs_testing; then
         output=$(docker run --rm -v $TEST_DIR:/data "$image" convert chioggia.versatiles ./temp/chioggia.pmtiles 2>&1 || true)
         expected="finished converting tiles"
         if [[ "$output" != *"$expected" ]]; then
-            echo "❌ Test 2 failed: expected output to end with '$expected', got '$output'" >&2
+            echo "  ❌ Test 2 failed: expected output to end with '$expected', got '$output'" >&2
             exit 1
         fi
         file_size=$(wc -c $TEST_DIR/temp/chioggia.pmtiles | awk '{print $1}')
         rm -rf $TEST_DIR/temp
         if [[ $file_size -lt 12500000 ]]; then
-            echo "❌ Test 2 failed: expected output file size to be greater than 12.5 MB, got '$file_size'" >&2
+            echo "  ❌ Test 2 failed: expected output file size to be greater than 12.5 MB, got '$file_size'" >&2
             exit 1
         fi
     }
