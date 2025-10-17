@@ -1,0 +1,1 @@
+Basic, lightweight Docker image containing the versatiles binary with GDAL bindings.
