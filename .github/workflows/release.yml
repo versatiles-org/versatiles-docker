@@ -5,25 +5,41 @@ on:
   repository_dispatch:
   workflow_dispatch:
     inputs:
-      target:
-        description: 'Which Docker image to build (defaults to all)'
+      build_base:
+        description: 'Build base image'
         required: false
-        default: 'all'
-        type: choice
-        options:
-          - all
-          - base
-          - frontend
-          - nginx
-          - gdal
-          - tippecanoe
-          - tilemaker
+        type: boolean
+        default: true
+      build_frontend:
+        description: 'Build frontend image'
+        required: false
+        type: boolean
+        default: true
+      build_nginx:
+        description: 'Build nginx image'
+        required: false
+        type: boolean
+        default: true
+      build_gdal:
+        description: 'Build gdal image'
+        required: false
+        type: boolean
+        default: true
+      build_tippecanoe:
+        description: 'Build tippecanoe image'
+        required: false
+        type: boolean
+        default: true
+      build_tilemaker:
+        description: 'Build tilemaker image'
+        required: false
+        type: boolean
+        default: true
 
 env:
   CARGO_TERM_COLOR: always
   FORCE_COLOR: 1
   DOCKERHUB_TOKEN: ${{ secrets.DOCKERHUB_TOKEN }}
-  TARGET: ${{ github.event.inputs.target || 'all' }}
 
 concurrency:
   group: release-${{ github.workflow }}-${{ github.ref }}
@@ -61,25 +77,25 @@ jobs:
           password: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Build base
-        if: ${{ github.event_name != 'workflow_dispatch' || env.TARGET == 'all' || env.TARGET == 'base' }}
+        if: ${{ github.event_name != 'workflow_dispatch' || inputs.build_base }}
         run: bash ./versatiles/build.sh --test --push
 
       - name: Build frontend
-        if: ${{ github.event_name != 'workflow_dispatch' || env.TARGET == 'all' || env.TARGET == 'frontend' }}
+        if: ${{ github.event_name != 'workflow_dispatch' || inputs.build_frontend }}
         run: bash ./versatiles-frontend/build.sh --test --push
 
       - name: Build nginx
-        if: ${{ github.event_name != 'workflow_dispatch' || env.TARGET == 'all' || env.TARGET == 'nginx' }}
+        if: ${{ github.event_name != 'workflow_dispatch' || inputs.build_nginx }}
         run: bash ./versatiles-nginx/build.sh --test --push
 
       - name: Build gdal
-        if: ${{ github.event_name != 'workflow_dispatch' || env.TARGET == 'all' || env.TARGET == 'gdal' }}
+        if: ${{ github.event_name != 'workflow_dispatch' || inputs.build_gdal }}
         run: bash ./versatiles-gdal/build.sh --test --push
 
       - name: Build tippecanoe
-        if: ${{ github.event_name != 'workflow_dispatch' || env.TARGET == 'all' || env.TARGET == 'tippecanoe' }}
+        if: ${{ github.event_name != 'workflow_dispatch' || inputs.build_tippecanoe }}
         run: bash ./versatiles-tippecanoe/build.sh --test --push
 
       - name: Build tilemaker
-        if: ${{ github.event_name != 'workflow_dispatch' || env.TARGET == 'all' || env.TARGET == 'tilemaker' }}
+        if: ${{ github.event_name != 'workflow_dispatch' || inputs.build_tilemaker }}
         run: bash ./versatiles-tilemaker/build.sh --test --push
