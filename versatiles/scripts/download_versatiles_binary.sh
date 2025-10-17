@@ -3,7 +3,7 @@
 set -e
 
 TARGETPLATFORM=$1
-BASE_URL="https://github.com/versatiles-org/versatiles-rs/releases/latest/download/versatiles"
+BASE_URL="https://github.com/versatiles-org/versatiles-rs/releases/latest/download"
 
 case $TARGETPLATFORM in
 	"linux/amd64-musl")
@@ -24,5 +24,6 @@ case $TARGETPLATFORM in
 		;;
 esac
 
-curl --retry 3 -sL $URL | tar x -z -f - versatiles
+echo "Downloading versatiles binary from $URL"
+curl --retry 3 -sL $URL | tar x -zf - versatiles
 chmod +x versatiles
