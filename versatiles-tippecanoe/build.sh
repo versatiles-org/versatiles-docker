@@ -34,7 +34,7 @@ if $needs_testing; then
     fi
     output=$(docker run --rm --entrypoint "versatiles" "versatiles-tippecanoe:latest" -V 2>&1 | head -n 1 || true)
     if [[ "$output" != "versatiles ${VER_VT:1}" ]]; then
-        echo "❌ Version mismatch: expected 'versatiles ${VER_VT:1}', got '$result'" >&2
+        echo "❌ Version mismatch: expected 'versatiles ${VER_VT:1}', got '$output'" >&2
         exit 1
     fi
     

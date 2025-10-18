@@ -38,4 +38,5 @@ COPY --from=builder /src/tippecanoe /src/tippecanoe-json-tool /src/tippecanoe-de
 RUN apk add --no-cache libstdc++ sqlite-libs zlib
 
 WORKDIR /data
+ENV PATH="/app:${PATH}"
 ENTRYPOINT ["tippecanoe"]
