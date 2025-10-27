@@ -20,11 +20,6 @@ on:
         required: false
         type: boolean
         default: true
-      build_gdal:
-        description: 'Build gdal image'
-        required: false
-        type: boolean
-        default: true
       build_tippecanoe:
         description: 'Build tippecanoe image'
         required: false
@@ -32,6 +27,11 @@ on:
         default: true
       build_tilemaker:
         description: 'Build tilemaker image'
+        required: false
+        type: boolean
+        default: true
+      build_gdal:
+        description: 'Build gdal image'
         required: false
         type: boolean
         default: true
@@ -88,10 +88,6 @@ jobs:
         if: ${{ github.event_name != 'workflow_dispatch' || inputs.build_nginx }}
         run: bash ./versatiles-nginx/build.sh --test --push
 
-      - name: Build gdal
-        if: ${{ github.event_name != 'workflow_dispatch' || inputs.build_gdal }}
-        run: bash ./versatiles-gdal/build.sh --test --push
-
       - name: Build tippecanoe
         if: ${{ github.event_name != 'workflow_dispatch' || inputs.build_tippecanoe }}
         run: bash ./versatiles-tippecanoe/build.sh --test --push
@@ -99,3 +95,7 @@ jobs:
       - name: Build tilemaker
         if: ${{ github.event_name != 'workflow_dispatch' || inputs.build_tilemaker }}
         run: bash ./versatiles-tilemaker/build.sh --test --push
+
+      - name: Build gdal
+        if: ${{ github.event_name != 'workflow_dispatch' || inputs.build_gdal }}
+        run: bash ./versatiles-gdal/build.sh --test --push
