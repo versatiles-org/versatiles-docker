@@ -6,19 +6,81 @@
 # then re‑encodes it to VersaTiles format. The resulting archive is placed in
 # /app/result/<NAME>.versatiles.
 #
-# Dependencies: aria2c, osmium, tilemaker, versatiles
+# ──────────────────────────────────────────────────────────────────────────────
+# 📘 Documentation
+#
+# USAGE
+#   ./generate_tiles.sh <PBF-URL> <NAME> [BBOX]
+#
+#   <PBF-URL>  HTTP(S) URL to an .pbf extract (e.g. from Geofabrik)
+#   <NAME>     Base name for the resulting archive written to /app/result/<NAME>.versatiles
+#   [BBOX]     Optional lon/lat bounding box: minLon,minLat,maxLon,maxLat
+#              Defaults to -180,-86,180,86
+#
+# PIPELINE OVERVIEW
+#   1) Download .pbf → /app/data/input.pbf
+#   2) osmium renumber  → /app/data/prepared.pbf
+#   3) tilemaker render → /app/data/output.mbtiles
+#   4) versatiles convert (.mbtiles → .versatiles)
+#   5) Move result to /app/result/<NAME>.versatiles
+#
+# ENVIRONMENT VARIABLES
+#   RAMDISK_DIR
+#       Optional absolute path that points to a *pre-mounted* tmpfs to speed up
+#       reads of output.mbtiles during conversion. If provided and suitable,
+#       the script copies /app/data/output.mbtiles into this tmpfs and reads
+#       from there. If the tmpfs is not large enough or not a tmpfs, the script
+#       falls back to using the on-disk file in /app/data.
+#       Example (docker-compose):
+#         tmpfs:
+#           - /app/data/ramdisk:size=8g,mode=1777
+#         environment:
+#           RAMDISK_DIR: /app/data/ramdisk
+#
+#   STRICT_TMPFS (default: 0)
+#       If set to 1, the script will *abort* when no suitable tmpfs is available
+#       (or if copy into tmpfs fails) instead of falling back to disk. Useful for
+#       CI or environments that must guarantee RAM-backed reads.
+#
+# DIRECTORY LAYOUT (inside the container)
+#   /app/data         Working directory for downloads and intermediate files
+#   /app/data/tmp     Tilemaker temporary store (deleted after use)
+#   /app/data/ramdisk Optional pre-mounted tmpfs (if provided by docker as tmpfs)
+#   /app/result       Final output location (<NAME>.versatiles)
+#
+# HELPER FUNCTIONS
+#   usage()
+#       Prints a short usage hint and exits with code 1 when required args are missing.
+#
+#   require_cmd(<binary>)
+#       Verifies a required executable exists in PATH; exits with code 1 if missing.
+#
+#   choose_tmpfs(<candidate-path>, <required-bytes>) → echoes <resolved-path> | returns 1
+#       Accepts a candidate directory and the required capacity (in bytes). Resolves
+#       the path, checks that it is a tmpfs and that available capacity is ≥ required.
+#       On success, echoes the resolved path to stdout; on failure, returns non-zero.
+#
+#   cleanup()
+#       Removes /app/data/tmp on exit. Registered via `trap cleanup EXIT`.
+#
+# EXIT BEHAVIOR
+#   • Any failing step exits the script (set -euo pipefail).
+#   • When STRICT_TMPFS=1 and no suitable tmpfs is available, the script exits with code 1.
+#   • Otherwise, the script gracefully falls back to disk-backed reads.
 
 set -euo pipefail
 
 ###########################################################################
 # 🛠  Helper functions
 ###########################################################################
+# Print a short usage hint and exit
 usage() {
     echo "Arguments required: <pbf-url> <name> [bbox]"
     echo "       bbox default: -180,-86,180,86"
     exit 1
 }
 
+# Ensure a required binary is available
 require_cmd() {
     command -v "$1" >/dev/null 2>&1 || {
         echo "Error: required command '$1' not found." >&2
@@ -26,6 +88,7 @@ require_cmd() {
     }
 }
 
+# Validate candidate tmpfs and ensure capacity ≥ required_bytes
 choose_tmpfs() {
     local candidate="$1"
     local required_bytes="$2"
@@ -81,6 +144,7 @@ mkdir -p "$DATADIR" "$TMPDIR"
 ###########################################################################
 # 🚿  Cleanup on exit
 ###########################################################################
+# Remove temporary working directory on exit
 cleanup() {
     echo "Cleaning up…"
     rm -rf "$TMPDIR"
@@ -140,6 +204,9 @@ echo "🚀  Converting to VersaTiles…"
 # 2) Pre-mounted tmpfs at $RAMDISK_MOUNT (e.g., via Docker tmpfs)
 # 3) /dev/shm (typically tmpfs) as fallback
 # 4) Otherwise: no ramdisk; convert directly
+#
+# If no suitable tmpfs is found (or too small), we revert to disk unless
+# STRICT_TMPFS=1 is set, in which case the script aborts.
 
 RAMDISK_DIR="${RAMDISK_DIR:-}"
 
