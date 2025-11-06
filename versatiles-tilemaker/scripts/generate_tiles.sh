@@ -135,11 +135,11 @@ done
 ###########################################################################
 # 📁  Directory layout
 ###########################################################################
-DATADIR="/app/data"
-TMPDIR="${DATADIR}/tmp"
-RAMDISK_MOUNT="${DATADIR}/ramdisk"
+DATA_DIR="/app/data"
+TMP_DIR="${DATA_DIR}/tmp"
+RAMDISK_DEFAULT_DIR="${DATA_DIR}/ramdisk"
 
-mkdir -p "$DATADIR" "$TMPDIR"
+mkdir -p "$DATA_DIR" "$TMP_DIR"
 
 ###########################################################################
 # 🚿  Cleanup on exit
@@ -147,7 +147,7 @@ mkdir -p "$DATADIR" "$TMPDIR"
 # Remove temporary working directory on exit
 cleanup() {
     echo "Cleaning up…"
-    rm -rf "$TMPDIR"
+    rm -rf "$TMP_DIR"
 }
 trap cleanup EXIT
 
@@ -160,38 +160,38 @@ echo "   NAME: $TILE_NAME"
 echo "   BBOX: $TILE_BBOX"
 
 echo "📥  Downloading data…"
-aria2c --seed-time=0 --dir="$DATADIR" "$PBF_URL"
+aria2c --seed-time=0 --dir="$DATA_DIR" "$PBF_URL"
 
-PBF_FILE=$(find "$DATADIR" -maxdepth 1 -type f -name '*.pbf' | head -n 1)
+PBF_FILE=$(find "$DATA_DIR" -maxdepth 1 -type f -name '*.pbf' | head -n 1)
 [[ -n "$PBF_FILE" ]] || {
     echo "No PBF file found after download"
     exit 1
 }
 
-mv "$PBF_FILE" "$DATADIR/input.pbf"
+mv "$PBF_FILE" "$DATA_DIR/input.pbf"
 
 ###########################################################################
 # 🛠  Prepare PBF for Tilemaker
 ###########################################################################
 echo "🔃  Renumbering PBF…"
-time osmium renumber --progress -o "$DATADIR/prepared.pbf" "$DATADIR/input.pbf"
-rm "$DATADIR/input.pbf"
+time osmium renumber --progress -o "$DATA_DIR/prepared.pbf" "$DATA_DIR/input.pbf"
+rm "$DATA_DIR/input.pbf"
 
 ###########################################################################
 # 🖼  Generate MBTiles with Tilemaker
 ###########################################################################
 echo "🧱  Rendering tiles…"
 time tilemaker \
-    --input "$DATADIR/prepared.pbf" \
+    --input "$DATA_DIR/prepared.pbf" \
     --config config.json \
     --process process.lua \
     --bbox "$TILE_BBOX" \
-    --output "$DATADIR/output.mbtiles" \
+    --output "$DATA_DIR/output.mbtiles" \
     --compact \
-    --store "$TMPDIR"
+    --store "$TMP_DIR"
 
-rm -rf "$TMPDIR"
-rm -f "$DATADIR/prepared.pbf"
+rm -rf "$TMP_DIR"
+rm -f "$DATA_DIR/prepared.pbf"
 
 ###########################################################################
 # 🔄  Convert MBTiles → VersaTiles
@@ -201,7 +201,7 @@ echo "🚀  Converting to VersaTiles…"
 # Determine whether we can use an existing tmpfs
 # Priority:
 # 1) Environment variable RAMDISK_DIR pointing to a mounted tmpfs
-# 2) Pre-mounted tmpfs at $RAMDISK_MOUNT (e.g., via Docker tmpfs)
+# 2) Pre-mounted tmpfs at $RAMDISK_DEFAULT_DIR (e.g., via Docker tmpfs)
 # 3) /dev/shm (typically tmpfs) as fallback
 # 4) Otherwise: no ramdisk; convert directly
 #
@@ -210,13 +210,13 @@ echo "🚀  Converting to VersaTiles…"
 
 RAMDISK_DIR="${RAMDISK_DIR:-}"
 
-FILE_SIZE_BYTES=$(stat -c %s "$DATADIR/output.mbtiles")
+FILE_SIZE_BYTES=$(stat -c %s "$DATA_DIR/output.mbtiles")
 REQUIRED_BYTES=$((FILE_SIZE_BYTES + FILE_SIZE_BYTES / 10)) # +10% safety margin
 CHOSEN_TMPFS=""
 if [ -n "$RAMDISK_DIR" ] && [ -d "$RAMDISK_DIR" ]; then
     CHOSEN_TMPFS=$(choose_tmpfs "$RAMDISK_DIR" "$REQUIRED_BYTES") || CHOSEN_TMPFS=""
-elif [ -d "$RAMDISK_MOUNT" ]; then
-    CHOSEN_TMPFS=$(choose_tmpfs "$RAMDISK_MOUNT" "$REQUIRED_BYTES") || CHOSEN_TMPFS=""
+elif [ -d "$RAMDISK_DEFAULT_DIR" ]; then
+    CHOSEN_TMPFS=$(choose_tmpfs "$RAMDISK_DEFAULT_DIR" "$REQUIRED_BYTES") || CHOSEN_TMPFS=""
 elif [ -d /dev/shm ]; then
     mkdir -p /dev/shm/versatiles
     CHOSEN_TMPFS=$(choose_tmpfs /dev/shm "$REQUIRED_BYTES") && CHOSEN_TMPFS="/dev/shm/versatiles" || CHOSEN_TMPFS=""
@@ -230,7 +230,7 @@ fi
 if [ -n "$CHOSEN_TMPFS" ]; then
     echo "→ Using tmpfs at $CHOSEN_TMPFS"
     mkdir -p "$CHOSEN_TMPFS"
-    SRC_MB_DISK="$DATADIR/output.mbtiles"
+    SRC_MB_DISK="$DATA_DIR/output.mbtiles"
     TARGET_MB="$CHOSEN_TMPFS/output.mbtiles"
 
     if cp -f --reflink=auto "$SRC_MB_DISK" "$TARGET_MB"; then
@@ -245,7 +245,7 @@ if [ -n "$CHOSEN_TMPFS" ]; then
                 echo "❌ STRICT_TMPFS=1 and tmpfs copy failed. Aborting."
                 exit 1
             fi
-            SRC_DIR="$DATADIR"
+            SRC_DIR="$DATA_DIR"
         fi
     else
         echo "⚠️  Copy to tmpfs failed. Using disk source instead."
@@ -253,22 +253,22 @@ if [ -n "$CHOSEN_TMPFS" ]; then
             echo "❌ STRICT_TMPFS=1 and tmpfs copy failed. Aborting."
             exit 1
         fi
-        SRC_DIR="$DATADIR"
+        SRC_DIR="$DATA_DIR"
     fi
 else
     echo "→ No tmpfs detected; converting directly from disk"
-    SRC_DIR="$DATADIR"
+    SRC_DIR="$DATA_DIR"
 fi
 
 time versatiles convert -c brotli \
     "$SRC_DIR/output.mbtiles" \
-    "$DATADIR/output.versatiles"
+    "$DATA_DIR/output.versatiles"
 
 ###########################################################################
 # 📦  Deliver result
 ###########################################################################
 echo "📤  Moving result to /app/result…"
 mkdir -p /app/result
-mv "$DATADIR/output.versatiles" "/app/result/${TILE_NAME}.versatiles"
+mv "$DATA_DIR/output.versatiles" "/app/result/${TILE_NAME}.versatiles"
 
 echo "✅  Done: /app/result/${TILE_NAME}.versatiles"
