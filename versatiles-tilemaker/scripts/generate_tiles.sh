@@ -54,6 +54,8 @@ PBF_URL=$1
 TILE_NAME=$2
 TILE_BBOX=${3:--180,-86,180,86}
 
+: "${STRICT_TMPFS:=0}"
+
 [[ "$PBF_URL" =~ ^https?:// ]] || {
     echo "First argument must be a valid URL"
     exit 1
@@ -63,7 +65,7 @@ TILE_BBOX=${3:--180,-86,180,86}
     exit 1
 }
 
-for cmd in aria2c osmium tilemaker versatiles; do
+for cmd in aria2c osmium tilemaker versatiles df stat; do
     require_cmd "$cmd"
 done
 
@@ -142,7 +144,7 @@ echo "🚀  Converting to VersaTiles…"
 RAMDISK_DIR="${RAMDISK_DIR:-}"
 
 FILE_SIZE_BYTES=$(stat -c %s "$DATADIR/output.mbtiles")
-REQUIRED_BYTES=$((FILE_SIZE_BYTES + FILE_SIZE_BYTES / 10))
+REQUIRED_BYTES=$((FILE_SIZE_BYTES + FILE_SIZE_BYTES / 10)) # +10% safety margin
 CHOSEN_TMPFS=""
 if [ -n "$RAMDISK_DIR" ] && [ -d "$RAMDISK_DIR" ]; then
     CHOSEN_TMPFS=$(choose_tmpfs "$RAMDISK_DIR" "$REQUIRED_BYTES") || CHOSEN_TMPFS=""
@@ -153,11 +155,39 @@ elif [ -d /dev/shm ]; then
     CHOSEN_TMPFS=$(choose_tmpfs /dev/shm "$REQUIRED_BYTES") && CHOSEN_TMPFS="/dev/shm/versatiles" || CHOSEN_TMPFS=""
 fi
 
+if [ -z "$CHOSEN_TMPFS" ] && [ "$STRICT_TMPFS" = "1" ]; then
+    echo "❌ STRICT_TMPFS=1 but no suitable tmpfs available. Aborting."
+    exit 1
+fi
+
 if [ -n "$CHOSEN_TMPFS" ]; then
     echo "→ Using tmpfs at $CHOSEN_TMPFS"
     mkdir -p "$CHOSEN_TMPFS"
-    mv "$DATADIR/output.mbtiles" "$CHOSEN_TMPFS/"
-    SRC_DIR="$CHOSEN_TMPFS"
+    SRC_MB_DISK="$DATADIR/output.mbtiles"
+    TARGET_MB="$CHOSEN_TMPFS/output.mbtiles"
+
+    if cp -f --reflink=auto "$SRC_MB_DISK" "$TARGET_MB"; then
+        # quick size verification to catch truncated copies
+        if [ "$(stat -c %s "$TARGET_MB")" -eq "$(stat -c %s "$SRC_MB_DISK")" ]; then
+            rm -f "$SRC_MB_DISK"
+            SRC_DIR="$CHOSEN_TMPFS"
+        else
+            echo "⚠️  Copy verification failed (size mismatch). Using disk source instead."
+            rm -f "$TARGET_MB" || true
+            if [ "$STRICT_TMPFS" = "1" ]; then
+                echo "❌ STRICT_TMPFS=1 and tmpfs copy failed. Aborting."
+                exit 1
+            fi
+            SRC_DIR="$DATADIR"
+        fi
+    else
+        echo "⚠️  Copy to tmpfs failed. Using disk source instead."
+        if [ "$STRICT_TMPFS" = "1" ]; then
+            echo "❌ STRICT_TMPFS=1 and tmpfs copy failed. Aborting."
+            exit 1
+        fi
+        SRC_DIR="$DATADIR"
+    fi
 else
     echo "→ No tmpfs detected; converting directly from disk"
     SRC_DIR="$DATADIR"
