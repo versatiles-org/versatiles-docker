@@ -267,8 +267,8 @@ time versatiles convert -c brotli \
 ###########################################################################
 # 📦  Deliver result
 ###########################################################################
-echo "📤  Moving result to /app/result…"
+echo "📤  Moving result to ./result…"
 mkdir -p /app/result
 mv "$DATA_DIR/output.versatiles" "/app/result/${TILE_NAME}.versatiles"
 
-echo "✅  Done: /app/result/${TILE_NAME}.versatiles"
+echo "✅  Done: ./result/${TILE_NAME}.versatiles"
