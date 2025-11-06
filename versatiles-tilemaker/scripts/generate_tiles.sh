@@ -6,7 +6,7 @@
 # then re‑encodes it to VersaTiles format. The resulting archive is placed in
 # /app/result/<NAME>.versatiles.
 #
-# Dependencies: aria2c, osmium, tilemaker, versatiles, mount, stat, perl
+# Dependencies: aria2c, osmium, tilemaker, versatiles
 
 set -euo pipefail
 
@@ -62,8 +62,7 @@ mkdir -p "$DATADIR" "$TMPDIR"
 ###########################################################################
 cleanup() {
     echo "Cleaning up…"
-    umount -q "$RAMDISK_MOUNT" 2>/dev/null || true
-    rm -rf "$TMPDIR" "$RAMDISK_MOUNT"
+    rm -rf "$TMPDIR"
 }
 trap cleanup EXIT
 
@@ -113,16 +112,44 @@ rm -f "$DATADIR/prepared.pbf"
 # 🔄  Convert MBTiles → VersaTiles
 ###########################################################################
 echo "🚀  Converting to VersaTiles…"
-FILE_SIZE_BYTES=$(stat -c %s "$DATADIR/output.mbtiles")
-TMPFS_MIN_SIZE_GB=$(perl -E "use POSIX;say ceil($FILE_SIZE_BYTES/1073741824 + 0.3)")
 
-mkdir -p "$RAMDISK_MOUNT"
-mount -t tmpfs -o size=${TMPFS_MIN_SIZE_GB}G tmpfs "$RAMDISK_MOUNT"
+# Determine whether we can use an existing tmpfs
+# Priority:
+# 1) Environment variable RAMDISK_DIR pointing to a mounted tmpfs
+# 2) Pre-mounted tmpfs at $RAMDISK_MOUNT (e.g., via Docker tmpfs)
+# 3) /dev/shm (typically tmpfs) as fallback
+# 4) Otherwise: no ramdisk; convert directly
 
-mv "$DATADIR/output.mbtiles" "$RAMDISK_MOUNT"
+RAMDISK_DIR="${RAMDISK_DIR:-}"
+
+is_tmpfs() {
+    local target
+    target="$(readlink -f "$1" 2>/dev/null || echo "$1")"
+    awk -v p="$target" '($2==p && $3=="tmpfs"){found=1} END{exit(found?0:1)}' /proc/mounts
+}
+
+CHOSEN_TMPFS=""
+if [ -n "$RAMDISK_DIR" ] && [ -d "$RAMDISK_DIR" ] && is_tmpfs "$RAMDISK_DIR"; then
+    CHOSEN_TMPFS="$RAMDISK_DIR"
+elif [ -d "$RAMDISK_MOUNT" ] && is_tmpfs "$RAMDISK_MOUNT"; then
+    CHOSEN_TMPFS="$RAMDISK_MOUNT"
+elif [ -d /dev/shm ] && is_tmpfs /dev/shm; then
+    CHOSEN_TMPFS="/dev/shm/versatiles"
+    mkdir -p "$CHOSEN_TMPFS"
+fi
+
+if [ -n "$CHOSEN_TMPFS" ]; then
+    echo "→ Using tmpfs at $CHOSEN_TMPFS"
+    mkdir -p "$CHOSEN_TMPFS"
+    mv "$DATADIR/output.mbtiles" "$CHOSEN_TMPFS/"
+    SRC_DIR="$CHOSEN_TMPFS"
+else
+    echo "→ No tmpfs detected; converting directly from disk"
+    SRC_DIR="$DATADIR"
+fi
 
 time versatiles convert -c brotli \
-    "$RAMDISK_MOUNT/output.mbtiles" \
+    "$SRC_DIR/output.mbtiles" \
     "$DATADIR/output.versatiles"
 
 ###########################################################################
