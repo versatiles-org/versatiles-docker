@@ -26,6 +26,25 @@ require_cmd() {
     }
 }
 
+choose_tmpfs() {
+    local candidate="$1"
+    local required_bytes="$2"
+    local target
+    target="$(readlink -f "$candidate" 2>/dev/null || echo "$candidate")"
+
+    # Check if candidate is a tmpfs
+    awk -v p="$target" '($2==p && $3=="tmpfs"){found=1} END{exit(found?0:1)}' /proc/mounts || return 1
+
+    # Check available space vs required bytes
+    local avail_bytes=$(df -B1 "$target" | awk 'NR==2 {print $4}')
+    if [ "$avail_bytes" -lt "$required_bytes" ]; then
+        echo "⚠️  tmpfs $target may be too small (need ~$((required_bytes/1073741824)) GB, available ~$((avail_bytes/1073741824)) GB). Reverting to disk."
+        return 1
+    fi
+
+    echo "$target"
+}
+
 ###########################################################################
 # 🔎  Sanity checks & argument parsing
 ###########################################################################
@@ -122,20 +141,16 @@ echo "🚀  Converting to VersaTiles…"
 
 RAMDISK_DIR="${RAMDISK_DIR:-}"
 
-is_tmpfs() {
-    local target
-    target="$(readlink -f "$1" 2>/dev/null || echo "$1")"
-    awk -v p="$target" '($2==p && $3=="tmpfs"){found=1} END{exit(found?0:1)}' /proc/mounts
-}
-
+FILE_SIZE_BYTES=$(stat -c %s "$DATADIR/output.mbtiles")
+REQUIRED_BYTES=$((FILE_SIZE_BYTES + FILE_SIZE_BYTES / 10))
 CHOSEN_TMPFS=""
-if [ -n "$RAMDISK_DIR" ] && [ -d "$RAMDISK_DIR" ] && is_tmpfs "$RAMDISK_DIR"; then
-    CHOSEN_TMPFS="$RAMDISK_DIR"
-elif [ -d "$RAMDISK_MOUNT" ] && is_tmpfs "$RAMDISK_MOUNT"; then
-    CHOSEN_TMPFS="$RAMDISK_MOUNT"
-elif [ -d /dev/shm ] && is_tmpfs /dev/shm; then
-    CHOSEN_TMPFS="/dev/shm/versatiles"
-    mkdir -p "$CHOSEN_TMPFS"
+if [ -n "$RAMDISK_DIR" ] && [ -d "$RAMDISK_DIR" ]; then
+    CHOSEN_TMPFS=$(choose_tmpfs "$RAMDISK_DIR" "$REQUIRED_BYTES") || CHOSEN_TMPFS=""
+elif [ -d "$RAMDISK_MOUNT" ]; then
+    CHOSEN_TMPFS=$(choose_tmpfs "$RAMDISK_MOUNT" "$REQUIRED_BYTES") || CHOSEN_TMPFS=""
+elif [ -d /dev/shm ]; then
+    mkdir -p /dev/shm/versatiles
+    CHOSEN_TMPFS=$(choose_tmpfs /dev/shm "$REQUIRED_BYTES") && CHOSEN_TMPFS="/dev/shm/versatiles" || CHOSEN_TMPFS=""
 fi
 
 if [ -n "$CHOSEN_TMPFS" ]; then
