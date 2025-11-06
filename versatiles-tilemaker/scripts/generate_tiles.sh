@@ -7,11 +7,6 @@
 # /app/result/<NAME>.versatiles.
 #
 # Dependencies: aria2c, osmium, tilemaker, versatiles, mount, stat, perl
-#
-# Environment variables:
-#   DATADIR        Working directory for intermediate artefacts (default: /app/data)
-#   TMPFS_SIZE_GB  Override automatic tmpfs sizing in GB
-#
 
 set -euo pipefail
 
@@ -56,7 +51,7 @@ done
 ###########################################################################
 # 📁  Directory layout
 ###########################################################################
-DATADIR="${DATADIR:-/app/data}"
+DATADIR="/app/data"
 TMPDIR="${DATADIR}/tmp"
 RAMDISK_MOUNT="${DATADIR}/ramdisk"
 
@@ -119,15 +114,10 @@ rm -f "$DATADIR/prepared.pbf"
 ###########################################################################
 echo "🚀  Converting to VersaTiles…"
 FILE_SIZE_BYTES=$(stat -c %s "$DATADIR/output.mbtiles")
-
-if [[ -n "${TMPFS_SIZE_GB:-}" ]]; then
-    RAM_GB="$TMPFS_SIZE_GB"
-else
-    RAM_GB=$(perl -E "use POSIX;say ceil($FILE_SIZE_BYTES/1073741824 + 0.3)")
-fi
+TMPFS_MIN_SIZE_GB=$(perl -E "use POSIX;say ceil($FILE_SIZE_BYTES/1073741824 + 0.3)")
 
 mkdir -p "$RAMDISK_MOUNT"
-mount -t tmpfs -o size=${RAM_GB}G tmpfs "$RAMDISK_MOUNT"
+mount -t tmpfs -o size=${TMPFS_MIN_SIZE_GB}G tmpfs "$RAMDISK_MOUNT"
 
 mv "$DATADIR/output.mbtiles" "$RAMDISK_MOUNT"
 
