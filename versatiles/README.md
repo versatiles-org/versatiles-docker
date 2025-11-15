@@ -1,24 +1,64 @@
-# Docker Image: versatiles/versatiles
+# Docker Image: `versatiles/versatiles`
 
-A minimal, lightweight, production-ready Docker image for [VersaTiles](https://github.com/versatiles-org/versatiles-rs).
+A minimal, lightweight, production-ready Docker image containing only [VersaTiles](https://github.com/versatiles-org/versatiles-rs).
 
 ## Quick Start
 
-Pull and run the image:
+You can explore the CLI directly:
 
-```sh
-docker run -it versatiles/versatiles
+```bash
+docker run -it versatiles/versatiles:latest
 ```
 
-You can pass any [versatiles-rs command-line arguments](https://github.com/versatiles-org/versatiles-rs?tab=readme-ov-file#usage). For example, to convert an MBTiles file to the VersaTiles format:
+Every command from **versatiles‑rs** is available inside the container.
 
-```sh
-docker run -it --rm -v $(pwd):/data versatiles/versatiles convert osm.mbtiles osm.versatiles
+## Example: Download and Crop Map Data
+
+The following example downloads a prebuilt VersaTiles dataset and crops it to a bounding box around Paris.
+
+```bash
+# Download Map Data
+docker run -it --rm -v $(pwd):/data versatiles/versatiles:latest \
+  convert --bbox-border 3 --bbox "2.224,48.815,2.47,48.903" \
+  "https://download.versatiles.org/osm.versatiles" "paris.versatiles"
 ```
 
-## About
+## Example: Run the Tile Server
 
-This Docker image is built from the [versatiles-org/versatiles-docker](https://github.com/versatiles-org/versatiles-docker) repository, specifically the [versatiles/](https://github.com/versatiles-org/versatiles-docker/tree/main/versatiles) subfolder.
+> [!TIP]
+> For production deployments with **caching**, **TLS**, and **reverse‑proxy features**, see the companion image  
+> **versatiles-nginx**: [GHCR](https://github.com/versatiles-org/versatiles-docker/pkgs/container/versatiles-nginx), [Docker Hub](https://hub.docker.com/r/versatiles/versatiles-nginx), [Repo](https://github.com/versatiles-org/versatiles-docker?tab=readme-ov-file#image-versatiles-nginx), [Readme](https://github.com/versatiles-org/versatiles-docker/blob/main/versatiles-nginx/README.md)
+
+After generating or downloading a `.versatiles` file, start the server:
+
+```bash
+docker run -d --name versatiles -p 80:8080 -v $(pwd):/data \
+  versatiles/versatiles:latest \
+  serve --static "frontend-dev.br.tar.gz" "paris.versatiles"
+```
+
+The container exposes port **8080** internally. Map it however you like (`-p 80:8080`, `-p 8080:8080`, etc.).
+
+The server:
+- Serves tiles from your `.versatiles` container
+- Optionally provides static frontend assets (`--static <file>`)
+
+## Volumes
+
+A common pattern is to mount the working directory:
+
+```bash
+-v $(pwd):/data
+```
+
+All relative paths inside the VersaTiles CLI will resolve to `/data`.
+
+## About This Image
+
+This image is built from the  
+`versatiles-org/versatiles-docker` repository, specifically the `versatiles/` subdirectory:
+
+https://github.com/versatiles-org/versatiles-docker/tree/main/versatiles
 
 ## License
 
