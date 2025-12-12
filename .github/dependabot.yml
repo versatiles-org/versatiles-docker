@@ -11,6 +11,8 @@ updates:
       - /versatiles-tippecanoe
     schedule:
       interval: weekly
+    commit-message:
+      prefix: "build(deps)"
     groups:
       docker:
         patterns: ["*"]
@@ -20,6 +22,8 @@ updates:
     directory: /
     schedule:
       interval: weekly
+    commit-message:
+      prefix: "build(deps)"
     groups:
       github-actions:
         patterns: ["*"]
