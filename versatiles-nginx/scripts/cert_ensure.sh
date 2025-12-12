@@ -1,4 +1,40 @@
 #!/usr/bin/env bash
+#
+# cert_ensure.sh — Ensure SSL/TLS certificates exist and are valid
+#
+# DESCRIPTION
+#   Obtains or verifies SSL/TLS certificates via Let's Encrypt (ACME protocol)
+#   for the specified domain. If a valid certificate already exists with more
+#   than CERT_MIN_DAYS remaining, the script exits early. Otherwise, it starts
+#   a temporary nginx stub server and uses certbot to obtain certificates.
+#
+# REQUIRED ENVIRONMENT VARIABLES
+#   DOMAIN    Domain name(s) for certificate (comma-separated for multiple domains)
+#             Examples: "example.com" or "example.com,www.example.com"
+#   EMAIL     Email address for ACME registration and renewal notifications
+#
+# OPTIONAL ENVIRONMENT VARIABLES
+#   CERT_MIN_DAYS    Minimum days of certificate validity before renewal (default: 30)
+#
+# BEHAVIOR
+#   1. Check if certificate exists and is valid for > CERT_MIN_DAYS
+#   2. If valid, exit early (fast path)
+#   3. Otherwise, create temporary nginx configuration
+#   4. Start nginx stub server for ACME HTTP-01 challenge
+#   5. Run certbot to obtain/renew certificate
+#   6. Stop nginx stub server
+#
+# EXIT CODES
+#   0    Certificate exists and is valid, or successfully obtained
+#   1    Missing required environment variables
+#   2    ACME certificate request failed
+#
+# FILES
+#   /data/certificates/live/${DOMAIN}/fullchain.pem    Certificate chain
+#   /data/certificates/live/${DOMAIN}/privkey.pem      Private key
+#   /data/certificates/work/                           Certbot working directory
+#   /data/certificates/logs/                           Certbot logs
+#
 set -euo pipefail
 
 . /scripts/utils.sh

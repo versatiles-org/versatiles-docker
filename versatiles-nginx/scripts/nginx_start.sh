@@ -1,4 +1,52 @@
 #!/usr/bin/env bash
+#
+# nginx_start.sh — Configure and start nginx reverse proxy with caching
+#
+# DESCRIPTION
+#   Configures and starts nginx as a reverse proxy with intelligent caching for
+#   VersaTiles. Supports both HTTP-only and HTTPS modes. Automatically manages
+#   SSL certificates via Let's Encrypt and starts a background renewal loop.
+#
+# REQUIRED ENVIRONMENT VARIABLES
+#   DOMAIN    Domain name for the server
+#             Example: "tiles.example.com"
+#
+# OPTIONAL ENVIRONMENT VARIABLES
+#   HTTP_ONLY           Set to any non-empty value to disable HTTPS and certificates
+#   CACHE_SIZE_KEYS     Size of cache keys zone (default: 20% of system RAM)
+#   CACHE_SIZE_MAX      Maximum cache data size (default: 60% of system RAM)
+#
+# BEHAVIOR
+#   1. Validate required DOMAIN environment variable
+#   2. Set up signal handlers for graceful shutdown
+#   3. Create log directories
+#   4. If HTTPS mode: ensure SSL certificates via cert_ensure.sh
+#   5. Calculate cache sizes based on available system memory
+#   6. Generate nginx.conf with appropriate server blocks:
+#      - HTTP-only mode: Single HTTP server on port 80
+#      - HTTPS mode: HTTP→HTTPS redirect + HTTPS server on port 443
+#   7. Configure proxy cache in tmpfs (/dev/shm/nginx_cache)
+#   8. Start or reload nginx
+#   9. If HTTPS mode: launch background certificate renewal loop
+#
+# CACHE CONFIGURATION
+#   - Cache location: /dev/shm/nginx_cache (tmpfs for speed)
+#   - Default keys zone: 20% of system RAM
+#   - Default max size: 60% of system RAM
+#   - Inactive timeout: 24 hours
+#   - Cache valid time: 5 minutes
+#
+# SIGNAL HANDLING
+#   SIGINT, SIGTERM    Gracefully shutdown nginx and exit
+#
+# NGINX ENDPOINTS
+#   /                  Proxied to VersaTiles backend (127.0.0.1:8080) with caching
+#   /_nginx_status     Nginx status (localhost only, 127.0.0.1:8090)
+#
+# EXIT CODES
+#   0    Graceful shutdown via signal
+#   1    Missing required environment variable or nginx start failed
+#
 set -euo pipefail
 
 . /scripts/utils.sh
