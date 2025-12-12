@@ -1,5 +1,5 @@
 # ---------- build stage ----------
-FROM alpine:latest AS builder
+FROM alpine:3.21 AS builder
 
 # runtime deps for versatiles build script
 RUN apk add --no-cache curl ca-certificates
@@ -9,7 +9,7 @@ SHELL ["/bin/ash", "-eo", "pipefail", "-c"]
 RUN curl --retry 3 -Ls https://github.com/versatiles-org/versatiles-rs/raw/main/scripts/install-unix.sh | sh
 
 # ---------- runtime stage ----------
-FROM alpine:latest AS versatiles-nginx
+FROM alpine:3.21 AS versatiles-nginx
 LABEL maintainer="Michael Kreil <versatiles@michael-kreil.de>"
 LABEL org.opencontainers.image.source="https://github.com/versatiles-org/versatiles-docker"
 

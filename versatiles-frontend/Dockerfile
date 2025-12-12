@@ -4,7 +4,7 @@
 ## ─────────────────────────────  builders  ───────────────────────────────── ##
 ###############################################################################
 
-FROM --platform=$BUILDPLATFORM curlimages/curl AS builder
+FROM --platform=$BUILDPLATFORM curlimages/curl:8.11.1 AS builder
 ARG TARGETPLATFORM
 WORKDIR /app
 SHELL ["/bin/ash", "-eo", "pipefail", "-c"]

@@ -1,6 +1,6 @@
 # syntax=docker/dockerfile:1
 
-FROM debian:stable-slim AS versatiles-tilemaker
+FROM debian:12-slim AS versatiles-tilemaker
 LABEL maintainer="Michael Kreil <versatiles@michael-kreil.de>"
 LABEL org.opencontainers.image.source="https://github.com/versatiles-org/versatiles-docker"
 

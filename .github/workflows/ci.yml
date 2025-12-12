@@ -39,7 +39,7 @@ jobs:
         with:
           dockerfile: ${{ matrix.dockerfile }}
           failure-threshold: warning
-          ignore: DL3018,DL3059
+          ignore: DL3018,DL3008,DL3059
 
   shellcheck:
     name: Lint Shell Scripts

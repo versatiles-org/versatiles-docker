@@ -1,6 +1,6 @@
 # syntax=docker/dockerfile:1.7
 
-FROM debian:stable-slim AS versatiles-gdal
+FROM debian:12-slim AS versatiles-gdal
 LABEL maintainer="Michael Kreil <versatiles@michael-kreil.de>"
 LABEL org.opencontainers.image.source="https://github.com/versatiles-org/versatiles-docker"
 SHELL ["/bin/bash", "-eo", "pipefail", "-c"]
