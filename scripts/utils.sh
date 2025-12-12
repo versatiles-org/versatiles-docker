@@ -324,15 +324,20 @@ update_docker_description() {
         return 1
     }
 
+    # Determine the directory containing the README and short.md files
+    # If repository is "versatiles", use the versatiles/ directory
+    # Otherwise use the repository name as-is (e.g., versatiles-nginx/)
+    local repo_dir="$repository"
+
     local full_desc
-    full_desc=$(<"README.md")
+    full_desc=$(<"$repo_dir/README.md")
     (( ${#full_desc} <= 25000 )) || {
         echo "❌ Full description > 25000 bytes"
         return 1
     }
 
     local short_desc
-    short_desc=$(<"short.md")
+    short_desc=$(<"$repo_dir/short.md")
     (( ${#short_desc} <= 100 )) || {
         echo "❌ Short description > 100 bytes"
         return 1
