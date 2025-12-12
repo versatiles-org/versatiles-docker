@@ -113,8 +113,8 @@ fetch_release_tag() {
 #
 parse_arguments() {
     # Defaults (exported for caller convenience)
-    needs_push=false
-    needs_testing=false
+    export needs_push=false
+    export needs_testing=false
 
     while (("$#")); do
         case "$1" in
