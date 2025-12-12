@@ -52,6 +52,8 @@ jobs:
 
       - name: Run ShellCheck
         uses: ludeeus/action-shellcheck@2.0.0
+        env:
+          SHELLCHECK_OPTS: -e SC2154 -e SC2034 -e SC2046 -e SC2155
         with:
           scandir: '.'
           format: gcc
@@ -59,7 +61,6 @@ jobs:
           ignore_paths: |
             .git
             testdata
-          shellcheck_opts: -e SC2154 -e SC2034 -e SC2046 -e SC2155
 
   trivy-repo:
     name: Security Scan - Repository
