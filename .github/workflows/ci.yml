@@ -16,28 +16,28 @@ concurrency:
 
 jobs:
   hadolint:
-    name: Lint Dockerfiles
+    name: Lint
     runs-on: ubuntu-latest
     permissions:
       contents: read
     strategy:
       fail-fast: false
       matrix:
-        dockerfile:
-          - versatiles/Dockerfile
-          - versatiles-frontend/Dockerfile
-          - versatiles-gdal/Dockerfile
-          - versatiles-nginx/Dockerfile
-          - versatiles-tilemaker/Dockerfile
-          - versatiles-tippecanoe/Dockerfile
+        folder:
+          - versatiles
+          - versatiles-frontend
+          - versatiles-gdal
+          - versatiles-nginx
+          - versatiles-tilemaker
+          - versatiles-tippecanoe
     steps:
       - name: Checkout repository
         uses: actions/checkout@v6
 
-      - name: Run Hadolint on ${{ matrix.dockerfile }}
+      - name: Run Hadolint on ${{ matrix.folder }}
         uses: hadolint/hadolint-action@v3.3.0
         with:
-          dockerfile: ${{ matrix.dockerfile }}
+          dockerfile: ${{ matrix.folder }}/Dockerfile
           failure-threshold: warning
           ignore: DL3018,DL3008,DL3059,DL3003,SC2164
 
