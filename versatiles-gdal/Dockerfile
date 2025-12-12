@@ -11,7 +11,7 @@ RUN \
   . "$HOME/.cargo/env"; \
   mkdir -p /app; \
   git clone --depth 1 https://github.com/versatiles-org/versatiles-rs.git /app/versatiles-rs; \
-  cd /app/versatiles-rs; \
+  cd /app/versatiles-rs || exit 1; \
   ./scripts/install-gdal.sh; \
   ./scripts/build-release.sh; \
   \

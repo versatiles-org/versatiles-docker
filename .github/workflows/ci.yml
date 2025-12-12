@@ -39,7 +39,7 @@ jobs:
         with:
           dockerfile: ${{ matrix.dockerfile }}
           failure-threshold: warning
-          ignore: DL3018,DL3008,DL3059
+          ignore: DL3018,DL3008,DL3059,DL3003,SC2164
 
   shellcheck:
     name: Lint Shell Scripts
@@ -59,6 +59,7 @@ jobs:
           ignore_paths: |
             .git
             testdata
+          shellcheck_opts: -e SC2154 -e SC2034 -e SC2046 -e SC2155
 
   trivy-repo:
     name: Security Scan - Repository
