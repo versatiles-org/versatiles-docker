@@ -118,8 +118,8 @@ parse_arguments() {
 
     while (("$#")); do
         case "$1" in
-        --push) needs_push=true ;;
-        --test | --testing) needs_testing=true ;;
+        --push) export needs_push=true ;;
+        --test | --testing) export needs_testing=true ;;
         -h | --help)
             cat <<EOF
 Available options:
