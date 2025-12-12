@@ -10,11 +10,11 @@
 #  Flags are parsed by utils.sh → parse_arguments().
 #
 set -euo pipefail
-cd "$(dirname "$0")"
+cd "$(dirname "$0")/.."
 
 # ── Shared helpers ───────────────────────────────────────────────────────────
-# shellcheck source=../scripts/utils.sh
-source ../scripts/utils.sh
+# shellcheck source=./scripts/utils.sh
+source ./scripts/utils.sh
 parse_arguments "$@"
 VER=$(fetch_release_tag)
 NAME="versatiles-frontend"
@@ -26,9 +26,9 @@ echo "👷 Building $NAME Docker images for version $VER"
 ###############################################################################
 if ! $needs_push || $needs_testing; then
     echo "👷 Building images"
-    build_load_image versatiles-debian "$NAME" debian
-    build_load_image versatiles-alpine "$NAME" alpine
-    build_load_image versatiles-scratch "$NAME" scratch
+    build_load_image versatiles-debian "$NAME" debian "./versatiles-frontend/Dockerfile"
+    build_load_image versatiles-alpine "$NAME" alpine "./versatiles-frontend/Dockerfile"
+    build_load_image versatiles-scratch "$NAME" scratch "./versatiles-frontend/Dockerfile"
 fi
 
 ###############################################################################
@@ -37,7 +37,7 @@ fi
 if $needs_testing; then
     echo "🧪 Running smoke-tests"
 
-    TEST_DIR=$(readlink -f "../testdata/")
+    TEST_DIR=$(readlink -f "./testdata/")
 
     test_image() {
         local image="$1"
@@ -88,9 +88,9 @@ fi
 ###############################################################################
 if $needs_push; then
     echo "🚀 Building and pushing images to Docker Hub"
-    build_push_image versatiles-debian "$NAME" "debian,$VER-debian"
-    build_push_image versatiles-alpine "$NAME" "alpine,$VER-alpine,latest,$VER"
-    build_push_image versatiles-scratch "$NAME" "scratch,$VER-scratch"
+    build_push_image versatiles-debian "$NAME" "debian,$VER-debian" "./versatiles-frontend/Dockerfile"
+    build_push_image versatiles-alpine "$NAME" "alpine,$VER-alpine,latest,$VER" "./versatiles-frontend/Dockerfile"
+    build_push_image versatiles-scratch "$NAME" "scratch,$VER-scratch" "./versatiles-frontend/Dockerfile"
 
     update_docker_description versatiles-frontend
 fi

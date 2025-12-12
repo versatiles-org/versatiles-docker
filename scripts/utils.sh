@@ -214,11 +214,22 @@ build_image_args() {
 # Builds a *single‑architecture* image (matching the host) and loads it into
 # the local Docker Engine, enabling smoke‑tests.
 #
+# Arguments:
+#   $1 = target stage name
+#   $2 = image name(s) (comma-separated)
+#   $3 = tag(s) (comma-separated)
+#   $4 = dockerfile path (optional, defaults to ".")
+#
 # Example:
-#   build_load_image versatiles-alpine "$NAME" "latest,$VER,alpine"
+#   build_load_image versatiles-alpine "$NAME" "latest,$VER,alpine" "./versatiles/Dockerfile"
 # --------------------------------------------------------------------------- #
 build_load_image() {
-    echo "  - build, load: $1"
+    local target="$1"
+    local name="$2"
+    local tags="$3"
+    local dockerfile="${4:-.}"
+
+    echo "  - build, load: $target"
     _ensure_builder
 
     local host_arch
@@ -233,7 +244,14 @@ build_load_image() {
     esac
 
     # shellcheck disable=SC2046
-    docker buildx build --target "$1" $(build_image_args "$2" "$3") --platform "linux/${host_arch}" $(buildx_cache_args) ${BUILD_ARGS:-} --load .
+    docker buildx build \
+        --file "$dockerfile" \
+        --target "$target" \
+        $(build_image_args "$name" "$tags") \
+        --platform "linux/${host_arch}" \
+        $(buildx_cache_args) \
+        ${BUILD_ARGS:-} \
+        --load .
 }
 
 # --------------------------------------------------------------------------- #
@@ -242,15 +260,33 @@ build_load_image() {
 # Builds a *multi‑architecture* image (amd64 + arm64) and pushes it directly
 # to the Docker registry in one step.
 #
+# Arguments:
+#   $1 = target stage name
+#   $2 = image name(s) (comma-separated)
+#   $3 = tag(s) (comma-separated)
+#   $4 = dockerfile path (optional, defaults to ".")
+#
 # Example:
-#   build_push_image versatiles-alpine "$NAME" "latest,$VER,alpine"
+#   build_push_image versatiles-alpine "$NAME" "latest,$VER,alpine" "./versatiles/Dockerfile"
 # --------------------------------------------------------------------------- #
 build_push_image() {
-    echo "  - build, push: $1"
+    local target="$1"
+    local name="$2"
+    local tags="$3"
+    local dockerfile="${4:-.}"
+
+    echo "  - build, push: $target"
     _ensure_builder
 
     # shellcheck disable=SC2046
-    docker buildx build --target "$1" $(build_image_args "versatiles/$2,ghcr.io/versatiles-org/$2" "$3") --platform linux/amd64,linux/arm64 $(buildx_cache_args) ${BUILD_ARGS:-} --push . >/dev/null
+    docker buildx build \
+        --file "$dockerfile" \
+        --target "$target" \
+        $(build_image_args "versatiles/$name,ghcr.io/versatiles-org/$name" "$tags") \
+        --platform linux/amd64,linux/arm64 \
+        $(buildx_cache_args) \
+        ${BUILD_ARGS:-} \
+        --push . >/dev/null
 }
 
 #############################################################################

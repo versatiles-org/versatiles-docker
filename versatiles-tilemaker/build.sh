@@ -11,10 +11,10 @@
 # Flags are parsed by utils.sh → parse_arguments.
 #
 set -euo pipefail
-cd "$(dirname "$0")"
+cd "$(dirname "$0")/.."
 
-# shellcheck source=../scripts/utils.sh
-source ../scripts/utils.sh
+# shellcheck source=./scripts/utils.sh
+source ./scripts/utils.sh
 parse_arguments "$@"
 VER=$(fetch_release_tag "systemed/tilemaker")
 NAME="versatiles-tilemaker"
@@ -26,7 +26,7 @@ echo "👷 Building $NAME Docker images for version $VER"
 ###############################################################################
 if ! $needs_push || $needs_testing; then
     echo "👷 Building image"
-    build_load_image versatiles-tilemaker "$NAME" "latest"
+    build_load_image versatiles-tilemaker "$NAME" "latest" "./versatiles-tilemaker/Dockerfile"
 fi
 
 ###############################################################################
@@ -51,6 +51,6 @@ fi
 ###############################################################################
 if $needs_push; then
     echo "🚀 Building and pushing multi-arch image …"
-    build_push_image versatiles-tilemaker "$NAME" "latest,$VER"
+    build_push_image versatiles-tilemaker "$NAME" "latest,$VER" "./versatiles-tilemaker/Dockerfile"
     update_docker_description versatiles-tilemaker
 fi

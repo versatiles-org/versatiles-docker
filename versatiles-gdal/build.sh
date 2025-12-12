@@ -1,11 +1,11 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-cd "$(dirname "$0")"
+cd "$(dirname "$0")/.."
 
 # Load shared helpers
-# shellcheck source=../scripts/utils.sh
-source ../scripts/utils.sh
+# shellcheck source=./scripts/utils.sh
+source ./scripts/utils.sh
 parse_arguments "$@"
 VER=$(fetch_release_tag)
 NAME="versatiles-gdal"
@@ -18,7 +18,7 @@ echo "👷 Building $NAME Docker images for version $VER"
 if ! $needs_push || $needs_testing; then
     echo "👷 Building images"
     # Resolve build arguments for local / push modes later
-    build_load_image versatiles-gdal "$NAME" latest
+    build_load_image versatiles-gdal "$NAME" latest "./versatiles-gdal/Dockerfile"
 fi
 
 ###############################################################################
@@ -34,7 +34,7 @@ if $needs_testing; then
         exit 1
     fi
 
-    TEST_DIR=$(readlink -f "../testdata/")
+    TEST_DIR=$(readlink -f "./testdata/")
     mkdir -p $TEST_DIR/temp
     output=$(docker run --rm -v $TEST_DIR:/data versatiles-gdal convert liechtenstein.vpl ./temp/liechtenstein.mbtiles 2>&1 || true)
     expected="finished converting tiles"
@@ -57,6 +57,6 @@ fi
 ###############################################################################
 if $needs_push; then
     echo "🚀 Building and pushing images to Docker Hub"
-    build_push_image versatiles-gdal "$NAME" "latest,$VER"
+    build_push_image versatiles-gdal "$NAME" "latest,$VER" "./versatiles-gdal/Dockerfile"
     update_docker_description versatiles-gdal
 fi

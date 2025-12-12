@@ -1,10 +1,10 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-cd "$(dirname "$0")"
+cd "$(dirname "$0")/.."
 
-# shellcheck source=../scripts/utils.sh
-source ../scripts/utils.sh
+# shellcheck source=./scripts/utils.sh
+source ./scripts/utils.sh
 parse_arguments "$@"
 VER_VT=$(fetch_release_tag)
 VER_TC=$(fetch_release_tag "felt/tippecanoe")
@@ -19,7 +19,7 @@ echo "👷 Building $NAME Docker images for version $VER_TC"
 ###############################################################################
 if ! $needs_push || $needs_testing; then
     echo "👷 Building image"
-    build_load_image versatiles-tippecanoe "$NAME" "latest"
+    build_load_image versatiles-tippecanoe "$NAME" "latest" "./versatiles-tippecanoe/Dockerfile"
 fi
 
 ###############################################################################
@@ -47,6 +47,6 @@ fi
 ###############################################################################
 if $needs_push; then
     echo "🚀 Building and pushing multi-arch image …"
-    build_push_image versatiles-tippecanoe "$NAME" "latest,$VER_TC"
+    build_push_image versatiles-tippecanoe "$NAME" "latest,$VER_TC" "./versatiles-tippecanoe/Dockerfile"
     update_docker_description versatiles-tippecanoe
 fi

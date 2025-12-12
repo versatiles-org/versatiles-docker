@@ -1,5 +1,19 @@
 # syntax=docker/dockerfile:1
 
+###############################################################################
+# Versatiles Binary Builder
+###############################################################################
+
+FROM --platform=$BUILDPLATFORM curlimages/curl:8.17.0 AS builder-versatiles
+ARG TARGETPLATFORM
+WORKDIR /app
+COPY ./scripts/download_versatiles_binary.sh .
+RUN ./download_versatiles_binary.sh "${TARGETPLATFORM}-gnu"
+
+###############################################################################
+# Main Build
+###############################################################################
+
 FROM debian:13-slim AS versatiles-tilemaker
 LABEL maintainer="Michael Kreil <versatiles@michael-kreil.de>"
 LABEL org.opencontainers.image.source="https://github.com/versatiles-org/versatiles-docker"
@@ -41,12 +55,12 @@ RUN git clone --depth 1 -q --branch versatiles https://github.com/versatiles-org
     rm /opt/shortbread/data/*.zip && \
     rm -rf /opt/shortbread/.git /opt/shortbread/data/simplified-water-polygons-split-3857
 
-# Add VersaTiles
-RUN curl --retry 3 -Ls "https://github.com/versatiles-org/versatiles-rs/raw/main/scripts/install-unix.sh" | sh
+# Add VersaTiles (from builder instead of remote script)
+COPY --from=builder-versatiles --chmod=0755 /app/versatiles /usr/local/bin/versatiles
 
 WORKDIR /opt/shortbread
 STOPSIGNAL SIGTERM
 
-COPY --chmod=0755 scripts/generate_tiles.sh /usr/local/bin/generate_tiles
+COPY --chmod=0755 ./versatiles-tilemaker/scripts/generate_tiles.sh /usr/local/bin/generate_tiles
 
 ENTRYPOINT ["tini", "-g", "--", "generate_tiles"]
