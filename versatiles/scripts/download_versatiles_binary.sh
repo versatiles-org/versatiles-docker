@@ -1,6 +1,6 @@
-#!/usr/bin/env bash
+#!/bin/sh
 
-set -euo pipefail
+set -eu
 
 TARGETPLATFORM=$1
 BASE_URL="https://github.com/versatiles-org/versatiles-rs/releases/latest/download"
