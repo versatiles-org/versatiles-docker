@@ -5,6 +5,7 @@ FROM alpine:latest AS builder
 RUN apk add --no-cache curl ca-certificates
 
 # download the static VersaTiles binary
+SHELL ["/bin/ash", "-eo", "pipefail", "-c"]
 RUN curl --retry 3 -Ls https://github.com/versatiles-org/versatiles-rs/raw/main/scripts/install-unix.sh | sh
 
 # ---------- runtime stage ----------

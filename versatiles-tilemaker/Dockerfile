@@ -4,8 +4,9 @@ FROM debian:stable-slim AS versatiles-tilemaker
 LABEL maintainer="Michael Kreil <versatiles@michael-kreil.de>"
 LABEL org.opencontainers.image.source="https://github.com/versatiles-org/versatiles-docker"
 
-RUN apt update -y && \
-    DEBIAN_FRONTEND=noninteractive apt install -y --no-install-recommends \
+SHELL ["/bin/bash", "-eo", "pipefail", "-c"]
+RUN apt-get update -y && \
+    DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends \
         aria2 \
         build-essential \
         curl \
