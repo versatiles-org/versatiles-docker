@@ -4,7 +4,7 @@
 ## ─────────────────────────────  builders  ───────────────────────────────── ##
 ###############################################################################
 
-FROM --platform=$BUILDPLATFORM curlimages/curl:8.11.1 AS builder
+FROM --platform=$BUILDPLATFORM curlimages/curl:8.17.0 AS builder
 ARG TARGETPLATFORM
 WORKDIR /app
 COPY ./scripts/download_versatiles_binary.sh .
@@ -22,7 +22,7 @@ RUN ./download_versatiles_binary.sh "${TARGETPLATFORM}-gnu"
 ###############################################################################
 
 # ==== 1. Alpine (musl) =======================================================
-FROM alpine:3.21 AS versatiles-alpine
+FROM alpine:3.23 AS versatiles-alpine
 LABEL maintainer="Michael Kreil <versatiles@michael-kreil.de>"
 LABEL org.opencontainers.image.source="https://github.com/versatiles-org/versatiles-docker"
 WORKDIR /app
@@ -40,7 +40,7 @@ WORKDIR /data
 ENTRYPOINT ["/app/versatiles"]
 
 # ==== 3. Debian slim (glibc) =================================================
-FROM debian:12-slim AS versatiles-debian
+FROM debian:13-slim AS versatiles-debian
 LABEL maintainer="Michael Kreil <versatiles@michael-kreil.de>"
 LABEL org.opencontainers.image.source="https://github.com/versatiles-org/versatiles-docker"
 WORKDIR /app
