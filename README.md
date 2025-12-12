@@ -22,14 +22,14 @@ Open http://localhost:8080/ in your browser to view your map.
 
 ## Which Image Should I Use?
 
-| Image                     | Use Case                      | When to Choose                                                            |
-|---------------------------|-------------------------------|---------------------------------------------------------------------------|
-| **versatiles-frontend**   | Map server with web interface | Best for most users - includes everything you need to serve and view maps |
-| **versatiles**            | Just the binary               | You only need the CLI tool or want the smallest possible image            |
-| **versatiles-nginx**      | Production deployment         | You need TLS/SSL, caching, reverse proxy, or Let's Encrypt certificates   |
-| **versatiles-gdal**       | Convert geodata formats       | You're working with geospatial data formats (GeoTIFF, Shapefile, etc.)    |
-| **versatiles-tilemaker**  | Generate tiles from OSM       | You want to create custom map tiles from OpenStreetMap data               |
-| **versatiles-tippecanoe** | Generate vector tiles         | You need to convert GeoJSON to vector tiles                               |
+| Image                                               | Use Case                      | When to Choose                                                            |
+|-----------------------------------------------------|-------------------------------|---------------------------------------------------------------------------|
+| [**versatiles-frontend**](#versatiles-frontend)     | Map server with web interface | Best for most users - includes everything you need to serve and view maps |
+| [**versatiles**](#versatiles)                       | Just the binary               | You only need the CLI tool or want the smallest possible image            |
+| [**versatiles-nginx**](#versatiles-nginx)           | Production deployment         | You need TLS/SSL, caching, reverse proxy, or Let's Encrypt certificates   |
+| [**versatiles-gdal**](#versatiles-gdal)             | Convert geodata formats       | You're working with geospatial data formats (GeoTIFF, Shapefile, etc.)    |
+| [**versatiles-tilemaker**](#versatiles-tilemaker)   | Generate tiles from OSM       | You want to create custom map tiles from OpenStreetMap data               |
+| [**versatiles-tippecanoe**](#versatiles-tippecanoe) | Generate vector tiles         | You need to convert GeoJSON to vector tiles                               |
 
 ## Images
 
