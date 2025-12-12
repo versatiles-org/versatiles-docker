@@ -192,13 +192,13 @@ build_image_args() {
 
     # Split the two CSV arguments into arrays
     IFS=',' read -ra images <<<"$img_csv"
-    IFS=',' read -ra tags <<<"$tag_csv"
+    IFS=',' read -ra tag_list <<<"$tag_csv"
 
     # Produce one  --tag  flag for every <image>:<tag> combination
     local tag_args=()
     for image in "${images[@]}"; do
         [[ -z "$image" ]] && continue
-        for tag in "${tags[@]}"; do
+        for tag in "${tag_list[@]}"; do
             [[ -z "$tag" ]] && continue
             tag_args+=(--tag "${image}:${tag}")
         done
@@ -243,7 +243,7 @@ build_load_image() {
         ;;
     esac
 
-    # shellcheck disable=SC2046
+    # shellcheck disable=SC2046,SC2086
     docker buildx build \
         --file "$dockerfile" \
         --target "$target" \
@@ -278,7 +278,7 @@ build_push_image() {
     echo "  - build, push: $target"
     _ensure_builder
 
-    # shellcheck disable=SC2046
+    # shellcheck disable=SC2046,SC2086
     docker buildx build \
         --file "$dockerfile" \
         --target "$target" \
@@ -324,24 +324,28 @@ update_docker_description() {
         return 1
     }
 
-    local full_desc=$(<"README.md")
-    (($(echo "$full_desc" | wc -c) <= 25000)) || {
+    local full_desc
+    full_desc=$(<"README.md")
+    (( ${#full_desc} <= 25000 )) || {
         echo "❌ Full description > 25000 bytes"
         return 1
     }
 
-    local short_desc=$(<"short.md")
-    (($(echo "$short_desc" | wc -c) <= 100)) || {
+    local short_desc
+    short_desc=$(<"short.md")
+    (( ${#short_desc} <= 100 )) || {
         echo "❌ Short description > 100 bytes"
         return 1
     }
 
-    local data=$(jq -n \
+    local data
+    data=$(jq -n \
         --arg username "${DOCKERHUB_USERNAME}" \
         --arg password "${DOCKERHUB_TOKEN}" \
         '{identifier: $username, secret: $password}')
 
-    local jwt_token=$(curl --silent --show-error --retry 3 --retry-delay 3 \
+    local jwt_token
+    jwt_token=$(curl --silent --show-error --retry 3 --retry-delay 3 \
         -X POST \
         -H "Content-Type: application/json" \
         -d "$data" \
@@ -352,13 +356,14 @@ update_docker_description() {
         return 1
     fi
 
-    local data=$(jq -n \
+    data=$(jq -n \
         --arg short "$short_desc" \
         --arg full "$full_desc" \
         '{description: $short, full_description: $full}')
 
     # Perform the PATCH request, capturing *both* body and status code
-    local response=$(curl --silent --show-error --retry 3 --retry-delay 3 \
+    local response
+    response=$(curl --silent --show-error --retry 3 --retry-delay 3 \
         -X PATCH \
         -H "Content-Type: application/json" \
         -H "Authorization: Bearer ${jwt_token}" \
@@ -368,8 +373,10 @@ update_docker_description() {
         "https://hub.docker.com/v2/namespaces/${DOCKERHUB_USERNAME}/repositories/${repository}")
 
     # Separate HTTP status code from body (last line)
-    local status=$(echo "$response" | tail -n1)
-    local body=$(echo "$response" | sed '$d')
+    local status
+    status=$(echo "$response" | tail -n1)
+    local body
+    body=$(echo "$response" | sed '$d')
 
     if [[ "$status" == "200" ]]; then
         echo "✅ Description updated."
