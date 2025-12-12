@@ -232,6 +232,7 @@ build_load_image() {
         ;;
     esac
 
+    # shellcheck disable=SC2046
     docker buildx build --target "$1" $(build_image_args "$2" "$3") --platform "linux/${host_arch}" $(buildx_cache_args) ${BUILD_ARGS:-} --load .
 }
 
@@ -248,6 +249,7 @@ build_push_image() {
     echo "  - build, push: $1"
     _ensure_builder
 
+    # shellcheck disable=SC2046
     docker buildx build --target "$1" $(build_image_args "versatiles/$2,ghcr.io/versatiles-org/$2" "$3") --platform linux/amd64,linux/arm64 $(buildx_cache_args) ${BUILD_ARGS:-} --push . >/dev/null
 }
 

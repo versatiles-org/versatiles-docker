@@ -3,6 +3,7 @@ set -euo pipefail
 
 cd "$(dirname "$0")"
 
+# shellcheck source=../scripts/utils.sh
 source ../scripts/utils.sh
 parse_arguments "$@"
 VER_VT=$(fetch_release_tag)

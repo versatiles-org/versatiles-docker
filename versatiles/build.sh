@@ -4,6 +4,7 @@ set -euo pipefail
 cd "$(dirname "$0")"
 
 # Load shared helpers
+# shellcheck source=../scripts/utils.sh
 source ../scripts/utils.sh
 parse_arguments "$@"
 VER=$(fetch_release_tag)
