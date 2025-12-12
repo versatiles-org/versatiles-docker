@@ -7,6 +7,9 @@ on:
     branches: [main]
   workflow_dispatch:
 
+permissions:
+  contents: read
+
 concurrency:
   group: ci-${{ github.workflow }}-${{ github.ref }}
   cancel-in-progress: true
@@ -15,6 +18,8 @@ jobs:
   hadolint:
     name: Lint Dockerfiles
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
     steps:
       - name: Checkout repository
         uses: actions/checkout@v6
@@ -35,6 +40,8 @@ jobs:
   shellcheck:
     name: Lint Shell Scripts
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
     steps:
       - name: Checkout repository
         uses: actions/checkout@v6
@@ -52,6 +59,9 @@ jobs:
   trivy-repo:
     name: Security Scan - Repository
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      security-events: write
     steps:
       - name: Checkout repository
         uses: actions/checkout@v6
@@ -75,6 +85,8 @@ jobs:
   summary:
     name: CI Summary
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
     needs: [hadolint, shellcheck, trivy-repo]
     if: always()
     steps:
