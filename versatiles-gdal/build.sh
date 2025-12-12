@@ -30,20 +30,20 @@ if $needs_testing; then
     output=$(docker run --rm "versatiles-gdal" -V 2>&1 || true)
     expected="versatiles ${VER#v}"
     if [[ "$output" != "$expected" ]]; then
-        echo "  ❌ Test 1 failed: expected '$expected', got '$output'\n" >&2
+        printf "  ❌ Test 1 failed: expected '%s', got '%s'\n" "$expected" "$output" >&2
         exit 1
     fi
 
     TEST_DIR=$(readlink -f "./testdata/")
-    mkdir -p $TEST_DIR/temp
-    output=$(docker run --rm -v $TEST_DIR:/data versatiles-gdal convert liechtenstein.vpl ./temp/liechtenstein.mbtiles 2>&1 || true)
+    mkdir -p "$TEST_DIR/temp"
+    output=$(docker run --rm -v "$TEST_DIR:/data" versatiles-gdal convert liechtenstein.vpl ./temp/liechtenstein.mbtiles 2>&1 || true)
     expected="finished converting tiles"
     if [[ "$output" != *"$expected" ]]; then
         echo "  ❌ Test 2 failed: expected output to end with '$expected', got '$output'" >&2
         exit 1
     fi
-    file_size=$(wc -c $TEST_DIR/temp/liechtenstein.mbtiles | awk '{print $1}')
-    rm -rf $TEST_DIR/temp
+    file_size=$(wc -c "$TEST_DIR/temp/liechtenstein.mbtiles" | awk '{print $1}')
+    rm -rf "$TEST_DIR/temp"
     if [[ $file_size -lt 16000000 ]]; then
         echo "  ❌ Test 2 failed: expected output file size to be greater than 16MB, got '$file_size'" >&2
         exit 1

@@ -39,15 +39,15 @@ if $needs_testing; then
         fi
         
         TEST_DIR=$(readlink -f "./testdata/")
-        mkdir -p $TEST_DIR/temp
-        output=$(docker run --rm -v $TEST_DIR:/data "$image" convert chioggia.versatiles ./temp/chioggia.pmtiles 2>&1 || true)
+        mkdir -p "$TEST_DIR/temp"
+        output=$(docker run --rm -v "$TEST_DIR:/data" "$image" convert chioggia.versatiles ./temp/chioggia.pmtiles 2>&1 || true)
         expected="finished converting tiles"
         if [[ "$output" != *"$expected" ]]; then
             echo "  ❌ Test 2 failed: expected output to end with '$expected', got '$output'" >&2
             exit 1
         fi
-        file_size=$(wc -c $TEST_DIR/temp/chioggia.pmtiles | awk '{print $1}')
-        rm -rf $TEST_DIR/temp
+        file_size=$(wc -c "$TEST_DIR/temp/chioggia.pmtiles" | awk '{print $1}')
+        rm -rf "$TEST_DIR/temp"
         if [[ $file_size -lt 12500000 ]]; then
             echo "  ❌ Test 2 failed: expected output file size to be greater than 12.5 MB, got '$file_size'" >&2
             exit 1
