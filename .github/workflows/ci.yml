@@ -20,20 +20,24 @@ jobs:
     runs-on: ubuntu-latest
     permissions:
       contents: read
+    strategy:
+      fail-fast: false
+      matrix:
+        dockerfile:
+          - versatiles/Dockerfile
+          - versatiles-frontend/Dockerfile
+          - versatiles-gdal/Dockerfile
+          - versatiles-nginx/Dockerfile
+          - versatiles-tilemaker/Dockerfile
+          - versatiles-tippecanoe/Dockerfile
     steps:
       - name: Checkout repository
         uses: actions/checkout@v6
 
-      - name: Run Hadolint
+      - name: Run Hadolint on ${{ matrix.dockerfile }}
         uses: hadolint/hadolint-action@v3.3.0
         with:
-          dockerfile: |
-            versatiles/Dockerfile
-            versatiles-frontend/Dockerfile
-            versatiles-gdal/Dockerfile
-            versatiles-nginx/Dockerfile
-            versatiles-tilemaker/Dockerfile
-            versatiles-tippecanoe/Dockerfile
+          dockerfile: ${{ matrix.dockerfile }}
           failure-threshold: warning
           ignore: DL3018,DL3059
 
