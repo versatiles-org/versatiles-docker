@@ -6,7 +6,7 @@ set -euo pipefail
 log "Clearing nginx proxy cache …"
 
 if [ ! -d /dev/shm/nginx_cache ]; then
-    log \"Cache directory not found – nothing to clear\" WARN
+    log "Cache directory not found – nothing to clear" WARN
     exit 0
 fi
 
