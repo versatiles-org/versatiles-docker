@@ -25,5 +25,5 @@ case $TARGETPLATFORM in
 esac
 
 echo "Downloading versatiles binary from $URL"
-curl --retry 3 -sL "$URL" | tar x -zf - versatiles
+curl --retry 3 --max-time 30 -sL "$URL" | tar x -zf - versatiles
 chmod +x versatiles
