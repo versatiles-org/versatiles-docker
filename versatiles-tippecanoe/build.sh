@@ -6,6 +6,7 @@ cd "$(dirname "$0")/.."
 # shellcheck source=./scripts/utils.sh
 source ./scripts/utils.sh
 parse_arguments "$@"
+# Variables from utils.sh: needs_push, needs_testing
 VER_VT=$(fetch_release_tag)
 VER_TC=$(fetch_release_tag "felt/tippecanoe")
 NAME="versatiles-tippecanoe"

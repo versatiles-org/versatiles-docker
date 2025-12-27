@@ -319,6 +319,12 @@ update_docker_description() {
         echo "❌ Repository name required"
         return 1
     }
+
+    # Validate repository name to prevent path traversal
+    if [[ ! "$repository" =~ ^[a-z0-9-]+$ ]]; then
+        echo "❌ Invalid repository name: $repository (must match ^[a-z0-9-]+$)" >&2
+        return 1
+    fi
     [[ -n "${DOCKERHUB_TOKEN:-}" ]] || {
         echo "❌ DOCKERHUB_TOKEN not set."
         return 1

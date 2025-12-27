@@ -16,6 +16,7 @@ cd "$(dirname "$0")/.."
 # shellcheck source=./scripts/utils.sh
 source ./scripts/utils.sh
 parse_arguments "$@"
+# Variables from utils.sh: needs_push, needs_testing
 VER=$(fetch_release_tag)
 NAME="versatiles-frontend"
 
@@ -29,12 +30,11 @@ get_timestamp_ms() {
 # Helper function to test shutdown time
 test_shutdown_time() {
     local image="$1"
-    local variant="${2:-alpine}"  # alpine, debian, or scratch
 
     echo "  🧪 Testing shutdown time..."
 
     # Start long-running container with tini
-    CONTAINER_ID=$(docker run -d --rm -v $(pwd)/testdata:/data "$image" serve chioggia.versatiles)
+    CONTAINER_ID=$(docker run -d --rm -v "$(pwd)"/testdata:/data "$image" serve chioggia.versatiles)
 
     # Give it a moment to start
     sleep 0.5
@@ -109,10 +109,10 @@ if $needs_testing; then
     }
 
     test_image "$NAME:debian"
-    test_shutdown_time "$NAME:debian" "debian"
+    test_shutdown_time "$NAME:debian"
 
     test_image "$NAME:alpine"
-    test_shutdown_time "$NAME:alpine" "alpine"
+    test_shutdown_time "$NAME:alpine"
 
     test_image "$NAME:scratch"
 

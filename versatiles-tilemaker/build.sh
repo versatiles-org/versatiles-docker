@@ -16,6 +16,7 @@ cd "$(dirname "$0")/.."
 # shellcheck source=./scripts/utils.sh
 source ./scripts/utils.sh
 parse_arguments "$@"
+# Variables from utils.sh: needs_push, needs_testing
 VER=$(fetch_release_tag "systemed/tilemaker")
 NAME="versatiles-tilemaker"
 
