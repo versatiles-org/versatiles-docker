@@ -25,8 +25,10 @@ set -euo pipefail
 
 cd "$(dirname "$0")/.."
 
+# Run all build scripts with the provided arguments
 ./versatiles/build.sh "$@"
 ./versatiles-frontend/build.sh "$@"
 ./versatiles-nginx/build.sh "$@"
+./versatiles-gdal/build.sh "$@"
 ./versatiles-tilemaker/build.sh "$@"
 ./versatiles-tippecanoe/build.sh "$@" 
