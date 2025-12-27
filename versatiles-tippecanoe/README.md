@@ -25,6 +25,12 @@ docker run --rm --entrypoint versatiles versatiles/versatiles-tippecanoe -V
 
 ---
 
+## Signal Handling
+
+This image includes [tini](https://github.com/krallin/tini) as the init system, ensuring containers respond correctly to termination signals (e.g., Ctrl-C in interactive mode) and shut down gracefully in under 1 second.
+
+---
+
 ## License
 
 * Tippecanoe – MIT  

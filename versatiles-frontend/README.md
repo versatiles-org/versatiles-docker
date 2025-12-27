@@ -38,6 +38,24 @@ Everything after the image name is passed to `versatiles server`:
 
 - **`'osm.versatiles'`** — Serves the mounted `osm.versatiles` file (adjust the path if your file is named differently).
 
+## Image Variants
+
+This image is available in three variants:
+
+| Variant   | Version                                                                            | Size                                                                                        | Signal Handling                                                               |
+|-----------|------------------------------------------------------------------------------------|---------------------------------------------------------------------------------------------|-------------------------------------------------------------------------------|
+| `alpine`  | ![](https://img.shields.io/docker/v/versatiles/versatiles-frontend/alpine?label=)  | ![](https://img.shields.io/docker/image-size/versatiles/versatiles-frontend/alpine?label=)  | ✅ Includes [tini](https://github.com/krallin/tini) for proper signal handling |
+| `debian`  | ![](https://img.shields.io/docker/v/versatiles/versatiles-frontend/debian?label=)  | ![](https://img.shields.io/docker/image-size/versatiles/versatiles-frontend/debian?label=)  | ✅ Includes [tini](https://github.com/krallin/tini) for proper signal handling |
+| `scratch` | ![](https://img.shields.io/docker/v/versatiles/versatiles-frontend/scratch?label=) | ![](https://img.shields.io/docker/image-size/versatiles/versatiles-frontend/scratch?label=) | ⚠️ No tini included. Use `docker run --init` if you need signal handling      |
+
+**Signal Handling:**
+The Alpine and Debian variants include tini as the init system, ensuring server containers respond correctly to termination signals (e.g., Ctrl-C in interactive mode) and shut down gracefully in under 1 second.
+
+For the scratch variant, if you need proper signal handling, use Docker's `--init` flag:
+```bash
+docker run --init -p 8080:8080 -v "$(pwd)":/data versatiles/versatiles-frontend:scratch osm.versatiles
+```
+
 ## Resources
 
 - **Server** — [versatiles‑rs](https://github.com/versatiles-org/versatiles-rs) (Rust)  

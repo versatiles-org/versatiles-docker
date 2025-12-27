@@ -23,6 +23,10 @@ echo 'from_gdal_raster filename=satellite.tif' > satellite.vpl
 docker run -it --rm -v $(pwd):/data versatiles/versatiles-gdal convert satellite.vpl satellite.versatiles
 ```
 
+## Signal Handling
+
+This image includes [tini](https://github.com/krallin/tini) as the init system, ensuring containers respond correctly to termination signals (e.g., Ctrl-C in interactive mode) and shut down gracefully in under 1 second.
+
 ## About
 
 This Docker image is built from the [versatiles-org/versatiles-docker](https://github.com/versatiles-org/versatiles-docker) repository, specifically the [versatiles-gdal/](https://github.com/versatiles-org/versatiles-docker/tree/main/versatiles-gdal) subfolder.

@@ -53,6 +53,24 @@ A common pattern is to mount the working directory:
 
 All relative paths inside the VersaTiles CLI will resolve to `/data`.
 
+## Image Variants
+
+This image is available in three variants:
+
+| Variant   | Version                                                                   | Size                                                                               | Signal Handling                                                               |
+|-----------|---------------------------------------------------------------------------|------------------------------------------------------------------------------------|-------------------------------------------------------------------------------|
+| `alpine`  | ![](https://img.shields.io/docker/v/versatiles/versatiles/alpine?label=)  | ![](https://img.shields.io/docker/image-size/versatiles/versatiles/alpine?label=)  | ✅ Includes [tini](https://github.com/krallin/tini) for proper signal handling |
+| `debian`  | ![](https://img.shields.io/docker/v/versatiles/versatiles/debian?label=)  | ![](https://img.shields.io/docker/image-size/versatiles/versatiles/debian?label=)  | ✅ Includes [tini](https://github.com/krallin/tini) for proper signal handling |
+| `scratch` | ![](https://img.shields.io/docker/v/versatiles/versatiles/scratch?label=) | ![](https://img.shields.io/docker/image-size/versatiles/versatiles/scratch?label=) | ⚠️ No tini included. Use `docker run --init` if you need signal handling      |
+
+**Signal Handling:**
+The Alpine and Debian variants include tini as the init system, ensuring containers respond correctly to termination signals (e.g., Ctrl-C in interactive mode) and shut down gracefully in under 1 second.
+
+For the scratch variant, if you need proper signal handling, use Docker's `--init` flag:
+```bash
+docker run --init -it versatiles/versatiles:scratch
+```
+
 ## About This Image
 
 This image is built from the  
