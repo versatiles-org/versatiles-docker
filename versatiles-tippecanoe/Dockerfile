@@ -48,8 +48,8 @@ COPY --from=builder-versatiles --chmod=0755 --chown=root /app/versatiles /app/ve
 # Copy tippecanoe binaries
 COPY --from=builder-tippecanoe /src/tippecanoe /src/tippecanoe-json-tool /src/tippecanoe-decode /src/tile-join /usr/local/bin/
 
-RUN apk add --no-cache libstdc++ sqlite-libs zlib
+RUN apk add --no-cache libstdc++ sqlite-libs zlib tini
 
 WORKDIR /data
 ENV PATH="/app:${PATH}"
-ENTRYPOINT ["tippecanoe"]
+ENTRYPOINT ["/sbin/tini", "--", "tippecanoe"]

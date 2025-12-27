@@ -31,28 +31,27 @@ RUN ./download_versatiles_binary.sh "${TARGETPLATFORM}-gnu"
 FROM alpine:3.23 AS versatiles-alpine
 LABEL maintainer="Michael Kreil <versatiles@michael-kreil.de>"
 LABEL org.opencontainers.image.source="https://github.com/versatiles-org/versatiles-docker"
-WORKDIR /app
-COPY --from=builder-versatiles-musl --chmod=0755 --chown=root /app/versatiles .
-COPY --from=builder-frontend /app/frontend-dev.br.tar .
+RUN apk add --no-cache tini
+COPY --from=builder-versatiles-musl --chmod=0755 --chown=root /app/versatiles /app/
+COPY --from=builder-frontend /app/frontend-dev.br.tar /app/
 WORKDIR /data
-ENTRYPOINT ["/app/versatiles", "server", "--static" , "/app/frontend-dev.br.tar"]
+ENTRYPOINT ["/sbin/tini", "--", "/app/versatiles", "serve", "--static" , "/app/frontend-dev.br.tar"]
 
 # ==== 2. Scratch (static musl) ==============================================
 FROM scratch AS versatiles-scratch
 LABEL maintainer="Michael Kreil <versatiles@michael-kreil.de>"
 LABEL org.opencontainers.image.source="https://github.com/versatiles-org/versatiles-docker"
-WORKDIR /app
-COPY --from=builder-versatiles-musl --chmod=0755 /app/versatiles .
-COPY --from=builder-frontend /app/frontend-dev.br.tar .
+COPY --from=builder-versatiles-musl --chmod=0755 /app/versatiles /app/
+COPY --from=builder-frontend /app/frontend-dev.br.tar /app/
 WORKDIR /data
-ENTRYPOINT ["/app/versatiles", "server", "--static" , "/app/frontend-dev.br.tar"]
+ENTRYPOINT ["/app/versatiles", "serve", "--static" , "/app/frontend-dev.br.tar"]
 
 # ==== 3. Debian slim (glibc) =================================================
 FROM debian:13-slim AS versatiles-debian
 LABEL maintainer="Michael Kreil <versatiles@michael-kreil.de>"
 LABEL org.opencontainers.image.source="https://github.com/versatiles-org/versatiles-docker"
-WORKDIR /app
-COPY --from=builder-versatiles-gnu --chmod=0755 --chown=root /app/versatiles .
-COPY --from=builder-frontend /app/frontend-dev.br.tar .
+RUN apt-get update && apt-get install -y --no-install-recommends tini && rm -rf /var/lib/apt/lists/*
+COPY --from=builder-versatiles-gnu --chmod=0755 --chown=root /app/versatiles /app/
+COPY --from=builder-frontend /app/frontend-dev.br.tar /app/
 WORKDIR /data
-ENTRYPOINT ["/app/versatiles", "server", "--static" , "/app/frontend-dev.br.tar"]
+ENTRYPOINT ["/usr/bin/tini", "--", "/app/versatiles", "serve", "--static" , "/app/frontend-dev.br.tar"]

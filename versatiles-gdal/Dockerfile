@@ -6,7 +6,7 @@ LABEL org.opencontainers.image.source="https://github.com/versatiles-org/versati
 SHELL ["/bin/bash", "-eo", "pipefail", "-c"]
 RUN \
   apt-get update; \
-  apt-get install -y --no-install-recommends build-essential ca-certificates clang curl git sudo; \
+  apt-get install -y --no-install-recommends build-essential ca-certificates clang curl git sudo tini; \
   curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | bash -s -- -y; \
   . "$HOME/.cargo/env"; \
   mkdir -p /app; \
@@ -51,4 +51,4 @@ RUN \
   
 ENV LD_LIBRARY_PATH=/app/gdal/lib
 WORKDIR /data
-ENTRYPOINT ["/app/versatiles"]
+ENTRYPOINT ["/usr/bin/tini", "--", "/app/versatiles"]
