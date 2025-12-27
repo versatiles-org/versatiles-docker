@@ -21,7 +21,7 @@
 #   0  Success
 #   1  Unknown platform or download failure
 #
-set -euo pipefail
+set -eu
 
 TARGETPLATFORM=$1
 BASE_URL="https://github.com/versatiles-org/versatiles-rs/releases/latest/download"
