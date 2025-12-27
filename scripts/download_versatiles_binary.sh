@@ -19,7 +19,7 @@ case $TARGETPLATFORM in
 		URL="${BASE_URL}/versatiles-linux-gnu-aarch64.tar.gz"
 		;;
 	*)
-		echo "Unknown target plattform $TARGETPLATFORM"
+		echo "Unknown target platform $TARGETPLATFORM"
 		exit 1
 		;;
 esac
