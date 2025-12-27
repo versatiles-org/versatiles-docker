@@ -12,6 +12,38 @@ NAME="versatiles"
 
 echo "👷 Building $NAME Docker images for version $VER"
 
+# Helper function for getting millisecond timestamps
+get_timestamp_ms() {
+    date +%s%N | cut -b1-13
+}
+
+# Helper function to test shutdown time
+test_shutdown_time() {
+    local image="$1"
+    local variant="${2:-alpine}"  # alpine, debian, or scratch
+
+    echo "  🧪 Testing shutdown time..."
+
+    # Start long-running container with tini
+    CONTAINER_ID=$(docker run -d --rm -v $(pwd)/testdata:/data "$image" serve chioggia.versatiles)
+
+    # Give it a moment to start
+    sleep 0.5
+
+    # Measure shutdown time
+    start_time=$(get_timestamp_ms)
+    docker stop --time=3 "$CONTAINER_ID" >/dev/null 2>&1 || true
+    end_time=$(get_timestamp_ms)
+    duration=$(( end_time - start_time ))
+
+    echo "  ⏱️  Shutdown time: ${duration}ms"
+
+    if [[ $duration -ge 1000 ]]; then
+        echo "  ❌ Shutdown took too long: ${duration}ms (expected < 1000ms)" >&2
+        exit 1
+    fi
+}
+
 ###############################################################################
 # 1. Host‑arch build (loaded into local Docker for testing)
 ###############################################################################
@@ -55,7 +87,11 @@ if $needs_testing; then
     }
 
     test_image "$NAME:debian"
+    test_shutdown_time "$NAME:debian" "debian"
+
     test_image "$NAME:alpine"
+    test_shutdown_time "$NAME:alpine" "alpine"
+
     test_image "$NAME:scratch"
 
     echo "✅ All images tested successfully."
