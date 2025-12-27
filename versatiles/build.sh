@@ -18,19 +18,20 @@ get_timestamp_ms() {
     date +%s%N | cut -b1-13
 }
 
-# Helper function to test shutdown time
+# Test shutdown time - verify containers respond to SIGTERM in <1s
+# This validates that tini is properly installed and configured
 test_shutdown_time() {
     local image="$1"
 
     echo "  🧪 Testing shutdown time..."
 
-    # Start long-running container with tini
+    # Start a long-running server container
     CONTAINER_ID=$(docker run -d --rm -v "$(pwd)"/testdata:/data "$image" serve chioggia.versatiles)
 
-    # Give it a moment to start
+    # Give the server a moment to initialize
     sleep 0.5
 
-    # Measure shutdown time
+    # Measure how long docker stop takes (sends SIGTERM, waits for graceful shutdown)
     start_time=$(get_timestamp_ms)
     docker stop --time=3 "$CONTAINER_ID" >/dev/null 2>&1 || true
     end_time=$(get_timestamp_ms)
@@ -38,6 +39,7 @@ test_shutdown_time() {
 
     echo "  ⏱️  Shutdown time: ${duration}ms"
 
+    # Fail if shutdown takes longer than 1 second
     if [[ $duration -ge 1000 ]]; then
         echo "  ❌ Shutdown took too long: ${duration}ms (expected < 1000ms)" >&2
         exit 1
