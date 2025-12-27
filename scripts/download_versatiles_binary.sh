@@ -1,4 +1,4 @@
-#!/usr/bin/env bash
+#!/usr/bin/env sh
 #
 # download_versatiles_binary.sh - Download VersaTiles binary for target platform
 #
