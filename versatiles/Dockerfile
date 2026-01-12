@@ -4,7 +4,7 @@
 ## ─────────────────────────────  builders  ───────────────────────────────── ##
 ###############################################################################
 
-FROM --platform=$BUILDPLATFORM curlimages/curl:8.17.0 AS builder
+FROM --platform=$BUILDPLATFORM curlimages/curl:8.18.0 AS builder
 ARG TARGETPLATFORM
 WORKDIR /app
 COPY ./scripts/download_versatiles_binary.sh .
