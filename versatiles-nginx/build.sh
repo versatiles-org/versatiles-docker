@@ -28,7 +28,7 @@ fi
 if $needs_testing; then
     echo "🧪 Running smoke-tests"
 
-    output="'FRONTEND' is required (Allowed: standard|dev|min|none)"
+    output="'FRONTEND' is required (Allowed: standard|dev|min|tiny|none)"
     result=$(docker run --rm "$NAME:latest" 2>&1 || true)
     if [[ "$result" != *"$output"* ]]; then
         echo "❌ Test failed: expected \"$result\" to contain \"$output\"" >&2
