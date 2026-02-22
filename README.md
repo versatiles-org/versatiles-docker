@@ -1,6 +1,6 @@
-# VersaTiles Docker
+[![License](https://img.shields.io/badge/license-MIT-green)](LICENSE)
 
-[![MIT License](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
+# VersaTiles Docker
 
 Docker images for [VersaTiles](https://github.com/versatiles-org/versatiles-rs) - a fast map tile server. This repository contains Dockerfiles and GitHub workflows for building and publishing production-ready Docker images.
 
