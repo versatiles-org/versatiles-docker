@@ -13,10 +13,8 @@ RUN \
   git clone --depth 1 https://github.com/versatiles-org/versatiles-rs.git /app/versatiles-rs; \
   cd /app/versatiles-rs || exit 1; \
   ./scripts/install-gdal.sh; \
-  ./scripts/build-release.sh; \
+  ./scripts/build-release-with-gdal.sh; \
   \
-  mv /app/versatiles-rs/.toolchain/gdal /app/; \
-  rm -rf /app/gdal/bin; \
   mv /app/versatiles-rs/target/release/versatiles /app/; \
   strip /app/versatiles; \
   rm -r /app/versatiles-rs; \
@@ -49,6 +47,5 @@ RUN \
   cd /; \
   dpkg-query -Wf '${Installed-Size}\t${Package}\n' | sort -n
   
-ENV LD_LIBRARY_PATH=/app/gdal/lib
 WORKDIR /data
 ENTRYPOINT ["/usr/bin/tini", "--", "/app/versatiles"]
