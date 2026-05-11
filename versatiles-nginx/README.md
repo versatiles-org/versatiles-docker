@@ -40,7 +40,7 @@ docker run -d --name versatiles \
 |-----------------------|----------|------------------|----------------------------------------------------------------------------------------------------|
 | `DOMAIN`              | **Yes**  | –                | A fully qualified domain name served by Nginx and used for ACME certificate issuance.              |
 | `EMAIL`               | **Yes**  | –                | Contact e‑mail passed to Certbot during ACME registration.                                         |
-| `FRONTEND`            | **Yes**  | -                | UI bundle to serve: `standard`, `dev`, `min`, or `none`.                                            |
+| `FRONTEND`            | **Yes**  | -                | UI bundle to serve: `standard`, `dev`, `min`, `tiny`, `blank`, or `none`.                           |
 | `TILE_SOURCES`        | **Yes**  | -                | Comma‑separated list of `.versatiles`, `.mbtiles`, or `.pmtiles` that are fetched once at startup. |
 | `BBOX`                | No       | –                | Restrict the map download to the bounding box `lng_min,lat_min,lng_max,lat_max`.                   |
 | `HTTP_ONLY`           | No       | –                | When set, disables certificate issuance/renewal and serves plain HTTP on port 80 only.             |

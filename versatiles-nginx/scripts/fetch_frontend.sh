@@ -13,6 +13,8 @@
 #                 - standard, default, 1, true, yes  → Standard frontend
 #                 - dev                              → Development frontend
 #                 - min                              → Minimal frontend
+#                 - tiny                             → Tiny frontend
+#                 - blank                            → Blank frontend (fonts + sprites only)
 #                 - none, no, 0, false, off, disabled → No frontend
 #
 # BEHAVIOR
@@ -37,19 +39,20 @@
 #
 set -euo pipefail
 . /scripts/utils.sh
-require FRONTEND "Allowed: standard|dev|min|tiny|none"
+require FRONTEND "Allowed: standard|dev|min|tiny|blank|none"
 
 case "$FRONTEND" in
 "default" | "standard" | "" | "1" | "true" | "yes") variant="frontend" ;;
 "dev") variant="frontend-dev" ;;
 "min") variant="frontend-min" ;;
 "tiny") variant="frontend-tiny" ;;
+"blank") variant="frontend-blank" ;;
 "none" | "no" | "0" | "false" | "off" | "disabled")
     log "Frontend disabled."
     exit 0
     ;;
 *)
-    log "Unknown FRONTEND \"${FRONTEND}\". Allowed: standard|dev|min|tiny|none" ERROR
+    log "Unknown FRONTEND \"${FRONTEND}\". Allowed: standard|dev|min|tiny|blank|none" ERROR
     exit 1
     ;;
 esac
