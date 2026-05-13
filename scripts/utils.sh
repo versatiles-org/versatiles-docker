@@ -161,20 +161,26 @@ _ensure_builder() {
 #  buildx_cache_args (internal)
 # --------------------------------------------------------------------------- #
 # Returns the two Buildx flags that hook the GitHub‑Actions cache backend
-#     --cache-from type=gha
-#     --cache-to   type=gha,mode=max
+#     --cache-from type=gha,scope=…
+#     --cache-to   type=gha,scope=…,mode=max
+#
+# Arguments:
+#   $1 (optional) — image name used as scope suffix so each image gets its own
+#                   cache partition (e.g. "versatiles-nginx"). Without it, all
+#                   parallel jobs would share one scope and evict each other.
 #
 # It outputs nothing when:
 #   • the script is not running inside GitHub Actions ($GITHUB_ACTIONS not set)
 #
 # Usage:
-#   docker buildx build $(buildx_cache_args) …
+#   docker buildx build $(buildx_cache_args "$name") …
 #
 # --------------------------------------------------------------------------- #
 buildx_cache_args() {
+    local scope="versatiles-docker${1:+-$1}"
     if [[ -n "${GITHUB_ACTIONS:-}" ]]; then
-        echo "Setting up Buildx cache for GitHub Actions…" 1>&2
-        echo "--cache-from type=gha,scope=versatiles-docker --cache-to type=gha,scope=versatiles-docker,mode=max"
+        echo "Setting up Buildx cache for GitHub Actions… (scope=$scope)" 1>&2
+        echo "--cache-from type=gha,scope=$scope --cache-to type=gha,scope=$scope,mode=max"
     fi
 }
 
@@ -249,7 +255,7 @@ build_load_image() {
         --target "$target" \
         $(build_image_args "$name" "$tags") \
         --platform "linux/${host_arch}" \
-        $(buildx_cache_args) \
+        $(buildx_cache_args "$name") \
         ${BUILD_ARGS:-} \
         --load .
 }
@@ -284,7 +290,7 @@ build_push_image() {
         --target "$target" \
         $(build_image_args "versatiles/$name,ghcr.io/versatiles-org/$name" "$tags") \
         --platform linux/amd64,linux/arm64 \
-        $(buildx_cache_args) \
+        $(buildx_cache_args "$name") \
         ${BUILD_ARGS:-} \
         --push . >/dev/null
 }
