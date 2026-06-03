@@ -60,9 +60,11 @@ shopt -s extglob
 #   TAG=$(fetch_release_tag "felt/tippecanoe")   # → "v2.34.0"
 #
 # Notes:
-#   • Uses the GitHub REST API unauthenticated (60 req/hr IP‑limit).
-#     If you hit rate‑limits, export GITHUB_TOKEN and add an
-#     "Authorization" header here.
+#   • Uses the GitHub REST API. Unauthenticated requests are limited to
+#     60 req/hr per IP, which is easily exhausted when several build jobs
+#     run in parallel on a shared runner IP (HTTP 403). To raise the limit
+#     to ~1000 req/hr, export GITHUB_TOKEN (or GH_TOKEN) — when present it
+#     is sent as a Bearer "Authorization" header automatically.
 # --------------------------------------------------------------------------- #
 # fetch_release_tag [owner/repo]
 # Prints the latest Git tag of a GitHub project (defaults to versatiles‑rs).
@@ -70,7 +72,19 @@ fetch_release_tag() {
     local repo=${1:-"versatiles-org/versatiles-rs"}
     local tag
     local response
-    response=$(curl --retry 3 --silent --show-error --location --fail "https://api.github.com/repos/${repo}/releases/latest") || {
+
+    # Authenticate when a token is available to avoid the 60 req/hr
+    # unauthenticated rate limit.
+    local auth_args=()
+    local token="${GITHUB_TOKEN:-${GH_TOKEN:-}}"
+    if [[ -n "$token" ]]; then
+        auth_args=(--header "Authorization: Bearer ${token}")
+    fi
+
+    response=$(curl --retry 3 --silent --show-error --location --fail \
+        --header "Accept: application/vnd.github+json" \
+        "${auth_args[@]}" \
+        "https://api.github.com/repos/${repo}/releases/latest") || {
         echo "❌ curl failed while fetching release info for repository: $repo" >&2
         return 1
     }

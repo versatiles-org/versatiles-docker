@@ -40,6 +40,10 @@ env:
   CARGO_TERM_COLOR: always
   FORCE_COLOR: 1
   DOCKERHUB_TOKEN: ${{ secrets.DOCKERHUB_TOKEN }}
+  # Authenticates GitHub REST API calls in build scripts (fetch_release_tag),
+  # raising the rate limit from 60 to ~1000 req/hr to avoid HTTP 403 across
+  # the parallel build jobs.
+  GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
 concurrency:
   group: release-${{ github.workflow }}-${{ github.ref }}
