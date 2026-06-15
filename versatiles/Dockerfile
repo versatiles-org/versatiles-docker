@@ -22,7 +22,7 @@ RUN ./download_versatiles_binary.sh "${TARGETPLATFORM}-gnu"
 ###############################################################################
 
 # ==== 1. Alpine (musl) =======================================================
-FROM alpine:3.23 AS versatiles-alpine
+FROM alpine:3.24 AS versatiles-alpine
 LABEL maintainer="Michael Kreil <versatiles@michael-kreil.de>"
 LABEL org.opencontainers.image.source="https://github.com/versatiles-org/versatiles-docker"
 RUN apk add --no-cache tini
