@@ -8,7 +8,7 @@ COPY ./scripts/download_versatiles_binary.sh .
 RUN ./download_versatiles_binary.sh "${TARGETPLATFORM}-musl"
 
 # ---------- runtime stage ----------
-FROM alpine:3.23 AS versatiles-nginx
+FROM alpine:3.24 AS versatiles-nginx
 LABEL maintainer="Michael Kreil <versatiles@michael-kreil.de>"
 LABEL org.opencontainers.image.source="https://github.com/versatiles-org/versatiles-docker"
 

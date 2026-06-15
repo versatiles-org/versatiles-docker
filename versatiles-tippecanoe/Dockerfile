@@ -14,7 +14,7 @@ RUN ./download_versatiles_binary.sh "${TARGETPLATFORM}-musl"
 # ⛏️  Tippecanoe Builder
 ###############################################################################
 
-FROM alpine:3.23 AS builder-tippecanoe
+FROM alpine:3.24 AS builder-tippecanoe
 ARG TIPPECANOE_VERSION
 ENV TIPPECANOE_VERSION=${TIPPECANOE_VERSION}
 
@@ -37,7 +37,7 @@ RUN make -j"$(nproc)" && \
 # 🚀 Runtime
 ###############################################################################
 
-FROM alpine:3.23 AS versatiles-tippecanoe
+FROM alpine:3.24 AS versatiles-tippecanoe
 
 LABEL maintainer="Michael Kreil <versatiles@michael-kreil.de>"
 LABEL org.opencontainers.image.source="https://github.com/versatiles-org/versatiles-docker"
