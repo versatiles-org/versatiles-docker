@@ -86,6 +86,7 @@ The terminal check (`[ -t 0 ]`) prevents a detached or CI run from hanging on a 
 | `--format <FMT>`          | `FORMAT`        | `versatiles`              | `versatiles` (brotli), `pmtiles` or `mbtiles`.                        |
 | `--name <BASENAME>`       | `OUTPUT_NAME`   | `osm[-landcover].<date>`  | Output filename; the extension is added automatically.                |
 | `--xmx <SIZE>`            | `XMX`           | auto (from available RAM) | JVM heap for Planetiler, e.g. `20g`. See [Memory](#-memory) below.    |
+| `--torrent`               | `TORRENT=1`     | off                       | For `--area planet`: fetch the pbf via BitTorrent. See [Planet download](#-planet-download). |
 | `-i`, `--interactive`     | `INTERACTIVE=1` | —                         | Force the interactive wizard.                                         |
 
 Flags take precedence over environment variables, which take precedence over the built-in defaults.
@@ -121,6 +122,21 @@ docker run --rm \
 ```
 
 See Planetiler's [PLANET.md](https://github.com/onthegomap/planetiler/blob/main/PLANET.md) for details.
+
+---
+
+## 🌍 Planet download
+
+For `--area planet`, Planetiler downloads the ~70 GB planet extract over HTTP by default. With `--torrent` (or `TORRENT=1`) the image instead fetches it via **BitTorrent** using `aria2c` and feeds it to Planetiler with `--osm_path` — usually faster and more reliable. The other sources (water polygons, Natural Earth) are still fetched by Planetiler.
+
+```bash
+docker run --rm \
+  -v $(pwd)/data:/app/data \
+  -v $(pwd)/result:/app/result \
+  versatiles/versatiles-planetiler:latest --area planet --torrent
+```
+
+The pbf is cached under `/app/data/sources/planet-<date>.osm.pbf` (resumable, reused on re-runs). Override the snapshot with `PLANET_DATE=YYMMDD`, or the source with `PLANET_PBF_BASE`. `--torrent` is ignored for sub-regions (those download from Geofabrik via `--area`).
 
 ---
 

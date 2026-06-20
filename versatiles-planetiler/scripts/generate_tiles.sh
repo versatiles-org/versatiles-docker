@@ -65,6 +65,14 @@ INTERACTIVE="${INTERACTIVE:-0}"
 XMX="${XMX:-}"
 XMX_AUTO=0
 
+# Planet download: when TORRENT=1, fetch the planet .osm.pbf via BitTorrent
+# (aria2) and feed it to Planetiler with --osm_path, instead of Planetiler's
+# HTTP download. Only applies to AREA=planet.
+TORRENT="${TORRENT:-0}"
+PLANET_DATE="${PLANET_DATE:-}"
+PLANET_PBF_BASE="${PLANET_PBF_BASE:-https://planet.osm.org/pbf}"
+PLANET_PBF=""
+
 # Path to the intermediate PMTiles; global so the EXIT trap can clean it up.
 intermediate=""
 
@@ -93,12 +101,16 @@ OPTIONS
                            osm[-landcover].<date>
   --xmx <SIZE>             JVM heap for Planetiler, e.g. 20g. Default: derived
                            from the memory available to the container.
+  --torrent                For --area planet: download the planet .osm.pbf via
+                           BitTorrent (aria2) and feed it to Planetiler. Faster
+                           and more reliable than the default HTTP download.
   -i, --interactive        Force the interactive wizard.
   -h, --help               Show this help.
 
 ENVIRONMENT (flags take precedence)
   AREA, LANDCOVER=1, FORMAT, OUTPUT_NAME, INTERACTIVE=1   configuration
   XMX, JAVA_OPTS                                          JVM heap / JVM options
+  TORRENT=1, PLANET_DATE=YYMMDD, PLANET_PBF_BASE          planet download
   LANDCOVER_URL, LANGUAGES, EXPERIMENTS,
   PLANETILER_EXTRA_FLAGS                                  tuning
 EOF
@@ -167,6 +179,42 @@ resolve_java_opts() {
     JAVA_OPTS="-Xmx${xmx}${JAVA_OPTS:+ $JAVA_OPTS}"
 }
 
+# Download the planet .osm.pbf via BitTorrent into $DATA_DIR/sources and set the
+# global PLANET_PBF to its path. Mirrors shortbread-compare-demo's 02-generate.sh.
+download_planet_torrent() {
+    require_cmd aria2c
+    require_cmd curl
+
+    local sources_dir="$DATA_DIR/sources"
+    mkdir -p "$sources_dir"
+
+    local date="$PLANET_DATE"
+    if [[ -z "$date" ]]; then
+        echo "🔎  Resolving latest planet snapshot from ${PLANET_PBF_BASE}/ …"
+        date="$(curl -fsSL "${PLANET_PBF_BASE}/" |
+            grep -oE 'planet-[0-9]{6}\.osm\.pbf' |
+            grep -oE '[0-9]{6}' | sort | tail -n1 || true)"
+    fi
+    [[ -n "$date" ]] || {
+        echo "Error: could not determine the latest planet date; set PLANET_DATE=YYMMDD." >&2
+        exit 1
+    }
+
+    PLANET_PBF="$sources_dir/planet-${date}.osm.pbf"
+    if [[ -f "$PLANET_PBF" && ! -f "${PLANET_PBF}.aria2" ]]; then
+        echo "♻️  Reusing existing $PLANET_PBF (delete it to force a fresh download)."
+        return
+    fi
+
+    echo "📥  Downloading planet-${date}.osm.pbf via BitTorrent (aria2c) …"
+    local torrent="$sources_dir/planet-${date}.osm.pbf.torrent"
+    curl -fsSL "${PLANET_PBF_BASE}/planet-${date}.osm.pbf.torrent" -o "$torrent"
+    # --seed-time=0 stops seeding once complete; --continue + the .aria2 control
+    # file make the multi-hour download resumable; falloc preallocates quickly.
+    aria2c --dir="$sources_dir" --seed-time=0 --continue=true \
+        --file-allocation=falloc --summary-interval=30 "$torrent"
+}
+
 # ask <prompt> <default> → echoes the user's answer, or the default on empty/EOF.
 ask() {
     local prompt="$1" default="$2" answer
@@ -207,6 +255,7 @@ parse_args() {
         --name=*) OUTPUT_NAME="${1#*=}"; shift ;;
         --xmx) XMX="${2:-}"; shift 2 ;;
         --xmx=*) XMX="${1#*=}"; shift ;;
+        --torrent) TORRENT=1; shift ;;
         -i | --interactive) INTERACTIVE=1; shift ;;
         -h | --help) usage; exit 0 ;;
         *)
@@ -235,6 +284,9 @@ run_wizard() {
         local cont
         cont="$(ask "  Continue with the planet? [y/N]: " "n")"
         [[ "$cont" == [yY]* ]] || { echo "  Aborted." >&2; exit 1; }
+        local tor
+        tor="$(ask "  Download the planet via BitTorrent (faster, needs aria2)? [Y/n]: " "y")"
+        if [[ "$tor" == [nN]* ]]; then TORRENT=0; else TORRENT=1; fi
     else
         echo "  Enter a Geofabrik region id (e.g. monaco, germany/berlin)." >&2
         echo "  Browse available regions at https://download.geofabrik.de/" >&2
@@ -320,6 +372,9 @@ run_pipeline() {
     fi
     echo "   FORMAT:    $FORMAT"
     echo "   OUTPUT:    $out_file"
+    if [[ "$AREA" == "planet" ]]; then
+        echo "   DOWNLOAD:  $([[ "$TORRENT" == "1" ]] && echo "BitTorrent (aria2)" || echo "HTTP (planetiler --download)")"
+    fi
     if [[ "$XMX_AUTO" == "1" ]]; then
         echo "   MEMORY:    ${MEM_HUMAN} GB available, JVM heap ${JAVA_OPTS%% *} (auto)"
     else
@@ -339,6 +394,18 @@ run_pipeline() {
     # PMTiles is a flat, sequentially-laid-out file, so the `versatiles convert`
     # read below avoids the random-access SQLite overhead of MBTiles.
     ###########################################################################
+    # For a torrent planet build, pre-fetch the pbf and feed it via --osm_path so
+    # Planetiler skips its (slow) HTTP OSM download; other sources still use --download.
+    local osm_path_args=()
+    if [[ "$TORRENT" == "1" ]]; then
+        if [[ "$AREA" == "planet" ]]; then
+            download_planet_torrent
+            osm_path_args=(--osm_path="$PLANET_PBF")
+        else
+            echo "⚠️  --torrent only applies to the planet; ignoring for area '$AREA'." >&2
+        fi
+    fi
+
     echo "🧱  Rendering tiles with Planetiler…"
     # shellcheck disable=SC2086
     time java $JAVA_OPTS -jar "$PLANETILER_JAR" shortbread-1.1 \
@@ -348,6 +415,7 @@ run_pipeline() {
         --name_languages="$LANGUAGES" \
         --shortbread_experiments="$EXPERIMENTS" \
         --output="$intermediate" \
+        "${osm_path_args[@]}" \
         $PLANETILER_EXTRA_FLAGS
 
     ###########################################################################
