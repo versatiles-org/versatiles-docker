@@ -8,7 +8,7 @@
 # target architecture.
 ###############################################################################
 
-FROM --platform=$BUILDPLATFORM eclipse-temurin:21-jdk AS builder-planetiler
+FROM --platform=$BUILDPLATFORM eclipse-temurin:25-jdk AS builder-planetiler
 WORKDIR /src
 RUN apt-get update -y && \
     DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends \
@@ -37,7 +37,7 @@ RUN ./download_versatiles_binary.sh "${TARGETPLATFORM}-gnu"
 # Main Build
 ###############################################################################
 
-FROM eclipse-temurin:21-jre AS versatiles-planetiler
+FROM eclipse-temurin:25-jre AS versatiles-planetiler
 LABEL maintainer="Michael Kreil <versatiles@michael-kreil.de>"
 LABEL org.opencontainers.image.source="https://github.com/versatiles-org/versatiles-docker"
 
