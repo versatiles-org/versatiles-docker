@@ -67,11 +67,11 @@ The final file is written to `./result/<name>.<format>`.
 
 The container chooses its mode from two signals:
 
-| Invocation                              | stdin       | Behavior                  |
-|-----------------------------------------|-------------|---------------------------|
-| `docker run -it …` (no args)            | terminal    | **Interactive wizard**    |
-| `docker run … --area …` (args or `-e`)  | any         | **Non-interactive**       |
-| `docker run …` (no `-it`, no config)    | not a tty   | **Usage hint + exit 1**   |
+| Invocation                             | stdin     | Behavior                |
+|----------------------------------------|-----------|-------------------------|
+| `docker run -it …` (no args)           | terminal  | **Interactive wizard**  |
+| `docker run … --area …` (args or `-e`) | any       | **Non-interactive**     |
+| `docker run …` (no `-it`, no config)   | not a tty | **Usage hint + exit 1** |
 
 The terminal check (`[ -t 0 ]`) prevents a detached or CI run from hanging on a prompt. Use `-i` / `INTERACTIVE=1` to force the wizard.
 
@@ -79,25 +79,48 @@ The terminal check (`[ -t 0 ]`) prevents a detached or CI run from hanging on a 
 
 ## 🎛️ Options
 
-| Flag                    | Environment    | Default                      | Description                                                            |
-|-------------------------|----------------|------------------------------|------------------------------------------------------------------------|
-| `--area <planet\|REGION>` | `AREA`         | *(required)*                 | `planet`, or a Geofabrik region id (e.g. `monaco`, `germany/berlin`). |
-| `--landcover`           | `LANDCOVER=1`  | off                          | Merge land cover into the Shortbread layers.                           |
-| `--format <FMT>`        | `FORMAT`       | `versatiles`                 | `versatiles` (brotli), `pmtiles` or `mbtiles`.                          |
-| `--name <BASENAME>`     | `OUTPUT_NAME`  | `osm[-landcover].<date>`     | Output filename; the extension is added automatically.                 |
-| `-i`, `--interactive`   | `INTERACTIVE=1`| —                            | Force the interactive wizard.                                          |
+| Flag                      | Environment     | Default                   | Description                                                           |
+|---------------------------|-----------------|---------------------------|-----------------------------------------------------------------------|
+| `--area <planet\|REGION>` | `AREA`          | *(required)*              | `planet`, or a Geofabrik region id (e.g. `monaco`, `germany/berlin`). |
+| `--landcover`             | `LANDCOVER=1`   | off                       | Merge land cover into the Shortbread layers.                          |
+| `--format <FMT>`          | `FORMAT`        | `versatiles`              | `versatiles` (brotli), `pmtiles` or `mbtiles`.                        |
+| `--name <BASENAME>`       | `OUTPUT_NAME`   | `osm[-landcover].<date>`  | Output filename; the extension is added automatically.                |
+| `--xmx <SIZE>`            | `XMX`           | auto (from available RAM) | JVM heap for Planetiler, e.g. `20g`. See [Memory](#-memory) below.    |
+| `-i`, `--interactive`     | `INTERACTIVE=1` | —                         | Force the interactive wizard.                                         |
 
 Flags take precedence over environment variables, which take precedence over the built-in defaults.
 
 ### Tuning variables
 
-| Variable                 | Default                            | Description                                              |
-|--------------------------|------------------------------------|----------------------------------------------------------|
-| `LANDCOVER_URL`          | public `landcover-vectors.versatiles` | Land cover container to merge.                         |
-| `LANGUAGES`              | `en,fr,es,de,ar,el,it,nl,pl,pt,uk` | `--name_languages` passed to Planetiler.                 |
-| `EXPERIMENTS`            | `all`                              | `--shortbread_experiments` value.                        |
-| `PLANETILER_EXTRA_FLAGS` | `--nodemap_type=array --storage=mmap` | Extra Planetiler flags.                               |
-| `JAVA_OPTS`              | *(unset)*                          | Extra JVM options, e.g. `-Xmx20g`.                       |
+| Variable                 | Default                               | Description                                                         |
+|--------------------------|---------------------------------------|---------------------------------------------------------------------|
+| `LANDCOVER_URL`          | public `landcover-vectors.versatiles` | Land cover container to merge.                                      |
+| `LANGUAGES`              | `en,fr,es,de,ar,el,it,nl,pl,pt,uk`    | `--name_languages` passed to Planetiler.                            |
+| `EXPERIMENTS`            | `all`                                 | `--shortbread_experiments` value.                                   |
+| `PLANETILER_EXTRA_FLAGS` | `--nodemap_type=array --storage=mmap` | Extra Planetiler flags.                                             |
+| `JAVA_OPTS`              | *(unset)*                             | Extra JVM options. An explicit `-Xmx` here overrides `--xmx`/`XMX`. |
+
+---
+
+## 🧠 Memory
+
+Planetiler does **not** auto-abort on low memory — it only logs a warning and continues — so plan capacity yourself.
+
+With the default `--storage=mmap --nodemap_type=array`, Planetiler keeps node locations in **memory-mapped files**, so the JVM heap can stay modest and the dominant requirement is **free RAM for the OS page cache**. Rule of thumb: **≥ 0.5× the `.osm.pbf` size as free RAM** (the whole planet is a ~70 GB pbf → **64 GB+ RAM** recommended).
+
+**JVM heap (`-Xmx`):** In a container the JVM otherwise grabs only ~25 % of the cgroup limit. This image instead derives a sensible default (~40 % of the memory available to the container, capped at 32 GB) and prints it on startup. Override it with `--xmx 20g` / `XMX=20g`, or set the full `JAVA_OPTS` (an explicit `-Xmx` there wins).
+
+**Big machines:** to keep everything in RAM for maximum speed, switch storage and raise the heap:
+
+```bash
+docker run --rm \
+  -e PLANETILER_EXTRA_FLAGS="--storage=ram --nodemap_type=array" \
+  -e XMX=110g \
+  -v $(pwd)/result:/app/result \
+  versatiles/versatiles-planetiler:latest --area planet
+```
+
+See Planetiler's [PLANET.md](https://github.com/onthegomap/planetiler/blob/main/PLANET.md) for details.
 
 ---
 
@@ -113,9 +136,9 @@ The container runs [`generate_tiles.sh`](https://github.com/versatiles-org/versa
 
 ---
 
-## 💾 Resources
+## 💾 Disk & host mounts
 
-Rendering the whole planet is heavy: budget roughly **64 GB+ RAM** (or memory-mapped storage on a fast SSD), **~400 GB+ free disk**, and a few hours. Mount a host directory at `/app/data` so the large intermediate files don't live in the container layer. Test with a small region first, e.g. `--area monaco`.
+Rendering the whole planet is heavy: budget **~400 GB+ free disk** and a few hours (see [Memory](#-memory) for RAM). Mount a host directory at `/app/data` so the large intermediate files don't live in the container layer, and at `/app/result` for the output. Test with a small region first, e.g. `--area monaco`.
 
 ---
 

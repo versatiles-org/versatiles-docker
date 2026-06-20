@@ -61,6 +61,9 @@ LANDCOVER="${LANDCOVER:-0}"
 FORMAT="${FORMAT:-versatiles}"
 OUTPUT_NAME="${OUTPUT_NAME:-}"
 INTERACTIVE="${INTERACTIVE:-0}"
+# JVM heap (-Xmx) value, e.g. "20g". Empty → auto-derived from available memory.
+XMX="${XMX:-}"
+XMX_AUTO=0
 
 # Path to the intermediate PMTiles; global so the EXIT trap can clean it up.
 intermediate=""
@@ -88,13 +91,16 @@ OPTIONS
                            pmtiles. "versatiles" uses brotli compression.
   --name <BASENAME>        Output filename without extension. Default:
                            osm[-landcover].<date>
+  --xmx <SIZE>             JVM heap for Planetiler, e.g. 20g. Default: derived
+                           from the memory available to the container.
   -i, --interactive        Force the interactive wizard.
   -h, --help               Show this help.
 
 ENVIRONMENT (flags take precedence)
   AREA, LANDCOVER=1, FORMAT, OUTPUT_NAME, INTERACTIVE=1   configuration
+  XMX, JAVA_OPTS                                          JVM heap / JVM options
   LANDCOVER_URL, LANGUAGES, EXPERIMENTS,
-  PLANETILER_EXTRA_FLAGS, JAVA_OPTS                       tuning
+  PLANETILER_EXTRA_FLAGS                                  tuning
 EOF
 }
 
@@ -108,6 +114,57 @@ require_cmd() {
         echo "Error: required command '$1' not found." >&2
         exit 1
     }
+}
+
+# Memory (in bytes) available to this container: the cgroup limit if one is set,
+# otherwise total system memory.
+detect_mem_bytes() {
+    local limit=""
+    if [[ -r /sys/fs/cgroup/memory.max ]]; then
+        limit="$(cat /sys/fs/cgroup/memory.max)" # cgroup v2
+    elif [[ -r /sys/fs/cgroup/memory/memory.limit_in_bytes ]]; then
+        limit="$(cat /sys/fs/cgroup/memory/memory.limit_in_bytes)" # cgroup v1
+    fi
+    # "max" (v2) or a sentinel near 2^63 (v1) means "no limit" → use host total.
+    if [[ "$limit" == "max" ]] || [[ ! "$limit" =~ ^[0-9]+$ ]] || ((limit > 9000000000000000000)); then
+        local kb
+        kb="$(awk '/^MemTotal:/{print $2}' /proc/meminfo 2>/dev/null || echo 0)"
+        limit=$((kb * 1024))
+    fi
+    printf '%s' "$limit"
+}
+
+# Bytes → "12.3" (GiB, one decimal).
+human_gb() {
+    awk -v b="$1" 'BEGIN { printf "%.1f", b / 1073741824 }'
+}
+
+# Default -Xmx when the user didn't specify one. Planetiler keeps node locations
+# off-heap in memory-mapped files (the default --storage=mmap), so a modest heap
+# is enough and the rest of RAM should stay free for the OS page cache. Use ~40%
+# of available memory, clamped to [2g, 32g]. For --storage=ram on a big machine,
+# raise it explicitly via --xmx / JAVA_OPTS.
+default_xmx() {
+    local gb
+    gb=$(awk -v b="$1" 'BEGIN { g = int(b / 1073741824 * 0.4); if (g < 2) g = 2; if (g > 32) g = 32; printf "%d", g }')
+    printf '%dg' "$gb"
+}
+
+# Resolve the JVM heap into JAVA_OPTS. An explicit -Xmx in JAVA_OPTS wins; then
+# XMX (flag/env); otherwise an auto value derived from available memory.
+resolve_java_opts() {
+    if [[ "$JAVA_OPTS" == *-Xmx* ]]; then
+        if [[ -n "$XMX" ]]; then
+            echo "⚠️  Both JAVA_OPTS (-Xmx) and --xmx/XMX are set; JAVA_OPTS takes precedence." >&2
+        fi
+        return
+    fi
+    local xmx="$XMX"
+    if [[ -z "$xmx" ]]; then
+        xmx="$(default_xmx "$MEM_BYTES")"
+        XMX_AUTO=1
+    fi
+    JAVA_OPTS="-Xmx${xmx}${JAVA_OPTS:+ $JAVA_OPTS}"
 }
 
 # ask <prompt> <default> → echoes the user's answer, or the default on empty/EOF.
@@ -148,6 +205,8 @@ parse_args() {
         --format=*) FORMAT="${1#*=}"; shift ;;
         --name) OUTPUT_NAME="${2:-}"; shift 2 ;;
         --name=*) OUTPUT_NAME="${1#*=}"; shift ;;
+        --xmx) XMX="${2:-}"; shift 2 ;;
+        --xmx=*) XMX="${1#*=}"; shift ;;
         -i | --interactive) INTERACTIVE=1; shift ;;
         -h | --help) usage; exit 0 ;;
         *)
@@ -171,6 +230,11 @@ run_wizard() {
     scope="$(ask "Render the whole [p]lanet or a [s]ub-region? [p/s] (default: s): " "s")"
     if [[ "$scope" == [pP]* ]]; then
         AREA="planet"
+        echo "  ⚠  The whole planet needs a large machine: ~64 GB+ RAM and ~400 GB+ free disk." >&2
+        echo "     This container currently sees ${MEM_HUMAN} GB of RAM." >&2
+        local cont
+        cont="$(ask "  Continue with the planet? [y/N]: " "n")"
+        [[ "$cont" == [yY]* ]] || { echo "  Aborted." >&2; exit 1; }
     else
         echo "  Enter a Geofabrik region id (e.g. monaco, germany/berlin)." >&2
         echo "  Browse available regions at https://download.geofabrik.de/" >&2
@@ -199,6 +263,13 @@ run_wizard() {
     local default_name
     default_name="$(default_output_name)"
     OUTPUT_NAME="$(ask "Output filename (default: ${default_name}.${FORMAT}): " "$default_name")"
+
+    # 5) JVM heap (-Xmx). Empty keeps the auto value derived from available memory.
+    if [[ -z "$XMX" ]]; then
+        local heap_in
+        heap_in="$(ask "JVM heap -Xmx (default: auto $(default_xmx "$MEM_BYTES")): " "")"
+        [[ -n "$heap_in" ]] && XMX="$heap_in"
+    fi
 
     echo >&2
 }
@@ -249,6 +320,18 @@ run_pipeline() {
     fi
     echo "   FORMAT:    $FORMAT"
     echo "   OUTPUT:    $out_file"
+    if [[ "$XMX_AUTO" == "1" ]]; then
+        echo "   MEMORY:    ${MEM_HUMAN} GB available, JVM heap ${JAVA_OPTS%% *} (auto)"
+    else
+        echo "   MEMORY:    ${MEM_HUMAN} GB available, JVM opts: ${JAVA_OPTS}"
+    fi
+
+    # Planetiler only *warns* about insufficient resources and we pass --force
+    # (so it never blocks on a prompt). Surface the rule of thumb here instead.
+    echo "ℹ️  Planetiler keeps most data in memory-mapped files; keep RAM free for the OS"
+    echo "    page cache. Rule of thumb: ≥ 0.5× the .osm.pbf size as free RAM (the whole"
+    echo "    planet ≈ 70 GB pbf → 64 GB+ RAM). Tune with --xmx / JAVA_OPTS, or switch to"
+    echo "    in-memory storage via PLANETILER_EXTRA_FLAGS=\"--storage=ram --nodemap_type=array\"."
 
     ###########################################################################
     # 1) Render with Planetiler → intermediate PMTiles
@@ -295,6 +378,9 @@ run_pipeline() {
 ###########################################################################
 # 🎬  Main
 ###########################################################################
+MEM_BYTES="$(detect_mem_bytes)"
+MEM_HUMAN="$(human_gb "$MEM_BYTES")"
+
 ARGC=$#
 parse_args "$@"
 
@@ -310,4 +396,5 @@ elif [[ $ARGC -eq 0 && -z "$AREA" ]]; then
 fi
 
 finalize_config
+resolve_java_opts
 run_pipeline
