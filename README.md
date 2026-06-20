@@ -29,6 +29,7 @@ Open http://localhost:8080/ in your browser to view your map.
 | [**versatiles-nginx**](#versatiles-nginx)           | Production deployment         | You need TLS/SSL, caching, reverse proxy, or Let's Encrypt certificates   |
 | [**versatiles-gdal**](#versatiles-gdal)             | Convert geodata formats       | You're working with geospatial data formats (GeoTIFF, Shapefile, etc.)    |
 | [**versatiles-tilemaker**](#versatiles-tilemaker)   | Generate tiles from OSM       | You want to create custom map tiles from OpenStreetMap data               |
+| [**versatiles-planetiler**](#versatiles-planetiler) | Generate Shortbread tiles     | You want fast OSM → Shortbread tile generation (planet or region)         |
 | [**versatiles-tippecanoe**](#versatiles-tippecanoe) | Generate vector tiles         | You need to convert GeoJSON to vector tiles                               |
 
 ## Images
@@ -197,6 +198,42 @@ Generate vector tiles from OpenStreetMap data using [tilemaker](https://github.c
 	<td><img src="https://img.shields.io/docker/image-size/versatiles/versatiles-tilemaker/latest?label=" alt="Docker Image size versatiles-tilemaker"></td>
 </tr>
 </table>
+
+#### `versatiles-planetiler`
+
+Generate OpenStreetMap based vector tiles in the [Shortbread schema](https://shortbread-tiles.org) using [Planetiler](https://github.com/onthegomap/planetiler), with an interactive wizard and optional land cover injection.
+
+- **Contains:** versatiles + planetiler (VersaTiles Shortbread fork) + helper tools (aria2, curl, jq)
+- **Supported OS:** Debian
+- **Architectures:** AMD64, ARM64
+- **Registries:** [GitHub Container Registry](https://github.com/versatiles-org/versatiles-docker/pkgs/container/versatiles-planetiler) | [Docker Hub](https://hub.docker.com/r/versatiles/versatiles-planetiler)
+- **Documentation:** [Detailed README](versatiles-planetiler/README.md)
+
+[![Docker Hub Pulls](https://img.shields.io/docker/pulls/versatiles/versatiles-planetiler)](https://hub.docker.com/r/versatiles/versatiles-planetiler)
+
+<table>
+<tr>
+	<th>OS</th>
+	<th>Version</th>
+	<th>Image Size</th>
+</tr>
+<tr>
+	<td>Debian</td>
+	<td><img src="https://img.shields.io/docker/v/versatiles/versatiles-planetiler/latest?label=" alt="Docker Image version versatiles-planetiler"></td>
+	<td><img src="https://img.shields.io/docker/image-size/versatiles/versatiles-planetiler/latest?label=" alt="Docker Image size versatiles-planetiler"></td>
+</tr>
+</table>
+
+**Example usage:**
+```bash
+# Interactive wizard (planet/region, land cover, format, filename)
+docker run -it --rm -v $(pwd)/result:/app/result \
+  versatiles/versatiles-planetiler:latest
+
+# Non-interactive: render a Geofabrik region with land cover
+docker run --rm -v $(pwd)/result:/app/result \
+  versatiles/versatiles-planetiler:latest --area monaco --landcover
+```
 
 #### `versatiles-tippecanoe`
 

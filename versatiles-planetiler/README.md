@@ -1,0 +1,131 @@
+# Docker Image: versatiles/versatiles-planetiler
+
+This Docker image provides a self-contained toolchain to generate OpenStreetMap based vector tiles in the [Shortbread schema](https://shortbread-tiles.org) using [Planetiler](https://github.com/onthegomap/planetiler) (the [VersaTiles fork](https://github.com/versatiles-org/planetiler) with the Shortbread profile), then packs the result into an efficient `.versatiles`, `.pmtiles` or `.mbtiles` container.
+
+It is part of the [versatiles-docker](https://github.com/versatiles-org/versatiles-docker) project.
+
+---
+
+## 🧩 Features
+
+- Fully automated OSM → Shortbread tiles → VersaTiles pipeline
+- Based on **Planetiler** and **versatiles-rs**
+- **Interactive wizard** *or* fully scriptable via flags / environment variables
+- Optional **land cover** injection from [`landcover-vectors.versatiles`](https://download.versatiles.org/landcover-vectors.versatiles) (merged on the fly, no extra download)
+- Output as **versatiles** (brotli), **pmtiles** or **mbtiles**
+- Renders the whole **planet** or any **Geofabrik** sub-region
+- Graceful shutdown on Ctrl-C (`tini` enabled)
+
+---
+
+## 🚀 Quick Start
+
+### Interactive
+
+Run with an attached terminal (`-it`) and no arguments to launch the wizard. It asks whether to render the whole planet or a sub-region, whether to inject land cover, which container format to use, and the output filename:
+
+```bash
+docker run -it --rm \
+  -v $(pwd)/data:/app/data \
+  -v $(pwd)/result:/app/result \
+  versatiles/versatiles-planetiler:latest
+```
+
+### Non-interactive (flags)
+
+Only `--area` is required; everything else has a default:
+
+```bash
+docker run --rm \
+  -v $(pwd)/data:/app/data \
+  -v $(pwd)/result:/app/result \
+  versatiles/versatiles-planetiler:latest \
+  --area monaco --landcover
+```
+
+### Non-interactive (docker-compose)
+
+```yaml
+services:
+  planetiler:
+    image: versatiles/versatiles-planetiler:latest
+    environment:
+      AREA: planet
+      LANDCOVER: "1"
+      FORMAT: versatiles
+      JAVA_OPTS: -Xmx20g
+    volumes:
+      - ./data:/app/data
+      - ./result:/app/result
+```
+
+The final file is written to `./result/<name>.<format>`.
+
+---
+
+## ⚙️ How interactive vs. non-interactive is decided
+
+The container chooses its mode from two signals:
+
+| Invocation                              | stdin       | Behavior                  |
+|-----------------------------------------|-------------|---------------------------|
+| `docker run -it …` (no args)            | terminal    | **Interactive wizard**    |
+| `docker run … --area …` (args or `-e`)  | any         | **Non-interactive**       |
+| `docker run …` (no `-it`, no config)    | not a tty   | **Usage hint + exit 1**   |
+
+The terminal check (`[ -t 0 ]`) prevents a detached or CI run from hanging on a prompt. Use `-i` / `INTERACTIVE=1` to force the wizard.
+
+---
+
+## 🎛️ Options
+
+| Flag                    | Environment    | Default                      | Description                                                            |
+|-------------------------|----------------|------------------------------|------------------------------------------------------------------------|
+| `--area <planet\|REGION>` | `AREA`         | *(required)*                 | `planet`, or a Geofabrik region id (e.g. `monaco`, `germany/berlin`). |
+| `--landcover`           | `LANDCOVER=1`  | off                          | Merge land cover into the Shortbread layers.                           |
+| `--format <FMT>`        | `FORMAT`       | `versatiles`                 | `versatiles` (brotli), `pmtiles` or `mbtiles`.                          |
+| `--name <BASENAME>`     | `OUTPUT_NAME`  | `osm[-landcover].<date>`     | Output filename; the extension is added automatically.                 |
+| `-i`, `--interactive`   | `INTERACTIVE=1`| —                            | Force the interactive wizard.                                          |
+
+Flags take precedence over environment variables, which take precedence over the built-in defaults.
+
+### Tuning variables
+
+| Variable                 | Default                            | Description                                              |
+|--------------------------|------------------------------------|----------------------------------------------------------|
+| `LANDCOVER_URL`          | public `landcover-vectors.versatiles` | Land cover container to merge.                         |
+| `LANGUAGES`              | `en,fr,es,de,ar,el,it,nl,pl,pt,uk` | `--name_languages` passed to Planetiler.                 |
+| `EXPERIMENTS`            | `all`                              | `--shortbread_experiments` value.                        |
+| `PLANETILER_EXTRA_FLAGS` | `--nodemap_type=array --storage=mmap` | Extra Planetiler flags.                               |
+| `JAVA_OPTS`              | *(unset)*                          | Extra JVM options, e.g. `-Xmx20g`.                       |
+
+---
+
+## 🧱 Technical Overview
+
+The container runs [`generate_tiles.sh`](https://github.com/versatiles-org/versatiles-docker/blob/main/versatiles-planetiler/scripts/generate_tiles.sh), which performs:
+
+1. **Render** Shortbread tiles with `planetiler shortbread-1.1 --area=<area>` into an intermediate **PMTiles** file (flat layout → fast sequential reads).
+2. **Convert** the PMTiles to the chosen container with `versatiles convert`. When land cover is enabled, the VPL `from_merged_vector` operation folds the remote land cover container's features into the Shortbread layers (range-read on demand, nothing downloaded).
+3. **Store** the final result in `/app/result/<name>.<format>`.
+
+`.versatiles` output is compressed with **brotli**; `.pmtiles` / `.mbtiles` keep their default compression.
+
+---
+
+## 💾 Resources
+
+Rendering the whole planet is heavy: budget roughly **64 GB+ RAM** (or memory-mapped storage on a fast SSD), **~400 GB+ free disk**, and a few hours. Mount a host directory at `/app/data` so the large intermediate files don't live in the container layer. Test with a small region first, e.g. `--area monaco`.
+
+---
+
+## 🪄 Graceful Shutdown
+
+This image uses [`tini`](https://github.com/krallin/tini) as PID 1 to correctly handle `SIGINT` / `SIGTERM` signals. You can safely interrupt the container with **Ctrl-C**.
+
+---
+
+## 📄 License
+
+Distributed under the MIT License.
+Project: [versatiles.org](https://versatiles.org)

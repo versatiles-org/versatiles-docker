@@ -28,6 +28,7 @@ jobs:
           - versatiles-frontend
           - versatiles-gdal
           - versatiles-nginx
+          - versatiles-planetiler
           - versatiles-tilemaker
           - versatiles-tippecanoe
     steps:
