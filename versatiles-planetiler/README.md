@@ -22,12 +22,11 @@ It is part of the [versatiles-docker](https://github.com/versatiles-org/versatil
 
 ### Interactive
 
-Run with an attached terminal (`-it`) and no arguments to launch the wizard. It asks whether to render the whole planet or a sub-region, whether to inject land cover, which container format to use, and the output filename:
+Run with an attached terminal (`-it`) and no arguments to launch the wizard. It asks whether to render the whole planet or a sub-region, whether to inject land cover, which container format to use, and the output filename. Mount **one** host directory at `/app/data` — it holds the source cache, temp files and the results:
 
 ```bash
 docker run -it --rm \
-  -v $(pwd)/data:/app/data \
-  -v $(pwd)/result:/app/result \
+  -v $(pwd)/planetiler:/app/data \
   versatiles/versatiles-planetiler:latest
 ```
 
@@ -37,8 +36,7 @@ Only `--area` is required; everything else has a default:
 
 ```bash
 docker run --rm \
-  -v $(pwd)/data:/app/data \
-  -v $(pwd)/result:/app/result \
+  -v $(pwd)/planetiler:/app/data \
   versatiles/versatiles-planetiler:latest \
   --area monaco --landcover
 ```
@@ -55,11 +53,10 @@ services:
       FORMAT: versatiles
       JAVA_OPTS: -Xmx20g
     volumes:
-      - ./data:/app/data
-      - ./result:/app/result
+      - ./planetiler:/app/data
 ```
 
-The final file is written to `./result/<name>.<format>`.
+The final file is written to `./planetiler/result/<name>.<format>`.
 
 ---
 
@@ -119,7 +116,7 @@ With the default `--storage=mmap --nodemap_type=array`, Planetiler keeps node lo
 docker run --rm \
   -e PLANETILER_EXTRA_FLAGS="--storage=ram --nodemap_type=array" \
   -e XMX=110g \
-  -v $(pwd)/result:/app/result \
+  -v $(pwd)/planetiler:/app/data \
   versatiles/versatiles-planetiler:latest --area planet
 ```
 
@@ -133,8 +130,7 @@ For `--area planet`, Planetiler downloads the ~70 GB planet extract over HTTP by
 
 ```bash
 docker run --rm \
-  -v $(pwd)/data:/app/data \
-  -v $(pwd)/result:/app/result \
+  -v $(pwd)/planetiler:/app/data \
   versatiles/versatiles-planetiler:latest --area planet --torrent
 ```
 
@@ -148,7 +144,7 @@ The container runs [`generate_tiles.sh`](https://github.com/versatiles-org/versa
 
 1. **Render** Shortbread tiles with `planetiler shortbread-1.1 --area=<area>` into an intermediate **PMTiles** file (flat layout → fast sequential reads).
 2. **Convert** the PMTiles to the chosen container with `versatiles convert`. When land cover is enabled, the VPL `from_merged_vector` operation folds the remote land cover container's features into the Shortbread layers (range-read on demand, nothing downloaded).
-3. **Store** the final result in `/app/result/<name>.<format>`.
+3. **Store** the final result in `/app/data/result/<name>.<format>`.
 
 `.versatiles` output is compressed with **brotli**; `.pmtiles` / `.mbtiles` keep their default compression.
 
@@ -156,7 +152,9 @@ The container runs [`generate_tiles.sh`](https://github.com/versatiles-org/versa
 
 ## 💾 Disk & host mounts
 
-Rendering the whole planet is heavy: budget **~400 GB+ free disk** and a few hours (see [Memory](#-memory) for RAM). Mount a host directory at `/app/data` so the large intermediate files don't live in the container layer, and at `/app/result` for the output. Test with a small region first, e.g. `--area monaco`.
+Mount **one** host directory at `/app/data`; it holds everything — the source cache (`sources/`), Planetiler's temp files (`tmp/`), the intermediate tiles and the results (`result/`). Keeping the cache on the host means re-runs reuse already-downloaded sources.
+
+Rendering the whole planet is heavy: budget **~400 GB+ free disk** and a few hours (see [Memory](#-memory) for RAM). Test with a small region first, e.g. `--area monaco`. To put results elsewhere, set `RESULT_DIR`.
 
 ---
 

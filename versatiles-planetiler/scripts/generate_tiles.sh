@@ -32,9 +32,13 @@
 #   PLANETILER_EXTRA_FLAGS extra flags passed to planetiler
 #   JAVA_OPTS              extra JVM options, e.g. -Xmx20g
 #
-# 📁 DIRECTORY LAYOUT (inside the container)
-#   /app/data      Working directory for downloads and the intermediate PMTiles
-#   /app/result    Final output location (<name>.<format>)
+# 📁 DIRECTORY LAYOUT (inside the container) — mount ONE volume at /app/data
+#   /app/data           Single working volume (mount a host directory here)
+#   /app/data/sources   Downloaded source cache (reused across runs)
+#   /app/data/tmp       Planetiler temporary storage
+#   /app/data/result    Final output location (<name>.<format>)
+#
+#   Override the output location with RESULT_DIR if you want it elsewhere.
 #
 # 🔄 PIPELINE
 #   1) planetiler shortbread-1.1 → intermediate PMTiles
@@ -46,8 +50,10 @@ set -euo pipefail
 # ⚙️  Defaults (overridable via environment)
 ###########################################################################
 PLANETILER_JAR="${PLANETILER_JAR:-/opt/planetiler/planetiler.jar}"
+# Single working volume holding the source cache, temp files, the intermediate
+# tiles and (by default) the results — mount one host directory at $DATA_DIR.
 DATA_DIR="${DATA_DIR:-/app/data}"
-RESULT_DIR="${RESULT_DIR:-/app/result}"
+RESULT_DIR="${RESULT_DIR:-$DATA_DIR/result}"
 LANDCOVER_URL="${LANDCOVER_URL:-https://download.versatiles.org/landcover-vectors.versatiles}"
 LANGUAGES="${LANGUAGES:-en,fr,es,de,ar,el,it,nl,pl,pt,uk}"
 EXPERIMENTS="${EXPERIMENTS:-all}"
@@ -293,9 +299,16 @@ run_wizard() {
         echo "  For an ambiguous name add a qualifier (e.g. 'us georgia')." >&2
         echo "  Browse available regions at https://download.geofabrik.de/" >&2
         AREA=""
+        local tries=0
         while [[ -z "$AREA" ]]; do
             AREA="$(ask "  Region: " "")"
-            [[ -z "$AREA" ]] && echo "  A region is required." >&2
+            [[ -n "$AREA" ]] && break
+            tries=$((tries + 1))
+            if ((tries >= 3)); then
+                echo "  No region given. Aborting." >&2
+                exit 1
+            fi
+            echo "  A region is required." >&2
         done
     fi
 

@@ -227,11 +227,12 @@ Generate OpenStreetMap based vector tiles in the [Shortbread schema](https://sho
 **Example usage:**
 ```bash
 # Interactive wizard (planet/region, land cover, format, filename)
-docker run -it --rm -v $(pwd)/result:/app/result \
+# Mount one volume at /app/data for the cache, temp files and results.
+docker run -it --rm -v $(pwd)/planetiler:/app/data \
   versatiles/versatiles-planetiler:latest
 
 # Non-interactive: render a Geofabrik region with land cover
-docker run --rm -v $(pwd)/result:/app/result \
+docker run --rm -v $(pwd)/planetiler:/app/data \
   versatiles/versatiles-planetiler:latest --area monaco --landcover
 ```
 
