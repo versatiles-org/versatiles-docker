@@ -81,7 +81,7 @@ The terminal check (`[ -t 0 ]`) prevents a detached or CI run from hanging on a 
 
 | Flag                      | Environment     | Default                   | Description                                                           |
 |---------------------------|-----------------|---------------------------|-----------------------------------------------------------------------|
-| `--area <planet\|REGION>` | `AREA`          | *(required)*              | `planet`, or a Geofabrik region id (e.g. `monaco`, `germany/berlin`). |
+| `--area <planet\|REGION>` | `AREA`          | *(required)*              | `planet`, or a Geofabrik area name (e.g. `monaco`, `berlin`) matched against the [Geofabrik index](https://download.geofabrik.de/). |
 | `--landcover`             | `LANDCOVER=1`   | off                       | Merge land cover into the Shortbread layers.                          |
 | `--format <FMT>`          | `FORMAT`        | `versatiles`              | `versatiles` (brotli), `pmtiles` or `mbtiles`.                        |
 | `--name <BASENAME>`       | `OUTPUT_NAME`   | `osm[-landcover].<date>`  | Output filename; the extension is added automatically.                |
@@ -90,6 +90,8 @@ The terminal check (`[ -t 0 ]`) prevents a detached or CI run from hanging on a 
 | `-i`, `--interactive`     | `INTERACTIVE=1` | —                         | Force the interactive wizard.                                         |
 
 Flags take precedence over environment variables, which take precedence over the built-in defaults.
+
+> **Naming a region:** `--area` is matched by name against the Geofabrik index, so use the region's own name (e.g. `berlin`, `monaco`, `massachusetts`) — **not** a path like `germany/berlin`. If a name is ambiguous, add a qualifier (e.g. `us georgia` for the US state).
 
 ### Tuning variables
 

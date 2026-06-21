@@ -12,9 +12,9 @@
 # 📘 USAGE
 #   generate_tiles [OPTIONS]
 #
-#   --area <planet|REGION>   What to render: "planet" or a Geofabrik region id
-#                            such as "monaco" or "germany/berlin". Planetiler
-#                            downloads the extract from download.geofabrik.de.
+#   --area <planet|REGION>   What to render: "planet" or a Geofabrik area name
+#                            such as "monaco" or "berlin". Planetiler matches the
+#                            name against the Geofabrik index and downloads it.
 #                            REQUIRED in non-interactive mode.
 #   --landcover              Merge land cover data (default: off).
 #   --format <FMT>           Output container: versatiles (default), mbtiles or
@@ -91,9 +91,9 @@ USAGE
   non-interactive use.
 
 OPTIONS
-  --area <planet|REGION>   What to render: "planet" or a Geofabrik region id
-                           such as "monaco" or "germany/berlin". REQUIRED in
-                           non-interactive mode.
+  --area <planet|REGION>   What to render: "planet" or a Geofabrik area name
+                           such as "monaco" or "berlin" (matched against the
+                           Geofabrik index). REQUIRED in non-interactive mode.
   --landcover              Merge land cover data (default: off).
   --format <FMT>           Output container: versatiles (default), mbtiles or
                            pmtiles. "versatiles" uses brotli compression.
@@ -288,7 +288,9 @@ run_wizard() {
         tor="$(ask "  Download the planet via BitTorrent (faster, needs aria2)? [Y/n]: " "y")"
         if [[ "$tor" == [nN]* ]]; then TORRENT=0; else TORRENT=1; fi
     else
-        echo "  Enter a Geofabrik region id (e.g. monaco, germany/berlin)." >&2
+        echo "  Enter a Geofabrik area name (e.g. monaco, berlin, massachusetts)." >&2
+        echo "  Use the region's own name — not a path like 'germany/berlin'." >&2
+        echo "  For an ambiguous name add a qualifier (e.g. 'us georgia')." >&2
         echo "  Browse available regions at https://download.geofabrik.de/" >&2
         AREA=""
         while [[ -z "$AREA" ]]; do
@@ -331,7 +333,7 @@ run_wizard() {
 ###########################################################################
 finalize_config() {
     if [[ -z "$AREA" ]]; then
-        echo "Error: --area is required (planet or a Geofabrik region id)." >&2
+        echo "Error: --area is required (planet or a Geofabrik area name, e.g. monaco)." >&2
         usage >&2
         exit 1
     fi
