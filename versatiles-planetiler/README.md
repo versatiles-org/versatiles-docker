@@ -12,6 +12,7 @@ It is part of the [versatiles-docker](https://github.com/versatiles-org/versatil
 - Based on **Planetiler** and **versatiles-rs**
 - **Interactive wizard** *or* fully scriptable via flags / environment variables
 - Optional **land cover** injection from [`landcover-vectors.versatiles`](https://download.versatiles.org/landcover-vectors.versatiles) (merged on the fly, no extra download)
+- **OSM ID renumbering** (`osmium renumber`, on by default) for faster builds and slightly smaller tiles
 - Output as **versatiles** (brotli), **pmtiles** or **mbtiles**
 - Renders the whole **planet** or any **Geofabrik** sub-region
 - Graceful shutdown on Ctrl-C (`tini` enabled)
@@ -84,6 +85,7 @@ The terminal check (`[ -t 0 ]`) prevents a detached or CI run from hanging on a 
 | `--name <BASENAME>`       | `OUTPUT_NAME`   | `osm[-landcover][.<region>].<date>` | Output filename; the extension is added automatically. Sub-regions include the region name. |
 | `--xmx <SIZE>`            | `XMX`           | auto (from available RAM) | JVM heap for Planetiler, e.g. `20g`. See [Memory](#-memory) below.    |
 | `--torrent`               | `TORRENT=1`     | off                       | For `--area planet`: fetch the pbf via BitTorrent. See [Planet download](#-planet-download). |
+| `--no-renumber`           | `RENUMBER=0`    | on                        | Skip renumbering OSM IDs with `osmium` (renumbering is on by default — faster and slightly smaller tiles). |
 | `-i`, `--interactive`     | `INTERACTIVE=1` | —                         | Force the interactive wizard.                                         |
 
 Flags take precedence over environment variables, which take precedence over the built-in defaults.
@@ -142,6 +144,7 @@ The pbf is cached under `/app/data/sources/planet-<date>.osm.pbf` (resumable, re
 
 The container runs [`generate_tiles.sh`](https://github.com/versatiles-org/versatiles-docker/blob/main/versatiles-planetiler/scripts/generate_tiles.sh), which performs:
 
+0. *(on by default; disable with `--no-renumber`)* **Renumber** the OSM input with `osmium renumber` so node/way IDs are dense. This shrinks Planetiler's node map (faster, less I/O) and shortens the feature IDs encoded in each tile (slightly smaller output). For the whole planet this adds time and needs RAM ≈ the pbf size, so disable it there if resources are tight.
 1. **Render** Shortbread tiles with `planetiler shortbread-1.1 --area=<area>` into an intermediate **PMTiles** file (flat layout → fast sequential reads).
 2. **Convert** the PMTiles to the chosen container with `versatiles convert`. When land cover is enabled, the VPL `from_merged_vector` operation folds the remote land cover container's features into the Shortbread layers (range-read on demand, nothing downloaded).
 3. **Store** the final result in `/app/data/result/<name>.<format>`.

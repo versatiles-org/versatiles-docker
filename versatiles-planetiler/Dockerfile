@@ -48,6 +48,7 @@ RUN apt-get update -y && \
         ca-certificates \
         curl \
         jq \
+        osmium-tool \
         tini && \
     rm -rf /var/lib/apt/lists/*
 

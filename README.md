@@ -203,7 +203,7 @@ Generate vector tiles from OpenStreetMap data using [tilemaker](https://github.c
 
 Generate OpenStreetMap based vector tiles in the [Shortbread schema](https://shortbread-tiles.org) using [Planetiler](https://github.com/onthegomap/planetiler), with an interactive wizard and optional land cover injection.
 
-- **Contains:** versatiles + planetiler (VersaTiles Shortbread fork) + helper tools (aria2, curl, jq)
+- **Contains:** versatiles + planetiler (VersaTiles Shortbread fork) + helper tools (aria2, curl, jq, osmium)
 - **Supported OS:** Debian
 - **Architectures:** AMD64, ARM64
 - **Registries:** [GitHub Container Registry](https://github.com/versatiles-org/versatiles-docker/pkgs/container/versatiles-planetiler) | [Docker Hub](https://hub.docker.com/r/versatiles/versatiles-planetiler)

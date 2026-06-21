@@ -43,6 +43,7 @@
 #   Override the output location with RESULT_DIR if you want it elsewhere.
 #
 # 🔄 PIPELINE
+#   0) (optional) osmium renumber the OSM input so its IDs are dense
 #   1) planetiler shortbread-1.1 → intermediate PMTiles
 #   2) versatiles convert (optionally merging land cover via VPL) → final container
 #
@@ -72,6 +73,12 @@ INTERACTIVE="${INTERACTIVE:-0}"
 # JVM heap (-Xmx) value, e.g. "20g". Empty → auto-derived from available memory.
 XMX="${XMX:-}"
 XMX_AUTO=0
+
+# Renumber OSM IDs with `osmium renumber` before rendering. Dense IDs shrink the
+# node map (faster, less I/O) and shorten feature IDs (slightly smaller tiles).
+# On by default; set RENUMBER=0 or pass --no-renumber to disable.
+RENUMBER="${RENUMBER:-1}"
+renumbered=""
 
 # Planet download: when TORRENT=1, fetch the planet .osm.pbf via BitTorrent
 # (aria2) and feed it to Planetiler with --osm_path, instead of Planetiler's
@@ -113,12 +120,15 @@ OPTIONS
   --torrent                For --area planet: download the planet .osm.pbf via
                            BitTorrent (aria2) and feed it to Planetiler. Faster
                            and more reliable than the default HTTP download.
+  --no-renumber            Skip the osmium renumber step (it is on by default;
+                           dense IDs render faster and yield slightly smaller tiles).
   -i, --interactive        Force the interactive wizard.
   -h, --help               Show this help.
 
 ENVIRONMENT (flags take precedence)
   AREA, LANDCOVER=1, FORMAT, OUTPUT_NAME, INTERACTIVE=1   configuration
   XMX, JAVA_OPTS                                          JVM heap / JVM options
+  RENUMBER=0                                              disable osmium renumber (on by default)
   TORRENT=1, PLANET_DATE=YYMMDD, PLANET_PBF_BASE          planet download
   LANDCOVER_URL, LANGUAGES, EXPERIMENTS,
   PLANETILER_EXTRA_FLAGS                                  tuning
@@ -277,6 +287,7 @@ parse_args() {
         --xmx) XMX="${2:-}"; shift 2 ;;
         --xmx=*) XMX="${1#*=}"; shift ;;
         --torrent) TORRENT=1; shift ;;
+        --no-renumber) RENUMBER=0; shift ;;
         -i | --interactive) INTERACTIVE=1; shift ;;
         -h | --help) usage; exit 0 ;;
         *)
@@ -390,8 +401,8 @@ run_pipeline() {
     local out_file
     out_file="$RESULT_DIR/$(output_filename "$OUTPUT_NAME")"
 
-    # Remove the intermediate PMTiles on exit (success or failure).
-    trap 'rm -f "${intermediate:-}"' EXIT
+    # Remove the intermediate PMTiles and any renumbered pbf on exit.
+    trap 'rm -f "${intermediate:-}" "${renumbered:-}"' EXIT
 
     echo "GENERATE SHORTBREAD VECTOR TILES:"
     echo "   AREA:      $AREA"
@@ -402,6 +413,7 @@ run_pipeline() {
     fi
     echo "   FORMAT:    $FORMAT"
     echo "   OUTPUT:    $out_file"
+    echo "   RENUMBER:  $([[ "$RENUMBER" != "0" ]] && echo "yes (osmium renumber)" || echo "no")"
     if [[ "$AREA" == "planet" ]]; then
         echo "   DOWNLOAD:  $([[ "$TORRENT" == "1" ]] && echo "BitTorrent (aria2)" || echo "HTTP (planetiler --download)")"
     fi
@@ -424,16 +436,48 @@ run_pipeline() {
     # PMTiles is a flat, sequentially-laid-out file, so the `versatiles convert`
     # read below avoids the random-access SQLite overhead of MBTiles.
     ###########################################################################
-    # For a torrent planet build, pre-fetch the pbf and feed it via --osm_path so
-    # Planetiler skips its (slow) HTTP OSM download; other sources still use --download.
+    # Source pbf handling. osm_path_args feeds Planetiler a specific .osm.pbf via
+    # --osm_path (instead of letting it download OSM); empty → Planetiler downloads.
     local osm_path_args=()
+    local src_pbf=""
+
+    # For a torrent planet build, pre-fetch the pbf via BitTorrent.
     if [[ "$TORRENT" == "1" ]]; then
         if [[ "$AREA" == "planet" ]]; then
             download_planet_torrent
-            osm_path_args=(--osm_path="$PLANET_PBF")
+            src_pbf="$PLANET_PBF"
         else
             echo "⚠️  --torrent only applies to the planet; ignoring for area '$AREA'." >&2
         fi
+    fi
+
+    # Renumber OSM IDs so they are dense (faster, slightly smaller tiles).
+    if [[ "$RENUMBER" != "0" ]]; then
+        require_cmd osmium
+
+        # Renumber needs the pbf on disk. If we don't already have one (non-torrent),
+        # let Planetiler download all sources first, then locate the OSM file.
+        if [[ -z "$src_pbf" ]]; then
+            echo "📥  Downloading sources…"
+            # shellcheck disable=SC2086
+            time java $JAVA_OPTS -jar "$PLANETILER_JAR" shortbread-1.1 \
+                --area="$AREA" --download --only_download $PLANETILER_EXTRA_FLAGS
+            # `|| true` guards against a SIGPIPE non-zero status (head closes the
+            # pipe early) tripping `set -o pipefail` / `set -e`.
+            src_pbf="$(find "$DATA_DIR/sources" -maxdepth 3 -name '*.osm.pbf' \
+                ! -name 'renumbered.osm.pbf' | head -n1 || true)"
+        fi
+        [[ -n "$src_pbf" ]] || {
+            echo "Error: could not locate the downloaded .osm.pbf to renumber." >&2
+            exit 1
+        }
+
+        echo "🔢  Renumbering OSM IDs (osmium renumber)…"
+        renumbered="$DATA_DIR/sources/renumbered.osm.pbf"
+        time osmium renumber --progress --overwrite -o "$renumbered" "$src_pbf"
+        osm_path_args=(--osm_path="$renumbered")
+    elif [[ -n "$src_pbf" ]]; then
+        osm_path_args=(--osm_path="$src_pbf")
     fi
 
     echo "🧱  Rendering tiles with Planetiler…"
