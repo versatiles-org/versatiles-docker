@@ -80,6 +80,10 @@ XMX_AUTO=0
 RENUMBER="${RENUMBER:-1}"
 renumbered=""
 
+# Write .md5 and .sha256 checksum files next to the output. Off by default;
+# set CHECKSUM=1 or pass --checksum to enable.
+CHECKSUM="${CHECKSUM:-0}"
+
 # Planet download: when TORRENT=1, fetch the planet .osm.pbf via BitTorrent
 # (aria2) and feed it to Planetiler with --osm_path, instead of Planetiler's
 # HTTP download. Only applies to AREA=planet.
@@ -122,11 +126,12 @@ OPTIONS
                            and more reliable than the default HTTP download.
   --no-renumber            Skip the osmium renumber step (it is on by default;
                            dense IDs render faster and yield slightly smaller tiles).
+  --checksum               Write <output>.md5 and <output>.sha256 next to the result.
   -i, --interactive        Force the interactive wizard.
   -h, --help               Show this help.
 
 ENVIRONMENT (flags take precedence)
-  AREA, LANDCOVER=1, FORMAT, OUTPUT_NAME, INTERACTIVE=1   configuration
+  AREA, LANDCOVER=1, FORMAT, OUTPUT_NAME, CHECKSUM=1, INTERACTIVE=1   configuration
   XMX, JAVA_OPTS                                          JVM heap / JVM options
   RENUMBER=0                                              disable osmium renumber (on by default)
   TORRENT=1, PLANET_DATE=YYMMDD, PLANET_PBF_BASE          planet download
@@ -145,6 +150,24 @@ require_cmd() {
         echo "Error: required command '$1' not found." >&2
         exit 1
     }
+}
+
+# Write <file>.md5 and <file>.sha256 next to the output. The checksum files use
+# the bare filename (run from the file's directory) so they verify in place.
+write_checksums() {
+    local file="$1" dir base
+    dir="$(dirname "$file")"
+    base="$(basename "$file")"
+    require_cmd md5sum
+    require_cmd sha256sum
+    echo "🔐  Writing checksums…"
+    (
+        cd "$dir"
+        md5sum "$base" >"$base.md5"
+        sha256sum "$base" >"$base.sha256"
+    )
+    echo "    $base.md5"
+    echo "    $base.sha256"
 }
 
 # Memory (in bytes) available to this container: the cgroup limit if one is set,
@@ -288,6 +311,7 @@ parse_args() {
         --xmx=*) XMX="${1#*=}"; shift ;;
         --torrent) TORRENT=1; shift ;;
         --no-renumber) RENUMBER=0; shift ;;
+        --checksum) CHECKSUM=1; shift ;;
         -i | --interactive) INTERACTIVE=1; shift ;;
         -h | --help) usage; exit 0 ;;
         *)
@@ -357,7 +381,12 @@ run_wizard() {
     default_name="$(default_output_name)"
     OUTPUT_NAME="$(ask "Output filename (default: ${default_name}.${FORMAT}): " "$default_name")"
 
-    # 5) JVM heap (-Xmx). Empty keeps the auto value derived from available memory.
+    # 5) Checksums?
+    local cs
+    cs="$(ask "Write .md5 and .sha256 checksum files? [y/N]: " "n")"
+    if [[ "$cs" == [yY]* ]]; then CHECKSUM=1; else CHECKSUM=0; fi
+
+    # 6) JVM heap (-Xmx). Empty keeps the auto value derived from available memory.
     if [[ -z "$XMX" ]]; then
         local heap_in
         heap_in="$(ask "JVM heap -Xmx (default: auto $(default_xmx "$MEM_BYTES")): " "")"
@@ -414,6 +443,7 @@ run_pipeline() {
     echo "   FORMAT:    $FORMAT"
     echo "   OUTPUT:    $out_file"
     echo "   RENUMBER:  $([[ "$RENUMBER" != "0" ]] && echo "yes (osmium renumber)" || echo "no")"
+    echo "   CHECKSUM:  $([[ "$CHECKSUM" == "1" ]] && echo "yes (md5, sha256)" || echo "no")"
     if [[ "$AREA" == "planet" ]]; then
         echo "   DOWNLOAD:  $([[ "$TORRENT" == "1" ]] && echo "BitTorrent (aria2)" || echo "HTTP (planetiler --download)")"
     fi
@@ -512,6 +542,10 @@ run_pipeline() {
         time versatiles convert "${compression_args[@]}" \
             "$intermediate" \
             "$out_file"
+    fi
+
+    if [[ "$CHECKSUM" == "1" ]]; then
+        write_checksums "$out_file"
     fi
 
     echo "✅  Done: $out_file"
