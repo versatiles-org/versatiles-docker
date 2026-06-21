@@ -81,7 +81,7 @@ The terminal check (`[ -t 0 ]`) prevents a detached or CI run from hanging on a 
 | `--area <planet\|REGION>` | `AREA`          | *(required)*              | `planet`, or a Geofabrik area name (e.g. `monaco`, `berlin`) matched against the [Geofabrik index](https://download.geofabrik.de/). |
 | `--landcover`             | `LANDCOVER=1`   | off                       | Merge land cover into the Shortbread layers.                          |
 | `--format <FMT>`          | `FORMAT`        | `versatiles`              | `versatiles` (brotli), `pmtiles` or `mbtiles`.                        |
-| `--name <BASENAME>`       | `OUTPUT_NAME`   | `osm[-landcover].<date>`  | Output filename; the extension is added automatically.                |
+| `--name <BASENAME>`       | `OUTPUT_NAME`   | `osm[-landcover][.<region>].<date>` | Output filename; the extension is added automatically. Sub-regions include the region name. |
 | `--xmx <SIZE>`            | `XMX`           | auto (from available RAM) | JVM heap for Planetiler, e.g. `20g`. See [Memory](#-memory) below.    |
 | `--torrent`               | `TORRENT=1`     | off                       | For `--area planet`: fetch the pbf via BitTorrent. See [Planet download](#-planet-download). |
 | `-i`, `--interactive`     | `INTERACTIVE=1` | —                         | Force the interactive wizard.                                         |

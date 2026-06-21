@@ -21,6 +21,8 @@
 #                            pmtiles. "versatiles" uses brotli compression.
 #   --name <BASENAME>        Output filename (the extension is added
 #                            automatically). Default: osm[-landcover].<date>
+#                            for the planet, osm[-landcover].<region>.<date>
+#                            for a sub-region.
 #   -i, --interactive        Force the interactive wizard.
 #   -h, --help               Show this help.
 #
@@ -104,7 +106,8 @@ OPTIONS
   --format <FMT>           Output container: versatiles (default), mbtiles or
                            pmtiles. "versatiles" uses brotli compression.
   --name <BASENAME>        Output filename without extension. Default:
-                           osm[-landcover].<date>
+                           osm[-landcover].<date>, or
+                           osm[-landcover].<region>.<date> for a sub-region.
   --xmx <SIZE>             JVM heap for Planetiler, e.g. 20g. Default: derived
                            from the memory available to the container.
   --torrent                For --area planet: download the planet .osm.pbf via
@@ -230,11 +233,23 @@ ask() {
     printf '%s' "$answer"
 }
 
-# Base filename (without extension) used as the default output name.
+# Turn an area name into a filesystem-safe slug, e.g. "us georgia" → "us-georgia".
+region_slug() {
+    printf '%s' "$1" | tr '[:upper:]' '[:lower:]' | tr -c 'a-z0-9' '-' |
+        sed -E 's/-+/-/g; s/^-//; s/-$//'
+}
+
+# Base filename (without extension) used as the default output name:
+#   planet → osm[-landcover].<date>
+#   region → osm[-landcover].<region>.<date>
 default_output_name() {
     local base="osm"
     [[ "$LANDCOVER" == "1" ]] && base="osm-landcover"
-    printf '%s.%s' "$base" "$DATE"
+    if [[ "$AREA" == "planet" || -z "$AREA" ]]; then
+        printf '%s.%s' "$base" "$DATE"
+    else
+        printf '%s.%s.%s' "$base" "$(region_slug "$AREA")" "$DATE"
+    fi
 }
 
 # Append the format extension unless the name already carries one.
