@@ -36,7 +36,7 @@ jobs:
         uses: actions/checkout@v7
 
       - name: Run Hadolint on ${{ matrix.folder }}
-        uses: hadolint/hadolint-action@v3.3.0
+        uses: hadolint/hadolint-action@v3.4.0
         with:
           dockerfile: ${{ matrix.folder }}/Dockerfile
           failure-threshold: warning
