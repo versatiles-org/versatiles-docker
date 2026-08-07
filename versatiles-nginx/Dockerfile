@@ -38,6 +38,6 @@ RUN chmod +x /scripts/*.sh
 VOLUME ["/data"]
 EXPOSE 80 443
 
-HEALTHCHECK --interval=30s --timeout=5s --retries=3 CMD curl -f http://127.0.0.1:8090/_nginx_status || exit 1
+HEALTHCHECK --interval=30s --timeout=5s --retries=3 CMD ["curl", "-f", "http://127.0.0.1:8090/_nginx_status"]
 
 ENTRYPOINT ["/sbin/tini","--","entrypoint.sh"]
