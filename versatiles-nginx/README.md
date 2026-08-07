@@ -39,7 +39,7 @@ docker run -d --name versatiles \
 | Variable              | Required | Default          | Purpose                                                                                            |
 |-----------------------|----------|------------------|----------------------------------------------------------------------------------------------------|
 | `DOMAIN`              | **Yes**  | –                | A fully qualified domain name served by Nginx and used for ACME certificate issuance.              |
-| `EMAIL`               | **Yes**  | –                | Contact e‑mail passed to Certbot during ACME registration.                                         |
+| `EMAIL`               | Unless `HTTP_ONLY` | –      | Contact e‑mail passed to Certbot during ACME registration.                                         |
 | `FRONTEND`            | **Yes**  | -                | UI bundle to serve: `standard`, `dev`, `min`, `tiny`, `blank`, or `none`.                           |
 | `TILE_SOURCES`        | **Yes**  | -                | Comma‑separated list of `.versatiles`, `.mbtiles`, or `.pmtiles` that are fetched once at startup. |
 | `BBOX`                | No       | –                | Restrict the map download to the bounding box `lng_min,lat_min,lng_max,lat_max`.                   |
@@ -47,7 +47,7 @@ docker run -d --name versatiles \
 | `CACHE_SIZE_KEYS`     | No       | auto (≈20 % RAM) | Nginx `keys_zone` size, e.g. `128m`.                                                               |
 | `CACHE_SIZE_MAX`      | No       | auto (≈60 % RAM) | Maximum cached bytes, e.g. `2g`.                                                                   |
 | `CERT_MIN_DAYS`       | No       | `30`             | Skip ACME on startup if the current cert is valid for more than this many days.                    |
-| `CERT_RENEW_INTERVAL` | No       | `43200` (12 h)   | Interval between background `certbot renew` attempts.                                              |
+| `CERT_RENEW_INTERVAL` | No       | `86400` (24 h)   | Interval between background `certbot renew` attempts.                                              |
 | `UID` / `GID`         | No       | `10001`          | Numeric uid / gid used for the unprivileged `vs` user.                                             |
 
 ---
@@ -96,7 +96,7 @@ docker logs -f versatiles
 1. `entrypoint.sh`  
    * downloads the chosen **front‑end** release,  
    * downloads / verifies **tile archives**,  
-   * generates an optimised **Nginx** configuration (cache sizes based on RAM),  
-   * ensures a valid **TLS certificate** (launching a minimal Nginx for the ACME challenge if needed).  
+   * ensures a valid **TLS certificate** (launching a minimal Nginx for the ACME challenge if needed),  
+   * generates an optimised **Nginx** configuration (cache sizes based on RAM).  
 2. The main Nginx process starts (or reloads) and a loop renews the certificate.  
-3. `versatiles serve` – running as the unprivileged `vs` user – answers all `/tile/{z}/{x}/{y}` requests.
+3. `versatiles serve` – running as the unprivileged `vs` user – answers all requests proxied by Nginx.
