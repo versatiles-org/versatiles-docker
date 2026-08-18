@@ -17,6 +17,9 @@ updates:
     groups:
       docker:
         patterns: ["*"]
+      security:
+        applies-to: security-updates
+        patterns: ["*"]
 
   # GitHub Actions
   - package-ecosystem: github-actions
@@ -27,4 +30,7 @@ updates:
       prefix: "build(deps)"
     groups:
       github-actions:
+        patterns: ["*"]
+      security:
+        applies-to: security-updates
         patterns: ["*"]
