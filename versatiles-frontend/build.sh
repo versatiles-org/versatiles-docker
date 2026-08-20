@@ -15,45 +15,14 @@ cd "$(dirname "$0")/.."
 # ── Shared helpers ───────────────────────────────────────────────────────────
 # shellcheck source=./scripts/utils.sh
 source ./scripts/utils.sh
+# shellcheck source=./scripts/test_utils.sh
+source ./scripts/test_utils.sh
 parse_arguments "$@"
 # Variables from utils.sh: needs_push, needs_testing
 VER=$(fetch_release_tag)
 NAME="versatiles-frontend"
 
 echo "👷 Building $NAME Docker images for version $VER"
-
-# Helper function for getting millisecond timestamps
-get_timestamp_ms() {
-    date +%s%N | cut -b1-13
-}
-
-# Test shutdown time - verify containers respond to SIGTERM in <1s
-# This validates that tini is properly installed and configured
-test_shutdown_time() {
-    local image="$1"
-
-    echo "  🧪 Testing shutdown time..."
-
-    # Start a long-running server container
-    CONTAINER_ID=$(docker run -d --rm -v "$(pwd)"/testdata:/data "$image" serve chioggia.versatiles)
-
-    # Give the server a moment to initialize
-    sleep 0.5
-
-    # Measure how long docker stop takes (sends SIGTERM, waits for graceful shutdown)
-    start_time=$(get_timestamp_ms)
-    docker stop --time=3 "$CONTAINER_ID" >/dev/null 2>&1 || true
-    end_time=$(get_timestamp_ms)
-    duration=$(( end_time - start_time ))
-
-    echo "  ⏱️  Shutdown time: ${duration}ms"
-
-    # Fail if shutdown takes longer than 1 second
-    if [[ $duration -ge 1000 ]]; then
-        echo "  ❌ Shutdown took too long: ${duration}ms (expected < 1000ms)" >&2
-        exit 1
-    fi
-}
 
 ###############################################################################
 # 1. Host‑arch build (loaded into local Docker for testing)
@@ -73,52 +42,61 @@ if $needs_testing; then
 
     TEST_DIR=$(readlink -f "./testdata/")
 
-    test_image() {
-        local image="$1"
-        echo "  🧪 Testing: $image"
-
-        TMP_DIR=$(mktemp -d)
-        # Start the container in background (serves chioggia.versatiles)
-        echo "    ▶️ Starting server..."
-        CONTAINER_ID=$(docker run -d --rm -v "$TEST_DIR":/data -p 8080:8080 "$image" chioggia.versatiles)
-
-        # Wait for the server to come up
-        sleep 1
-
-        # Try fetching a single tile
-        TILE_URL="http://localhost:8080/tiles/chioggia/14/8750/5880"
-        TILE_PATH="$TMP_DIR/tile.pbf"
-        echo "    ⬇️ Downloading $TILE_URL"
-        curl -s "$TILE_URL" -o "$TILE_PATH" || {
-            echo "    ❌ Failed to download tile from $TILE_URL"
-            docker logs "$CONTAINER_ID" || true
-            docker kill "$CONTAINER_ID" >/dev/null 2>&1 || true
-            exit 1
-        }
-
-        # Stop the container
-        docker kill "$CONTAINER_ID" >/dev/null 2>&1 || true
-
-        # Check tile file size
-        TILE_SIZE=$(wc -c "$TILE_PATH" | awk '{print $1}')
-        echo "    📦 Tile size: $TILE_SIZE"
-
-        # Sanity check: ensure nonzero tile
-        if [[ "$TILE_SIZE" != 48679 ]]; then
-            echo "    ❌ Tile size check failed (expected 48679 bytes, got $TILE_SIZE)"
-            exit 1
-        fi
+    # scratch has no shell, so skip the shell-dependent checks there.
+    assert_file_in_image_if_shell() {
+        case "$1" in
+        *:scratch) return 0 ;;
+        esac
+        assert_file_in_image "$1" /app/frontend-dev.br.tar -f
+        assert_binary_resolves "$1" versatiles /app/versatiles
     }
 
+    # Contract checks (see issue #47). The frontend entrypoint bakes in
+    # `serve --static`, so everything after the image name is a tile source —
+    # that is exactly what broke the documented quick-start command.
+    test_contract() {
+        local image="$1" entrypoint="$2"
+        echo "  🧪 Contract: $image"
+        assert_image_config "$image" "$entrypoint" "/data"
+        assert_path_appends_app "$image"
+        assert_file_in_image_if_shell "$image"
+    }
+
+    test_image() {
+        local image="$1" tile_path tile_size
+        echo "  🧪 Testing: $image"
+
+        start_http_container "$image" -v "$TEST_DIR":/data:ro -- chioggia.versatiles
+        wait_for_http "http://127.0.0.1:${HOST_PORT}/" 90
+
+        tile_path="$(mktemp -d)/tile.pbf"
+        curl -sf "http://127.0.0.1:${HOST_PORT}/tiles/chioggia/14/8750/5880" -o "$tile_path" || {
+            docker logs "$CONTAINER_ID" >&2 || true
+            stop_container
+            echo "    ❌ $image: failed to download tile" >&2
+            exit 1
+        }
+        stop_container
+
+        tile_size=$(wc -c <"$tile_path" | tr -d ' ')
+        assert_eq "$image: tile size" "$tile_size" "48679"
+    }
+
+    test_contract "$NAME:debian"  '["/usr/bin/tini","--","/app/versatiles","serve","--static","/app/frontend-dev.br.tar"]'
+    test_contract "$NAME:alpine"  '["/sbin/tini","--","/app/versatiles","serve","--static","/app/frontend-dev.br.tar"]'
+    test_contract "$NAME:scratch" '["/app/versatiles","serve","--static","/app/frontend-dev.br.tar"]'
+
     test_image "$NAME:debian"
-    test_shutdown_time "$NAME:debian"
+    # NB: no `serve` argument — the entrypoint already supplies it. Passing one
+    # made the container exit instantly, so this test used to pass vacuously.
+    test_shutdown_time "$NAME:debian" 1000 chioggia.versatiles
 
     test_image "$NAME:alpine"
-    test_shutdown_time "$NAME:alpine"
+    test_shutdown_time "$NAME:alpine" 1000 chioggia.versatiles
 
     test_image "$NAME:scratch"
 
-    echo "✅ All images tested successfully."
+    print_test_summary
 fi
 
 ###############################################################################

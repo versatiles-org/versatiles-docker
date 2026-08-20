@@ -58,6 +58,20 @@ assert_contains() {
     fi
 }
 
+# assert_ends_with <description> <haystack> <suffix>
+#
+# Kept distinct from assert_contains because the convert tests deliberately
+# require the success line to be the LAST thing emitted — a later error must not
+# be masked by an earlier success message.
+assert_ends_with() {
+    local desc="$1" haystack="$2" suffix="$3"
+    if [[ "$haystack" == *"$suffix" ]]; then
+        _pass "$desc"
+    else
+        _fail "$desc" "expected to end with: '$suffix'" "actual tail: '${haystack: -120}'"
+    fi
+}
+
 # assert_min_size <description> <file> <min_bytes>
 assert_min_size() {
     local desc="$1" file="$2" min="$3" size
@@ -136,12 +150,17 @@ stop_container() {
 # Replaces fixed `sleep` calls: polls until the endpoint answers or the timeout
 # expires. A server that is slow to start (large --static archive, cold cache,
 # loaded CI runner) then waits rather than failing spuriously.
+#
+# Readiness means "the server responded", not "returned 2xx": the base image
+# serves no static content, so / legitimately answers 404 while being perfectly
+# up. Callers that care about the status code should assert it themselves.
 wait_for_http() {
-    local url="$1" timeout="${2:-60}" cid="${3:-${CONTAINER_ID:-}}"
+    local url="$1" timeout="${2:-60}" cid="${3:-${CONTAINER_ID:-}}" code
     local deadline=$((SECONDS + timeout))
 
     while ((SECONDS < deadline)); do
-        if curl -sf -o /dev/null --max-time 5 "$url"; then
+        code=$(curl -s -o /dev/null -w '%{http_code}' --max-time 5 "$url" || true)
+        if [[ -n "$code" && "$code" != "000" ]]; then
             return 0
         fi
         # Fail fast if the container died instead of waiting out the timeout.

@@ -6,45 +6,14 @@ cd "$(dirname "$0")/.."
 # Load shared helpers
 # shellcheck source=./scripts/utils.sh
 source ./scripts/utils.sh
+# shellcheck source=./scripts/test_utils.sh
+source ./scripts/test_utils.sh
 parse_arguments "$@"
 # Variables from utils.sh: needs_push, needs_testing
 VER=$(fetch_release_tag)
 NAME="versatiles"
 
 echo "👷 Building $NAME Docker images for version $VER"
-
-# Helper function for getting millisecond timestamps
-get_timestamp_ms() {
-    date +%s%N | cut -b1-13
-}
-
-# Test shutdown time - verify containers respond to SIGTERM in <1s
-# This validates that tini is properly installed and configured
-test_shutdown_time() {
-    local image="$1"
-
-    echo "  🧪 Testing shutdown time..."
-
-    # Start a long-running server container
-    CONTAINER_ID=$(docker run -d --rm -v "$(pwd)"/testdata:/data "$image" serve chioggia.versatiles)
-
-    # Give the server a moment to initialize
-    sleep 0.5
-
-    # Measure how long docker stop takes (sends SIGTERM, waits for graceful shutdown)
-    start_time=$(get_timestamp_ms)
-    docker stop --time=3 "$CONTAINER_ID" >/dev/null 2>&1 || true
-    end_time=$(get_timestamp_ms)
-    duration=$(( end_time - start_time ))
-
-    echo "  ⏱️  Shutdown time: ${duration}ms"
-
-    # Fail if shutdown takes longer than 1 second
-    if [[ $duration -ge 1000 ]]; then
-        echo "  ❌ Shutdown took too long: ${duration}ms (expected < 1000ms)" >&2
-        exit 1
-    fi
-}
 
 ###############################################################################
 # 1. Host‑arch build (loaded into local Docker for testing)
@@ -63,40 +32,51 @@ fi
 if $needs_testing; then
     echo "🧪 Running smoke-tests"
 
-    test_image() {
-        local image="$1"
-        echo "  🧪 Testing: $image"
-        result=$(docker run --rm "$image" --version)
-        if [ "$result" != "versatiles ${VER:1}" ]; then
-            echo "  ❌ Version mismatch for $image: expected 'versatiles ${VER:1}', got '$result'" >&2
-            exit 1
-        fi
-        
-        TEST_DIR=$(readlink -f "./testdata/")
-        mkdir -p "$TEST_DIR/temp"
-        output=$(docker run --rm -v "$TEST_DIR:/data" "$image" convert chioggia.versatiles ./temp/chioggia.pmtiles 2>&1 || true)
-        expected="finished converting tiles"
-        if [[ "$output" != *"$expected" ]]; then
-            echo "  ❌ Test 2 failed: expected output to end with '$expected', got '$output'" >&2
-            exit 1
-        fi
-        file_size=$(wc -c "$TEST_DIR/temp/chioggia.pmtiles" | awk '{print $1}')
-        rm -rf "$TEST_DIR/temp"
-        if [[ $file_size -lt 12500000 ]]; then
-            echo "  ❌ Test 2 failed: expected output file size to be greater than 12.5 MB, got '$file_size'" >&2
-            exit 1
-        fi
+    TEST_DIR=$(readlink -f "./testdata/")
+
+    # Contract checks (see issue #47): these guard the entrypoint / workdir /
+    # PATH surface that every documented `docker run` invocation depends on.
+    # Inspect-only, so they also cover `scratch`, which ships no shell.
+    test_contract() {
+        local image="$1" entrypoint="$2"
+        echo "  🧪 Contract: $image"
+        assert_image_config "$image" "$entrypoint" "/data"
+        assert_path_appends_app "$image"
     }
 
+    test_image() {
+        local image="$1" output
+        echo "  🧪 Testing: $image"
+
+        output=$(docker run --rm "$image" --version)
+        assert_eq "$image: --version" "$output" "versatiles ${VER:1}"
+
+        mkdir -p "$TEST_DIR/temp"
+        output=$(docker run --rm -v "$TEST_DIR:/data" "$image" \
+            convert chioggia.versatiles ./temp/chioggia.pmtiles 2>&1 || true)
+        assert_ends_with "$image: convert completes" "$output" "finished converting tiles"
+        assert_min_size "$image: converted output" "$TEST_DIR/temp/chioggia.pmtiles" 12500000
+        rm -rf "$TEST_DIR/temp"
+    }
+
+    test_contract "$NAME:debian"  '["/usr/bin/tini","--","/app/versatiles"]'
+    test_contract "$NAME:alpine"  '["/sbin/tini","--","/app/versatiles"]'
+    test_contract "$NAME:scratch" '["/app/versatiles"]'
+
+    # `versatiles` must resolve by name for images that override the entrypoint
+    # (e.g. a Cloud Run wrapper). scratch has no shell, so it is exempt.
+    assert_binary_resolves "$NAME:debian" versatiles /app/versatiles
+    assert_binary_resolves "$NAME:alpine" versatiles /app/versatiles
+
     test_image "$NAME:debian"
-    test_shutdown_time "$NAME:debian"
+    test_shutdown_time "$NAME:debian" 1000 serve chioggia.versatiles
 
     test_image "$NAME:alpine"
-    test_shutdown_time "$NAME:alpine"
+    test_shutdown_time "$NAME:alpine" 1000 serve chioggia.versatiles
 
     test_image "$NAME:scratch"
 
-    echo "✅ All images tested successfully."
+    print_test_summary
 fi
 
 ###############################################################################
