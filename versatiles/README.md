@@ -57,6 +57,11 @@ All relative paths inside the VersaTiles CLI will resolve to `/data`.
 
 This image is available in three variants:
 
+> [!NOTE]
+> `latest-alpine`, `latest-debian` and `latest-scratch` are **deprecated aliases** for
+> `alpine`, `debian` and `scratch`. They still track the current images, but prefer the
+> short names (or `latest`, which tracks `alpine`).
+
 | Variant   | Version                                                                   | Size                                                                               | Signal Handling                                                               |
 |-----------|---------------------------------------------------------------------------|------------------------------------------------------------------------------------|-------------------------------------------------------------------------------|
 | `alpine`  | ![](https://img.shields.io/docker/v/versatiles/versatiles/alpine?label=)  | ![](https://img.shields.io/docker/image-size/versatiles/versatiles/alpine?label=)  | ✅ Includes [tini](https://github.com/krallin/tini) for proper signal handling |

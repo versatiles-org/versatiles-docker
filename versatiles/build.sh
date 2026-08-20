@@ -104,8 +104,10 @@ fi
 ###############################################################################
 if $needs_push; then
     echo "🚀 Building and pushing images to Docker Hub"
-    build_push_image versatiles-debian "$NAME" "debian,$VER-debian" "./versatiles/Dockerfile"
-    build_push_image versatiles-alpine "$NAME" "alpine,$VER-alpine,latest,$VER" "./versatiles/Dockerfile"
-    build_push_image versatiles-scratch "$NAME" "scratch,$VER-scratch" "./versatiles/Dockerfile"
+    # The `latest-*` tags are deprecated aliases kept only so old pulls do not
+    # silently serve a stale image; see issue #47. Prefer alpine/debian/scratch.
+    build_push_image versatiles-debian "$NAME" "debian,$VER-debian,latest-debian" "./versatiles/Dockerfile"
+    build_push_image versatiles-alpine "$NAME" "alpine,$VER-alpine,latest,$VER,latest-alpine" "./versatiles/Dockerfile"
+    build_push_image versatiles-scratch "$NAME" "scratch,$VER-scratch,latest-scratch" "./versatiles/Dockerfile"
     update_docker_description versatiles
 fi
