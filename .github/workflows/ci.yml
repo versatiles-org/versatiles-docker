@@ -89,19 +89,134 @@ jobs:
         with:
           sarif_file: 'trivy-results.sarif'
 
+  # ---------------------------------------------------------------------------
+  # Which image folders does this change actually affect?
+  #
+  # GDAL, planetiler and tilemaker take a long time to build (Rust, a JVM jar,
+  # a full g++ compile), so smoke-testing all seven on every PR would be
+  # prohibitive. Path filters mean a change to versatiles/ builds one image.
+  # Anything under scripts/ is shared, so it expands to all of them.
+  # ---------------------------------------------------------------------------
+  detect-changes:
+    name: Detect changed images
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      pull-requests: read
+    outputs:
+      folders: ${{ steps.select.outputs.folders }}
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+
+      - name: Filter paths
+        uses: dorny/paths-filter@v3
+        id: filter
+        with:
+          filters: |
+            shared:
+              - 'scripts/**'
+              - '.github/workflows/ci.yml'
+            versatiles:
+              - 'versatiles/**'
+            versatiles-frontend:
+              - 'versatiles-frontend/**'
+            versatiles-nginx:
+              - 'versatiles-nginx/**'
+            versatiles-tippecanoe:
+              - 'versatiles-tippecanoe/**'
+            versatiles-gdal:
+              - 'versatiles-gdal/**'
+            versatiles-planetiler:
+              - 'versatiles-planetiler/**'
+            versatiles-tilemaker:
+              - 'versatiles-tilemaker/**'
+
+      - name: Select folders to smoke-test
+        id: select
+        env:
+          CHANGED: ${{ steps.filter.outputs.changes }}
+        run: |
+          all='["versatiles","versatiles-frontend","versatiles-nginx","versatiles-tippecanoe","versatiles-gdal","versatiles-planetiler","versatiles-tilemaker"]'
+          if echo "$CHANGED" | jq -e 'index("shared")' >/dev/null; then
+            folders="$all"
+          else
+            folders=$(echo "$CHANGED" | jq -c 'map(select(. != "shared"))')
+          fi
+          echo "folders=$folders" >>"$GITHUB_OUTPUT"
+          echo "Will smoke-test: $folders"
+
+  # ---------------------------------------------------------------------------
+  # Tag lists (issue #47). Pure bash, no Docker, no network — always runs.
+  # ---------------------------------------------------------------------------
+  tags:
+    name: Tag Lists
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v7
+
+      - name: Verify published tag lists
+        run: bash ./scripts/test_tags.sh
+
+  # ---------------------------------------------------------------------------
+  # Image smoke tests. Deliberately does NOT use ./.github/actions/setup-docker:
+  # that logs in to Docker Hub, whose secrets are unavailable to pull requests
+  # from forks. Nothing is pushed here, so no registry credentials are needed.
+  # ---------------------------------------------------------------------------
+  smoke:
+    name: Smoke Test ${{ matrix.folder }}
+    needs: detect-changes
+    if: needs.detect-changes.outputs.folders != '[]'
+    runs-on: ubuntu-latest
+    timeout-minutes: 90
+    permissions:
+      contents: read
+    strategy:
+      fail-fast: false
+      matrix:
+        folder: ${{ fromJSON(needs.detect-changes.outputs.folders) }}
+    env:
+      # Raises the GitHub API rate limit for fetch_release_tag; without it the
+      # parallel matrix jobs can trip the 60 req/hr anonymous limit.
+      GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v7
+
+      - name: Set up QEMU
+        uses: docker/setup-qemu-action@v3
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Build and smoke-test ${{ matrix.folder }}
+        run: bash ./${{ matrix.folder }}/build.sh --test
+
   summary:
     name: CI Summary
     runs-on: ubuntu-latest
     permissions:
       contents: read
-    needs: [hadolint, shellcheck, trivy-repo]
+    needs: [hadolint, shellcheck, trivy-repo, tags, detect-changes, smoke]
     if: always()
     steps:
       - name: Check job results
         run: |
+          # `smoke` is legitimately "skipped" when a change touches no image
+          # folder (docs only), so it is checked for failure rather than for
+          # success. Every other job must actually succeed.
           if [ "${{ needs.hadolint.result }}" != "success" ] || \
              [ "${{ needs.shellcheck.result }}" != "success" ] || \
-             [ "${{ needs.trivy-repo.result }}" != "success" ]; then
+             [ "${{ needs.trivy-repo.result }}" != "success" ] || \
+             [ "${{ needs.tags.result }}" != "success" ] || \
+             [ "${{ needs.detect-changes.result }}" != "success" ] || \
+             [ "${{ needs.smoke.result }}" = "failure" ] || \
+             [ "${{ needs.smoke.result }}" = "cancelled" ]; then
             echo "❌ One or more CI jobs failed"
             exit 1
           fi
