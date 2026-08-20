@@ -18,6 +18,8 @@ cd "$(dirname "$0")/.."
 
 # shellcheck source=./scripts/utils.sh
 source ./scripts/utils.sh
+# shellcheck source=./scripts/test_utils.sh
+source ./scripts/test_utils.sh
 parse_arguments "$@"
 # Variables from utils.sh: needs_push, needs_testing
 VER=$(date +%Y-%m-%d)
@@ -39,15 +41,18 @@ fi
 if $needs_testing; then
     echo "🧪 Running smoke-test …"
 
+    # Contract (see issue #47). Both `tini` and `generate_tiles` are resolved by
+    # name, so this entrypoint depends entirely on PATH.
+    echo "  🧪 Contract: $NAME:latest"
+    assert_image_config "$NAME:latest" '["tini","-g","--","generate_tiles"]' "/app"
+    assert_binary_resolves "$NAME:latest" generate_tiles /usr/local/bin/generate_tiles
+    assert_binary_resolves "$NAME:latest" versatiles /usr/local/bin/versatiles
+
     # With no arguments and no TTY the container must print a usage hint and exit 1.
-    output=$(docker run --rm "${NAME}:latest" 2>&1 || true)
+    output=$(docker run --rm "$NAME:latest" 2>&1 || true)
+    assert_contains "$NAME: usage hint" "$output" "No configuration provided"
 
-    if [[ "$output" != *"No configuration provided"* ]]; then
-        printf "❌  Unexpected output:\n%s\n" "$output" >&2
-        exit 1
-    fi
-
-    echo "✅ Images tested successfully."
+    print_test_summary
 fi
 
 ###############################################################################

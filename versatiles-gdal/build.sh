@@ -6,6 +6,8 @@ cd "$(dirname "$0")/.."
 # Load shared helpers
 # shellcheck source=./scripts/utils.sh
 source ./scripts/utils.sh
+# shellcheck source=./scripts/test_utils.sh
+source ./scripts/test_utils.sh
 parse_arguments "$@"
 # Variables from utils.sh: needs_push, needs_testing
 VER=$(fetch_release_tag)
@@ -27,30 +29,26 @@ fi
 ###############################################################################
 if $needs_testing; then
     echo "🧪 Running smoke-tests"
-    
-    output=$(docker run --rm "versatiles-gdal" -V 2>&1 || true)
-    expected="versatiles ${VER#v}"
-    if [[ "$output" != "$expected" ]]; then
-        printf "  ❌ Test 1 failed: expected '%s', got '%s'\n" "$expected" "$output" >&2
-        exit 1
-    fi
+
+    # Contract (see issue #47). gdal shipped /app/versatiles unreachable by name
+    # until the PATH fix; only the entrypoint invocation was ever exercised.
+    echo "  🧪 Contract: $NAME:latest"
+    assert_image_config "$NAME:latest" '["/usr/bin/tini","--","/app/versatiles"]' "/data"
+    assert_path_appends_app "$NAME:latest"
+    assert_binary_resolves "$NAME:latest" versatiles /app/versatiles
+
+    output=$(docker run --rm "$NAME:latest" -V 2>&1 || true)
+    assert_eq "$NAME: -V" "$output" "versatiles ${VER#v}"
 
     TEST_DIR=$(readlink -f "./testdata/")
     mkdir -p "$TEST_DIR/temp"
-    output=$(docker run --rm -v "$TEST_DIR:/data" versatiles-gdal convert liechtenstein.vpl ./temp/liechtenstein.mbtiles 2>&1 || true)
-    expected="finished converting tiles"
-    if [[ "$output" != *"$expected" ]]; then
-        echo "  ❌ Test 2 failed: expected output to end with '$expected', got '$output'" >&2
-        exit 1
-    fi
-    file_size=$(wc -c "$TEST_DIR/temp/liechtenstein.mbtiles" | awk '{print $1}')
+    output=$(docker run --rm -v "$TEST_DIR:/data" "$NAME:latest" \
+        convert liechtenstein.vpl ./temp/liechtenstein.mbtiles 2>&1 || true)
+    assert_ends_with "$NAME: convert completes" "$output" "finished converting tiles"
+    assert_min_size "$NAME: converted output" "$TEST_DIR/temp/liechtenstein.mbtiles" 16000000
     rm -rf "$TEST_DIR/temp"
-    if [[ $file_size -lt 16000000 ]]; then
-        echo "  ❌ Test 2 failed: expected output file size to be greater than 16MB, got '$file_size'" >&2
-        exit 1
-    fi
 
-    echo "✅ Image tested successfully."
+    print_test_summary
 fi
 
 ###############################################################################

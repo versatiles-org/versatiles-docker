@@ -15,6 +15,8 @@ cd "$(dirname "$0")/.."
 
 # shellcheck source=./scripts/utils.sh
 source ./scripts/utils.sh
+# shellcheck source=./scripts/test_utils.sh
+source ./scripts/test_utils.sh
 parse_arguments "$@"
 # Variables from utils.sh: needs_push, needs_testing
 VER=$(fetch_release_tag "systemed/tilemaker")
@@ -35,16 +37,19 @@ fi
 ###############################################################################
 if $needs_testing; then
     echo "🧪 Running smoke-test …"
+
+    # Contract (see issue #47). Entrypoint resolved by name; note the working
+    # directory is /opt/shortbread here, not /data.
+    echo "  🧪 Contract: $NAME:latest"
+    assert_image_config "$NAME:latest" '["tini","-g","--","generate_tiles"]' "/opt/shortbread"
+    assert_binary_resolves "$NAME:latest" generate_tiles /usr/local/bin/generate_tiles
+    assert_binary_resolves "$NAME:latest" versatiles /usr/local/bin/versatiles
+
     expected=$'Arguments required: <pbf-url> <name> [bbox]\n       bbox default: -180,-86,180,86'
+    output=$(docker run --rm "$NAME:latest" || true)
+    assert_eq "$NAME: usage message" "$output" "$expected"
 
-    output=$(docker run --rm "${NAME}:latest" || true)
-
-    if [[ "$output" != "$expected" ]]; then
-        printf "❌  Unexpected output:\n%s\n" "$output" >&2
-        exit 1
-    fi
-    
-    echo "✅ Images tested successfully."
+    print_test_summary
 fi
 
 ###############################################################################

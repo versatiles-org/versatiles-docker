@@ -6,6 +6,8 @@ cd "$(dirname "$0")/.."
 # Load shared helpers
 # shellcheck source=./scripts/utils.sh
 source ./scripts/utils.sh
+# shellcheck source=./scripts/test_utils.sh
+source ./scripts/test_utils.sh
 parse_arguments "$@"
 # Variables from utils.sh: needs_push, needs_testing
 VER=$(fetch_release_tag)
@@ -28,21 +30,24 @@ fi
 if $needs_testing; then
     echo "🧪 Running smoke-tests"
 
-    output="'FRONTEND' is required (Allowed: standard|dev|min|tiny|blank|none)"
+    # Contract (see issue #47). Both the entrypoint and the versatiles binary are
+    # resolved by name here — entrypoint.sh from /scripts, versatiles from
+    # /usr/local/bin — so PATH is load-bearing for this image.
+    echo "  🧪 Contract: $NAME:latest"
+    # NB: the runtime stage sets no WORKDIR (the /app one belongs to the
+    # builder), so the working directory is the default "/".
+    assert_image_config "$NAME:latest" '["/sbin/tini","--","entrypoint.sh"]' "/"
+    assert_binary_resolves "$NAME:latest" entrypoint.sh /scripts/entrypoint.sh
+    assert_binary_resolves "$NAME:latest" versatiles /usr/local/bin/versatiles
+
     result=$(docker run --rm "$NAME:latest" 2>&1 || true)
-    if [[ "$result" != *"$output"* ]]; then
-        echo "❌ Test failed: expected \"$result\" to contain \"$output\"" >&2
-        exit 1
-    fi
+    assert_contains "$NAME: FRONTEND is required" "$result" \
+        "'FRONTEND' is required (Allowed: standard|dev|min|tiny|blank|none)"
 
-    output="'TILE_SOURCES' is required"
     result=$(docker run --rm -e "FRONTEND=min" "$NAME:latest" 2>&1 || true)
-    if [[ "$result" != *"$output"* ]]; then
-        echo "❌ Test failed: expected \"$result\" to contain \"$output\"" >&2
-        exit 1
-    fi
+    assert_contains "$NAME: TILE_SOURCES is required" "$result" "'TILE_SOURCES' is required"
 
-    echo "✅ All images tested successfully."
+    print_test_summary
 fi
 
 ###############################################################################

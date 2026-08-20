@@ -5,6 +5,8 @@ cd "$(dirname "$0")/.."
 
 # shellcheck source=./scripts/utils.sh
 source ./scripts/utils.sh
+# shellcheck source=./scripts/test_utils.sh
+source ./scripts/test_utils.sh
 parse_arguments "$@"
 # Variables from utils.sh: needs_push, needs_testing
 VER_VT=$(fetch_release_tag)
@@ -28,19 +30,22 @@ fi
 ###############################################################################
 if $needs_testing; then
     echo "🧪 Running smoke-test …"
-    
-    output=$(docker run --rm "versatiles-tippecanoe:latest" -v 2>&1 || true)
-    if [[ "$output" != "tippecanoe v$VER_TC" ]]; then
-        printf "❌ Unexpected output:\n%s\n" "$output" >&2
-        exit 1
-    fi
-    output=$(docker run --rm --entrypoint "versatiles" "versatiles-tippecanoe:latest" -V 2>&1 | head -n 1 || true)
-    if [[ "$output" != "versatiles ${VER_VT:1}" ]]; then
-        echo "❌ Version mismatch: expected 'versatiles ${VER_VT:1}', got '$output'" >&2
-        exit 1
-    fi
-    
-    echo "✅ Image tested successfully."
+
+    # Contract (see issue #47). This image resolves its entrypoint by NAME, so a
+    # PATH change can break it without touching the ENTRYPOINT line.
+    echo "  🧪 Contract: $NAME:latest"
+    assert_image_config "$NAME:latest" '["/sbin/tini","--","tippecanoe"]' "/data"
+    assert_path_appends_app "$NAME:latest"
+    assert_binary_resolves "$NAME:latest" tippecanoe /usr/local/bin/tippecanoe
+    assert_binary_resolves "$NAME:latest" versatiles /app/versatiles
+
+    output=$(docker run --rm "$NAME:latest" -v 2>&1 || true)
+    assert_eq "$NAME: tippecanoe -v" "$output" "tippecanoe v$VER_TC"
+
+    output=$(docker run --rm --entrypoint versatiles "$NAME:latest" -V 2>&1 | head -n 1 || true)
+    assert_eq "$NAME: versatiles -V" "$output" "versatiles ${VER_VT:1}"
+
+    print_test_summary
 fi
 
 ###############################################################################
