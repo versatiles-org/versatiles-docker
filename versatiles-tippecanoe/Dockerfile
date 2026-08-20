@@ -51,5 +51,5 @@ COPY --from=builder-tippecanoe /src/tippecanoe /src/tippecanoe-json-tool /src/ti
 RUN apk add --no-cache libstdc++ sqlite-libs zlib tini
 
 WORKDIR /data
-ENV PATH="/app:${PATH}"
+ENV PATH="${PATH}:/app"
 ENTRYPOINT ["/sbin/tini", "--", "tippecanoe"]

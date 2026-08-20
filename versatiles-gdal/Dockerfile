@@ -48,4 +48,5 @@ RUN \
   dpkg-query -Wf '${Installed-Size}\t${Package}\n' | sort -n
   
 WORKDIR /data
+ENV PATH="$PATH:/app"
 ENTRYPOINT ["/usr/bin/tini", "--", "/app/versatiles"]
