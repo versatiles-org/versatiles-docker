@@ -8,7 +8,8 @@ FROM --platform=$BUILDPLATFORM curlimages/curl:8.21.0 AS builder-frontend
 ARG TARGETPLATFORM
 WORKDIR /app
 SHELL ["/bin/ash", "-eo", "pipefail", "-c"]
-RUN curl -sL "https://github.com/versatiles-org/versatiles-frontend/releases/latest/download/frontend-dev.br.tar.gz" | gzip -d >frontend-dev.br.tar
+ARG FRONTEND_VERSION
+RUN curl -sL "https://github.com/versatiles-org/versatiles-frontend/releases/download/${FRONTEND_VERSION}/frontend-dev.br.tar.gz" | gzip -d >frontend-dev.br.tar
 
 FROM --platform=$BUILDPLATFORM curlimages/curl:8.21.0 AS builder-versatiles
 ARG TARGETPLATFORM
@@ -17,11 +18,13 @@ COPY ./scripts/download_versatiles_binary.sh .
 
 # ---- musl builder (for Alpine/Scratch) -------------------------------------
 FROM --platform=$BUILDPLATFORM builder-versatiles AS builder-versatiles-musl
-RUN ./download_versatiles_binary.sh "${TARGETPLATFORM}-musl"
+ARG VERSATILES_VERSION
+RUN ./download_versatiles_binary.sh "${TARGETPLATFORM}-musl" "${VERSATILES_VERSION}"
 
 # ---- glibc/gnu builder (for Debian) ----------------------------------------
 FROM --platform=$BUILDPLATFORM builder-versatiles AS builder-versatiles-gnu
-RUN ./download_versatiles_binary.sh "${TARGETPLATFORM}-gnu"
+ARG VERSATILES_VERSION
+RUN ./download_versatiles_binary.sh "${TARGETPLATFORM}-gnu" "${VERSATILES_VERSION}"
 
 ###############################################################################
 ## ─────────────────────────────  runtimes  ──────────────────────────────── ##

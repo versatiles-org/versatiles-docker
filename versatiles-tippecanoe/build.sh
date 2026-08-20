@@ -12,7 +12,7 @@ parse_arguments "$@"
 VER_VT=$(fetch_release_tag)
 VER_TC=$(fetch_release_tag "felt/tippecanoe")
 NAME="versatiles-tippecanoe"
-BUILD_ARGS="--build-arg TIPPECANOE_VERSION=$VER_TC"
+BUILD_ARGS="--build-arg TIPPECANOE_VERSION=$VER_TC --build-arg VERSATILES_VERSION=$VER_VT"
 
 
 echo "👷 Building $NAME Docker images for version $VER_TC"

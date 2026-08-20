@@ -23,6 +23,9 @@ source ./scripts/test_utils.sh
 parse_arguments "$@"
 # Variables from utils.sh: needs_push, needs_testing
 VER=$(date +%Y-%m-%d)
+# NB: VER above is a build date; the bundled versatiles binary has its own version.
+VER_VT=$(fetch_release_tag)
+BUILD_ARGS="--build-arg VERSATILES_VERSION=$VER_VT"
 NAME="versatiles-planetiler"
 
 echo "👷 Building $NAME Docker images for version $VER"

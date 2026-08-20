@@ -31,7 +31,8 @@ FROM --platform=$BUILDPLATFORM curlimages/curl:8.21.0 AS builder-versatiles
 ARG TARGETPLATFORM
 WORKDIR /app
 COPY ./scripts/download_versatiles_binary.sh .
-RUN ./download_versatiles_binary.sh "${TARGETPLATFORM}-gnu"
+ARG VERSATILES_VERSION
+RUN ./download_versatiles_binary.sh "${TARGETPLATFORM}-gnu" "${VERSATILES_VERSION}"
 
 ###############################################################################
 # Main Build

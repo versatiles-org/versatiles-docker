@@ -11,6 +11,9 @@ source ./scripts/test_utils.sh
 parse_arguments "$@"
 # Variables from utils.sh: needs_push, needs_testing
 VER=$(fetch_release_tag)
+# Pin the downloaded binary to the tag we publish under, so the layer cache
+# cannot serve a stale build and a mid-build release cannot swap it.
+BUILD_ARGS="--build-arg VERSATILES_VERSION=$VER"
 NAME="versatiles"
 
 echo "👷 Building $NAME Docker images for version $VER"

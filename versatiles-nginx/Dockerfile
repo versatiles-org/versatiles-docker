@@ -5,7 +5,8 @@ FROM --platform=$BUILDPLATFORM curlimages/curl:8.21.0 AS builder
 ARG TARGETPLATFORM
 WORKDIR /app
 COPY ./scripts/download_versatiles_binary.sh .
-RUN ./download_versatiles_binary.sh "${TARGETPLATFORM}-musl"
+ARG VERSATILES_VERSION
+RUN ./download_versatiles_binary.sh "${TARGETPLATFORM}-musl" "${VERSATILES_VERSION}"
 
 # ---------- runtime stage ----------
 FROM alpine:3.24 AS versatiles-nginx

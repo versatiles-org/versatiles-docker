@@ -20,6 +20,9 @@ source ./scripts/test_utils.sh
 parse_arguments "$@"
 # Variables from utils.sh: needs_push, needs_testing
 VER=$(fetch_release_tag "systemed/tilemaker")
+# NB: VER above is tilemaker's release; the bundled versatiles binary has its own.
+VER_VT=$(fetch_release_tag)
+BUILD_ARGS="--build-arg VERSATILES_VERSION=$VER_VT"
 NAME="versatiles-tilemaker"
 
 echo "👷 Building $NAME Docker images for version $VER"

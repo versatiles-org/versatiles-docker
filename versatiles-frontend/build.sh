@@ -20,6 +20,11 @@ source ./scripts/test_utils.sh
 parse_arguments "$@"
 # Variables from utils.sh: needs_push, needs_testing
 VER=$(fetch_release_tag)
+VER_FE=$(fetch_release_tag "versatiles-org/versatiles-frontend")
+# Pin both downloads: the binary to the tag we publish under, and the frontend
+# tarball to its own release. Both used moving /releases/latest/ URLs, which
+# left the layer cache free to serve stale artifacts indefinitely.
+BUILD_ARGS="--build-arg VERSATILES_VERSION=$VER --build-arg FRONTEND_VERSION=$VER_FE"
 NAME="versatiles-frontend"
 
 echo "👷 Building $NAME Docker images for version $VER"

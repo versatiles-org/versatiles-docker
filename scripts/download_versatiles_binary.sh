@@ -3,7 +3,7 @@
 # download_versatiles_binary.sh - Download VersaTiles binary for target platform
 #
 # USAGE
-#   download_versatiles_binary.sh <TARGETPLATFORM>
+#   download_versatiles_binary.sh <TARGETPLATFORM> <VERSION>
 #
 # ARGUMENTS
 #   TARGETPLATFORM  Platform identifier, one of:
@@ -11,20 +11,34 @@
 #                   - linux/arm64-musl   (Alpine Linux, ARM64)
 #                   - linux/amd64-gnu    (Debian/Ubuntu, x86_64)
 #                   - linux/arm64-gnu    (Debian/Ubuntu, ARM64)
+#   VERSION         Release tag to download, e.g. "v4.9.0".
 #
 # DESCRIPTION
-#   Downloads the latest VersaTiles binary from GitHub releases for the
-#   specified platform. The binary is extracted to the current directory
-#   and made executable.
+#   Downloads the given VersaTiles release for the specified platform. The
+#   binary is extracted to the current directory and made executable.
+#
+#   VERSION is REQUIRED and deliberately not defaulted to "latest": the
+#   download used to come from /releases/latest/download/, a moving URL. That
+#   made the RUN layer's cache key independent of the release, so BuildKit
+#   happily served a stale binary while build.sh tagged the image with a newer
+#   version. Pinning the tag ties the artifact to the label and keeps a release
+#   published mid-build from changing what we get.
 #
 # EXIT CODES
 #   0  Success
-#   1  Unknown platform or download failure
+#   1  Unknown platform, missing version, or download failure
 #
 set -eu
 
 TARGETPLATFORM=$1
-BASE_URL="https://github.com/versatiles-org/versatiles-rs/releases/latest/download"
+VERSION=${2:-}
+
+if [ -z "$VERSION" ]; then
+	echo "Missing VERSION argument (e.g. v4.9.0)" >&2
+	exit 1
+fi
+
+BASE_URL="https://github.com/versatiles-org/versatiles-rs/releases/download/${VERSION}"
 
 case $TARGETPLATFORM in
 	"linux/amd64-musl")

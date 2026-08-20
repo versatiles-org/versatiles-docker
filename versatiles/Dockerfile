@@ -11,11 +11,13 @@ COPY ./scripts/download_versatiles_binary.sh .
 
 # ---- musl builder ----------------------------------------------------------
 FROM --platform=$BUILDPLATFORM builder AS builder-musl
-RUN ./download_versatiles_binary.sh "${TARGETPLATFORM}-musl"
+ARG VERSATILES_VERSION
+RUN ./download_versatiles_binary.sh "${TARGETPLATFORM}-musl" "${VERSATILES_VERSION}"
 
 # ---- glibc/gnu builder ------------------------------------------------------
 FROM --platform=$BUILDPLATFORM builder AS builder-gnu
-RUN ./download_versatiles_binary.sh "${TARGETPLATFORM}-gnu"
+ARG VERSATILES_VERSION
+RUN ./download_versatiles_binary.sh "${TARGETPLATFORM}-gnu" "${VERSATILES_VERSION}"
 
 ###############################################################################
 ## ─────────────────────────────  runtimes  ──────────────────────────────── ##
