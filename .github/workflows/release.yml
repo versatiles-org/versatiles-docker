@@ -135,45 +135,164 @@ jobs:
       - name: Build and push
         run: bash ./versatiles-tippecanoe/build.sh --test --push
 
+  # ---------------------------------------------------------------------------
+  # versatiles-tilemaker is built one architecture per NATIVE runner, then merged.
+  # As a single emulated multi-arch job it took 112m (gdal) / 56m (tilemaker);
+  # natively each architecture is ~8-10m and they run in parallel.
+  # Tags are only created by the merge step, so a failed arch never leaves a
+  # tag pointing at a single-architecture image.
+  # ---------------------------------------------------------------------------
   build-tilemaker:
-    name: Build versatiles-tilemaker
-    runs-on: ubuntu-latest
+    name: Build versatiles-tilemaker (${{ matrix.arch }})
+    runs-on: ${{ matrix.runner }}
     if: ${{ github.event_name != 'workflow_dispatch' || inputs.build_tilemaker }}
+    timeout-minutes: 45
     permissions:
       contents: read
       packages: write
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - arch: amd64
+            runner: ubuntu-latest
+          - arch: arm64
+            runner: ubuntu-24.04-arm
     steps:
       - name: Checkout repository
         uses: actions/checkout@v7
-        
+
       - uses: ./.github/actions/setup-docker
         with:
           dockerhub-username: ${{ secrets.DOCKERHUB_USERNAME }}
           dockerhub-token: ${{ secrets.DOCKERHUB_TOKEN }}
           github-token: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: Build and push
-        run: bash ./versatiles-tilemaker/build.sh --test --push
+      - name: Test and push ${{ matrix.arch }} by digest
+        id: build
+        run: bash ./versatiles-tilemaker/build.sh --test --push-arch
+
+      - name: Stash digest
+        run: |
+          mkdir -p /tmp/digests
+          echo "${{ steps.build.outputs.digest }}" >"/tmp/digests/${{ matrix.arch }}"
+
+      - name: Upload digest
+        uses: actions/upload-artifact@v4
+        with:
+          name: digests-tilemaker-${{ matrix.arch }}
+          path: /tmp/digests/*
+          retention-days: 1
+          if-no-files-found: error
+
+  merge-tilemaker:
+    name: Merge versatiles-tilemaker
+    needs: build-tilemaker
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    permissions:
+      contents: read
+      packages: write
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v7
+
+      - uses: ./.github/actions/setup-docker
+        with:
+          dockerhub-username: ${{ secrets.DOCKERHUB_USERNAME }}
+          dockerhub-token: ${{ secrets.DOCKERHUB_TOKEN }}
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Download digests
+        uses: actions/download-artifact@v4
+        with:
+          pattern: digests-tilemaker-*
+          path: /tmp/digests
+          merge-multiple: true
+
+      - name: Merge into the tagged multi-arch manifest
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          digests=$(cat /tmp/digests/* | tr '\n' ' ')
+          echo "merging: $digests"
+          MERGE_DIGESTS="$digests" bash ./versatiles-tilemaker/build.sh --merge
 
   build-gdal:
-    name: Build versatiles-gdal
-    runs-on: ubuntu-latest
+    name: Build versatiles-gdal (${{ matrix.arch }})
+    runs-on: ${{ matrix.runner }}
     if: ${{ github.event_name != 'workflow_dispatch' || inputs.build_gdal }}
+    timeout-minutes: 45
     permissions:
       contents: read
       packages: write
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - arch: amd64
+            runner: ubuntu-latest
+          - arch: arm64
+            runner: ubuntu-24.04-arm
     steps:
       - name: Checkout repository
         uses: actions/checkout@v7
-        
+
       - uses: ./.github/actions/setup-docker
         with:
           dockerhub-username: ${{ secrets.DOCKERHUB_USERNAME }}
           dockerhub-token: ${{ secrets.DOCKERHUB_TOKEN }}
           github-token: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: Build and push
-        run: bash ./versatiles-gdal/build.sh --test --push
+      - name: Test and push ${{ matrix.arch }} by digest
+        id: build
+        run: bash ./versatiles-gdal/build.sh --test --push-arch
+
+      - name: Stash digest
+        run: |
+          mkdir -p /tmp/digests
+          echo "${{ steps.build.outputs.digest }}" >"/tmp/digests/${{ matrix.arch }}"
+
+      - name: Upload digest
+        uses: actions/upload-artifact@v4
+        with:
+          name: digests-gdal-${{ matrix.arch }}
+          path: /tmp/digests/*
+          retention-days: 1
+          if-no-files-found: error
+
+  merge-gdal:
+    name: Merge versatiles-gdal
+    needs: build-gdal
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    permissions:
+      contents: read
+      packages: write
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v7
+
+      - uses: ./.github/actions/setup-docker
+        with:
+          dockerhub-username: ${{ secrets.DOCKERHUB_USERNAME }}
+          dockerhub-token: ${{ secrets.DOCKERHUB_TOKEN }}
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Download digests
+        uses: actions/download-artifact@v4
+        with:
+          pattern: digests-gdal-*
+          path: /tmp/digests
+          merge-multiple: true
+
+      - name: Merge into the tagged multi-arch manifest
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          digests=$(cat /tmp/digests/* | tr '\n' ' ')
+          echo "merging: $digests"
+          MERGE_DIGESTS="$digests" bash ./versatiles-gdal/build.sh --merge
 
   build-planetiler:
     name: Build versatiles-planetiler
@@ -198,7 +317,7 @@ jobs:
   summary:
     name: Build Summary
     runs-on: ubuntu-latest
-    needs: [build-base, build-frontend, build-nginx, build-tippecanoe, build-tilemaker, build-gdal, build-planetiler]
+    needs: [build-base, build-frontend, build-nginx, build-tippecanoe, merge-tilemaker, merge-gdal, build-planetiler]
     if: always()
     permissions:
       contents: read
@@ -230,12 +349,12 @@ jobs:
             failed=1
           fi
 
-          if [ "${{ needs.build-tilemaker.result }}" == "failure" ]; then
+          if [ "${{ needs.merge-tilemaker.result }}" == "failure" ]; then
             echo "❌ versatiles-tilemaker build failed"
             failed=1
           fi
 
-          if [ "${{ needs.build-gdal.result }}" == "failure" ]; then
+          if [ "${{ needs.merge-gdal.result }}" == "failure" ]; then
             echo "❌ versatiles-gdal build failed"
             failed=1
           fi

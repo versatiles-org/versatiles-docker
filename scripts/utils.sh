@@ -129,15 +129,23 @@ parse_arguments() {
     # Defaults (exported for caller convenience)
     export needs_push=false
     export needs_testing=false
+    export needs_push_arch=false
+    export needs_merge=false
 
     while (("$#")); do
         case "$1" in
         --push) export needs_push=true ;;
+        --push-arch) export needs_push_arch=true ;;
+        --merge) export needs_merge=true ;;
         --test | --testing) export needs_testing=true ;;
         -h | --help)
             cat <<EOF
 Available options:
-  --push            Enable image push
+  --push            Enable image push (single job, multi-arch)
+  --push-arch       Build+push THIS machine's architecture by digest only.
+                    Prints the digest. Half of the split release path.
+  --merge           Assemble digests from \$MERGE_DIGESTS into the tagged
+                    multi-arch manifest. Other half of the split path.
   --test, --testing Enable smoke tests
   -h, --help        Show this help
 EOF
@@ -198,6 +206,33 @@ buildx_cache_args() {
     fi
 }
 
+#############################################################################
+# 🏷  Registry namespaces
+#############################################################################
+# Overridable so the release path can be rehearsed against a throwaway
+# namespace (e.g. DOCKERHUB_NS=myuser) before being pointed at the real one.
+: "${DOCKERHUB_NS:=versatiles}"
+: "${GHCR_NS:=ghcr.io/versatiles-org}"
+
+# _image_names <name> — echo the comma-separated push targets for one image.
+_image_names() {
+    echo "${DOCKERHUB_NS}/$1,${GHCR_NS}/$1"
+}
+
+# _host_arch — echo the docker arch name for the machine we are running on.
+_host_arch() {
+    local a
+    a=$(uname -m)
+    case "$a" in
+    x86_64) echo amd64 ;;
+    aarch64 | arm64) echo arm64 ;;
+    *)
+        echo "Unsupported host arch: $a" >&2
+        return 1
+        ;;
+    esac
+}
+
 # --------------------------------------------------------------------------- #
 #  build_image_args (internal)
 # --------------------------------------------------------------------------- #
@@ -253,15 +288,7 @@ build_load_image() {
     _ensure_builder
 
     local host_arch
-    host_arch=$(uname -m)
-    case "$host_arch" in
-    x86_64) host_arch="amd64" ;;
-    aarch64 | arm64) host_arch="arm64" ;;
-    *)
-        echo "Unsupported host arch: $host_arch" >&2
-        return 1
-        ;;
-    esac
+    host_arch=$(_host_arch)
 
     # shellcheck disable=SC2046,SC2086
     docker buildx build \
@@ -302,11 +329,98 @@ build_push_image() {
     docker buildx build \
         --file "$dockerfile" \
         --target "$target" \
-        $(build_image_args "versatiles/$name,ghcr.io/versatiles-org/$name" "$tags") \
+        $(build_image_args "$(_image_names "$name")" "$tags") \
         --platform linux/amd64,linux/arm64 \
         $(buildx_cache_args "$name") \
         ${BUILD_ARGS:-} \
         --push . >/dev/null
+}
+
+#############################################################################
+# 🧩  Split per-architecture publish (see step 8)
+#############################################################################
+# The single-job multi-arch build emulates the non-host architecture under
+# QEMU. For images that compile from source that is ruinous: versatiles-gdal
+# took 112m as one emulated job, against ~10m per architecture built natively.
+#
+# These two helpers split it: each native runner pushes an untagged, digest-only
+# image, then one merge step assembles those digests into the tagged multi-arch
+# manifest. Same published result, an order of magnitude faster.
+# --------------------------------------------------------------------------- #
+#  build_push_digest
+# --------------------------------------------------------------------------- #
+# Builds ONLY the host architecture and pushes it by digest — no tags, so a
+# half-finished release never leaves a tag pointing at a single-arch image.
+# Echoes the resulting digest.
+#
+# Arguments: $1 = target stage, $2 = image name, $3 = dockerfile
+build_push_digest() {
+    local target="$1" name="$2" dockerfile="${3:-.}"
+    local host_arch metadata digest out
+
+    host_arch=$(_host_arch)
+    echo "  - build, push by digest: $target (linux/${host_arch})" >&2
+    _ensure_builder
+
+    metadata=$(mktemp)
+    out="type=image,\"name=$(_image_names "$name")\",push-by-digest=true,name-canonical=true,push=true"
+
+    # shellcheck disable=SC2046,SC2086
+    docker buildx build \
+        --file "$dockerfile" \
+        --target "$target" \
+        --platform "linux/${host_arch}" \
+        $(buildx_cache_args "$name") \
+        ${BUILD_ARGS:-} \
+        --metadata-file "$metadata" \
+        --output "$out" \
+        . >/dev/null
+
+    digest=$(jq -r '."containerimage.digest"' "$metadata")
+    rm -f "$metadata"
+
+    if [[ -z "$digest" || "$digest" == "null" ]]; then
+        echo "❌ no digest returned for $name (linux/${host_arch})" >&2
+        return 1
+    fi
+    echo "$digest"
+}
+
+# --------------------------------------------------------------------------- #
+#  merge_manifest
+# --------------------------------------------------------------------------- #
+# Assembles per-architecture digests into one tagged multi-arch manifest, in
+# every registry. Only now do the tags start pointing at the new release.
+#
+# Arguments: $1 = image name, $2 = comma-separated tags, $3.. = digests
+merge_manifest() {
+    local name="$1" tags="$2"
+    shift 2
+
+    if [[ $# -eq 0 ]]; then
+        echo "❌ merge_manifest: no digests given for $name" >&2
+        return 1
+    fi
+
+    local registry tag digest
+    local -a taglist=() targs=() srcs=()
+    IFS=',' read -ra taglist <<<"$tags"
+
+    IFS=',' read -ra _regs <<<"$(_image_names "$name")"
+    for registry in "${_regs[@]}"; do
+        targs=()
+        srcs=()
+        for tag in "${taglist[@]}"; do
+            [[ -z "$tag" ]] && continue
+            targs+=(--tag "${registry}:${tag}")
+        done
+        for digest in "$@"; do
+            [[ -z "$digest" ]] && continue
+            srcs+=("${registry}@${digest}")
+        done
+        echo "  - merge: ${registry} (${#srcs[@]} arch, ${#taglist[@]} tags)"
+        docker buildx imagetools create "${targs[@]}" "${srcs[@]}"
+    done
 }
 
 #############################################################################

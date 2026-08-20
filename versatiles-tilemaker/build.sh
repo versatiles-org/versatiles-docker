@@ -27,7 +27,7 @@ echo "👷 Building $NAME Docker images for version $VER"
 ###############################################################################
 # 1. Host‑arch build & load (needed for local tests)
 ###############################################################################
-if ! $needs_push || $needs_testing; then
+if { ! $needs_push && ! $needs_push_arch && ! $needs_merge; } || $needs_testing; then
     echo "👷 Building image"
     build_load_image versatiles-tilemaker "$NAME" "latest" "./versatiles-tilemaker/Dockerfile"
 fi
@@ -55,8 +55,32 @@ fi
 ###############################################################################
 # 3. Multi‑arch push (only if requested)
 ###############################################################################
+# Single-job multi-arch push. Kept for local use; CI uses the split path below,
+# which avoids emulating the non-host architecture under QEMU.
 if $needs_push; then
     echo "🚀 Building and pushing multi-arch image …"
     build_push_image versatiles-tilemaker "$NAME" "latest,$VER" "./versatiles-tilemaker/Dockerfile"
+    update_docker_description versatiles-tilemaker
+fi
+
+###############################################################################
+# 4. Split release path — one architecture per native runner, then merge
+###############################################################################
+# Phase 1: build this machine's architecture and push it untagged, by digest.
+if $needs_push_arch; then
+    digest=$(build_push_digest versatiles-tilemaker "$NAME" "./versatiles-tilemaker/Dockerfile")
+    echo "$digest"
+    # Hand the digest to the merge job when running under GitHub Actions.
+    if [[ -n "${GITHUB_OUTPUT:-}" ]]; then
+        echo "digest=$digest" >>"$GITHUB_OUTPUT"
+    fi
+fi
+
+# Phase 2: assemble the per-architecture digests into the tagged manifest.
+# Digests arrive space-separated in $MERGE_DIGESTS.
+if $needs_merge; then
+    echo "🧩 Merging per-architecture digests …"
+    # shellcheck disable=SC2086
+    merge_manifest "$NAME" "latest,$VER" ${MERGE_DIGESTS:-}
     update_docker_description versatiles-tilemaker
 fi
