@@ -35,6 +35,7 @@ RUN apk add --no-cache tini
 COPY --from=builder-versatiles-musl --chmod=0755 --chown=root /app/versatiles /app/
 COPY --from=builder-frontend /app/frontend-dev.br.tar /app/
 WORKDIR /data
+ENV PATH="/app:$PATH"
 ENTRYPOINT ["/sbin/tini", "--", "/app/versatiles", "serve", "--static" , "/app/frontend-dev.br.tar"]
 
 # ==== 2. Scratch (static musl) ==============================================
@@ -44,6 +45,7 @@ LABEL org.opencontainers.image.source="https://github.com/versatiles-org/versati
 COPY --from=builder-versatiles-musl --chmod=0755 /app/versatiles /app/
 COPY --from=builder-frontend /app/frontend-dev.br.tar /app/
 WORKDIR /data
+ENV PATH="/app:$PATH"
 ENTRYPOINT ["/app/versatiles", "serve", "--static" , "/app/frontend-dev.br.tar"]
 
 # ==== 3. Debian slim (glibc) =================================================
@@ -54,4 +56,5 @@ RUN apt-get update && apt-get install -y --no-install-recommends tini && rm -rf 
 COPY --from=builder-versatiles-gnu --chmod=0755 --chown=root /app/versatiles /app/
 COPY --from=builder-frontend /app/frontend-dev.br.tar /app/
 WORKDIR /data
+ENV PATH="/app:$PATH"
 ENTRYPOINT ["/usr/bin/tini", "--", "/app/versatiles", "serve", "--static" , "/app/frontend-dev.br.tar"]
