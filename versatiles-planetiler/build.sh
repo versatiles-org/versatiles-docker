@@ -10,8 +10,10 @@
 #
 # Flags are parsed by utils.sh → parse_arguments.
 #
-# Versioning: the Planetiler fork branch (feature/shortbread-java-profile) has
-# no GitHub release tag, so images are tagged with the build date.
+# Versioning: neither the Planetiler fork (versatiles-org/planetiler) nor the
+# Shortbread profile it consumes as a submodule
+# (versatiles-org/planetiler-shortbread) publishes a GitHub release tag yet, so
+# images are tagged with the build date. Revisit once either repo tags releases.
 #
 set -euo pipefail
 cd "$(dirname "$0")/.."

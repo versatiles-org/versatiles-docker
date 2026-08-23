@@ -16,9 +16,11 @@ RUN apt-get update -y && \
         ca-certificates && \
     rm -rf /var/lib/apt/lists/*
 
-# Build the VersaTiles fork of Planetiler with the Shortbread profile.
+# Build the VersaTiles fork of Planetiler. The Shortbread profile lives in its
+# own repo (versatiles-org/planetiler-shortbread) and is pulled in as a git
+# submodule, hence --recurse-submodules.
 RUN git clone --depth 1 --recurse-submodules \
-        --branch feature/shortbread-java-profile \
+        --branch main \
         https://github.com/versatiles-org/planetiler.git /src && \
     ./mvnw -q -pl planetiler-dist -am package -DskipTests && \
     cp planetiler-dist/target/*with-deps*.jar /planetiler.jar
