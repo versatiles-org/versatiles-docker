@@ -29,7 +29,7 @@ RUN git clone --depth 1 --recurse-submodules \
 # VersaTiles Binary Builder
 ###############################################################################
 
-FROM --platform=$BUILDPLATFORM curlimages/curl:8.21.0 AS builder-versatiles
+FROM --platform=$BUILDPLATFORM curlimages/curl:8.22.0 AS builder-versatiles
 ARG TARGETPLATFORM
 WORKDIR /app
 COPY ./scripts/download_versatiles_binary.sh .
