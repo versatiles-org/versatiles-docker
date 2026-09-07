@@ -4,14 +4,14 @@
 ## ─────────────────────────────  builders  ───────────────────────────────── ##
 ###############################################################################
 
-FROM --platform=$BUILDPLATFORM curlimages/curl:8.21.0 AS builder-frontend
+FROM --platform=$BUILDPLATFORM curlimages/curl:8.22.0 AS builder-frontend
 ARG TARGETPLATFORM
 WORKDIR /app
 SHELL ["/bin/ash", "-eo", "pipefail", "-c"]
 ARG FRONTEND_VERSION
 RUN curl -sL "https://github.com/versatiles-org/versatiles-frontend/releases/download/${FRONTEND_VERSION}/frontend-dev.br.tar.gz" | gzip -d >frontend-dev.br.tar
 
-FROM --platform=$BUILDPLATFORM curlimages/curl:8.21.0 AS builder-versatiles
+FROM --platform=$BUILDPLATFORM curlimages/curl:8.22.0 AS builder-versatiles
 ARG TARGETPLATFORM
 WORKDIR /app
 COPY ./scripts/download_versatiles_binary.sh .

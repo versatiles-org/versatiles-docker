@@ -1,7 +1,7 @@
 # syntax=docker/dockerfile:1
 
 # ---------- build stage ----------
-FROM --platform=$BUILDPLATFORM curlimages/curl:8.21.0 AS builder
+FROM --platform=$BUILDPLATFORM curlimages/curl:8.22.0 AS builder
 ARG TARGETPLATFORM
 WORKDIR /app
 COPY ./scripts/download_versatiles_binary.sh .
