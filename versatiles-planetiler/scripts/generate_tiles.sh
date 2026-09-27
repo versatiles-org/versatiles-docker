@@ -257,6 +257,31 @@ download_planet_torrent() {
         --file-allocation=falloc --summary-interval=30 "$torrent"
 }
 
+###########################################################################
+# 🏷️  Output metadata (meta_update arguments)
+###########################################################################
+# HTML attributes use single quotes so the values need no escaping inside the
+# double-quoted VPL strings.
+OSM_ATTRIBUTION="<a href='https://www.openstreetmap.org/copyright' target='_blank'>&copy; OpenStreetMap contributors</a>"
+LANDCOVER_ATTRIBUTION="<a href='https://esa-worldcover.org/en/data-access' target='_blank'>ESA WorldCover 2021</a> (<a href='https://creativecommons.org/licenses/by/4.0/' target='_blank'>CC BY 4.0</a>)"
+
+base_meta_args() {
+    printf '%s' "name=\"VersaTiles OSM\"" \
+        " description=\"Vector tiles based on OSM in Shortbread scheme\"" \
+        " attribution=\"$OSM_ATTRIBUTION\""
+}
+
+# The land cover merge lets the land cover source overwrite name, type, version
+# and center (versatiles-org/versatiles-rs#276), so restore type and version too.
+# center stays wrong: Planetiler's output has none to restore. Drop the
+# type/version override once a release includes the #276 fix.
+landcover_meta_args() {
+    printf '%s' "name=\"VersaTiles OSM\"" \
+        " description=\"Vector tiles based on OSM in Shortbread scheme, with land cover from ESA WorldCover 2021\"" \
+        " attribution=\"$OSM_ATTRIBUTION · $LANDCOVER_ATTRIBUTION\"" \
+        " tilejson_update='{\"type\":\"baselayer\",\"version\":\"1.1\"}'"
+}
+
 # ask <prompt> <default> → echoes the user's answer, or the default on empty/EOF.
 ask() {
     local prompt="$1" default="$2" answer
@@ -528,21 +553,26 @@ run_pipeline() {
     # When land cover is requested, the VPL `from_merged_vector` operation folds
     # the remote land cover container's features into the Shortbread layers. The
     # land cover container is range-read from its URL — nothing is downloaded.
+    #
+    # Either way, `meta_update` replaces Planetiler's generic Shortbread metadata
+    # with VersaTiles branding (see issue #53).
     ###########################################################################
     local compression_args=()
     [[ "$FORMAT" == "versatiles" ]] && compression_args=(-c brotli)
 
+    local source="from_container filename=\"$intermediate\""
+    local meta_args
     if [[ "$LANDCOVER" == "1" ]]; then
+        meta_args="$(landcover_meta_args)"
+        source="from_merged_vector [ $source, from_container filename=\"$LANDCOVER_URL\" ]"
         echo "🌍  Merging land cover and converting to ${FORMAT}…"
-        time versatiles convert "${compression_args[@]}" \
-            "[,vpl](from_merged_vector [ from_container filename=\"$intermediate\", from_container filename=\"$LANDCOVER_URL\" ])" \
-            "$out_file"
     else
+        meta_args="$(base_meta_args)"
         echo "🚀  Converting to ${FORMAT}…"
-        time versatiles convert "${compression_args[@]}" \
-            "$intermediate" \
-            "$out_file"
     fi
+    time versatiles convert "${compression_args[@]}" \
+        "[,vpl]($source | meta_update $meta_args)" \
+        "$out_file"
 
     if [[ "$CHECKSUM" == "1" ]]; then
         write_checksums "$out_file"
