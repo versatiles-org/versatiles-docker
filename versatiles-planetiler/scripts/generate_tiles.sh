@@ -273,13 +273,23 @@ base_meta_args() {
 
 # The land cover merge lets the land cover source overwrite name, type, version
 # and center (versatiles-org/versatiles-rs#276), so restore type and version too.
-# center stays wrong: Planetiler's output has none to restore. Drop the
+# center stays wrong for the planet (Planetiler's output has none to restore; for
+# a sub-region the bbox filter clears it). Drop the
 # type/version override once a release includes the #276 fix.
 landcover_meta_args() {
     printf '%s' "name=\"VersaTiles OSM\"" \
         " description=\"Vector tiles based on OSM in Shortbread scheme, with land cover from ESA WorldCover 2021\"" \
         " attribution=\"$OSM_ATTRIBUTION · $LANDCOVER_ATTRIBUTION\"" \
         " tilejson_update='{\"type\":\"baselayer\",\"version\":\"1.1\"}'"
+}
+
+# Echo a container's bounds as "[west,south,east,north]". `versatiles probe` has
+# no machine-readable output: it prints its report to stderr, with the metadata
+# as an indented JSON block after "  meta: {".
+read_bounds() {
+    versatiles probe "$1" 2>&1 >/dev/null |
+        awk '/^  meta: \{/ { f = 1; print "{"; next } f && /^  \}/ { print "}"; exit } f' |
+        jq -ce '.bounds | select(type == "array" and length == 4 and all(type == "number"))'
 }
 
 # ask <prompt> <default> → echoes the user's answer, or the default on empty/EOF.
@@ -553,6 +563,9 @@ run_pipeline() {
     # When land cover is requested, the VPL `from_merged_vector` operation folds
     # the remote land cover container's features into the Shortbread layers. The
     # land cover container is range-read from its URL — nothing is downloaded.
+    # The merge covers the union of both sources, so for a sub-region `filter`
+    # crops it back to the Planetiler output's bounds; otherwise the result would
+    # hold the whole world's land cover.
     #
     # Either way, `meta_update` replaces Planetiler's generic Shortbread metadata
     # with VersaTiles branding (see issue #53).
@@ -565,6 +578,14 @@ run_pipeline() {
     if [[ "$LANDCOVER" == "1" ]]; then
         meta_args="$(landcover_meta_args)"
         source="from_merged_vector [ $source, from_container filename=\"$LANDCOVER_URL\" ]"
+        if [[ "$AREA" != "planet" ]]; then
+            local bounds
+            bounds="$(read_bounds "$intermediate")" || {
+                echo "Error: could not read the bounds of $intermediate to crop the land cover." >&2
+                exit 1
+            }
+            source="$source | filter bbox=$bounds"
+        fi
         echo "🌍  Merging land cover and converting to ${FORMAT}…"
     else
         meta_args="$(base_meta_args)"
