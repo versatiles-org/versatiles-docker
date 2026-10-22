@@ -29,7 +29,6 @@ jobs:
           - versatiles-gdal
           - versatiles-nginx
           - versatiles-planetiler
-          - versatiles-tilemaker
           - versatiles-tippecanoe
     steps:
       - name: Checkout repository
@@ -92,9 +91,9 @@ jobs:
   # ---------------------------------------------------------------------------
   # Which image folders does this change actually affect?
   #
-  # GDAL, planetiler and tilemaker take a long time to build (Rust, a JVM jar,
-  # a full g++ compile), so smoke-testing all seven on every PR would be
-  # prohibitive. Path filters mean a change to versatiles/ builds one image.
+  # GDAL and planetiler take a long time to build (Rust, a JVM jar), so
+  # smoke-testing all six on every PR would be prohibitive. Path filters
+  # mean a change to versatiles/ builds one image.
   # Anything under scripts/ is shared, so it expands to all of them.
   # ---------------------------------------------------------------------------
   detect-changes:
@@ -131,15 +130,13 @@ jobs:
               - 'versatiles-gdal/**'
             versatiles-planetiler:
               - 'versatiles-planetiler/**'
-            versatiles-tilemaker:
-              - 'versatiles-tilemaker/**'
 
       - name: Select folders to smoke-test
         id: select
         env:
           CHANGED: ${{ steps.filter.outputs.changes }}
         run: |
-          all='["versatiles","versatiles-frontend","versatiles-nginx","versatiles-tippecanoe","versatiles-gdal","versatiles-planetiler","versatiles-tilemaker"]'
+          all='["versatiles","versatiles-frontend","versatiles-nginx","versatiles-tippecanoe","versatiles-gdal","versatiles-planetiler"]'
           if echo "$CHANGED" | jq -e 'index("shared")' >/dev/null; then
             folders="$all"
           else

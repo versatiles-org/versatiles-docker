@@ -8,7 +8,6 @@ updates:
       - /versatiles-gdal
       - /versatiles-nginx
       - /versatiles-planetiler
-      - /versatiles-tilemaker
       - /versatiles-tippecanoe
     schedule:
       interval: weekly

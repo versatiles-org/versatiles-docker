@@ -28,9 +28,20 @@ Open http://localhost:8080/ in your browser to view your map.
 | [**versatiles**](#versatiles)                       | Just the binary               | You only need the CLI tool or want the smallest possible image            |
 | [**versatiles-nginx**](#versatiles-nginx)           | Production deployment         | You need TLS/SSL, caching, reverse proxy, or Let's Encrypt certificates   |
 | [**versatiles-gdal**](#versatiles-gdal)             | Convert geodata formats       | You're working with geospatial data formats (GeoTIFF, Shapefile, etc.)    |
-| [**versatiles-tilemaker**](#versatiles-tilemaker)   | Generate tiles from OSM       | You want to create custom map tiles from OpenStreetMap data               |
 | [**versatiles-planetiler**](#versatiles-planetiler) | Generate Shortbread tiles     | You want fast OSM → Shortbread tile generation (planet or region)         |
 | [**versatiles-tippecanoe**](#versatiles-tippecanoe) | Generate vector tiles         | You need to convert GeoJSON to vector tiles                               |
+
+> [!WARNING]
+> **`versatiles-tilemaker` is deprecated** and no longer built. Existing tags stay available on Docker Hub and GHCR but will not receive updates. Please migrate to [`versatiles-planetiler`](#versatiles-planetiler), which also renders the Shortbread schema:
+>
+> ```bash
+> # before
+> docker run --rm -v $(pwd)/result:/app/result versatiles/versatiles-tilemaker \
+>   "https://download.geofabrik.de/europe/germany/bremen-latest.osm.pbf" bremen 8.6,53,9,53.2
+> # after (result lands in ./planetiler/result/bremen.versatiles)
+> docker run --rm -v $(pwd)/planetiler:/app/data versatiles/versatiles-planetiler \
+>   --area bremen --name bremen
+> ```
 
 ## Images
 
@@ -171,31 +182,6 @@ VersaTiles combined with [GDAL](https://gdal.org) for working with geospatial da
 	<td>Debian</td>
 	<td><img src="https://img.shields.io/docker/v/versatiles/versatiles-gdal/latest?label=" alt="Docker Image version versatiles-gdal"></td>
 	<td><img src="https://img.shields.io/docker/image-size/versatiles/versatiles-gdal/latest?label=" alt="Docker Image size versatiles-gdal"></td>
-</tr>
-</table>
-
-#### `versatiles-tilemaker`
-
-Generate vector tiles from OpenStreetMap data using [tilemaker](https://github.com/systemed/tilemaker).
-
-- **Contains:** versatiles + tilemaker + helper tools (aria2, curl, GDAL, osmium)
-- **Supported OS:** Debian
-- **Architectures:** AMD64, ARM64
-- **Registries:** [GitHub Container Registry](https://github.com/versatiles-org/versatiles-docker/pkgs/container/versatiles-tilemaker) | [Docker Hub](https://hub.docker.com/r/versatiles/versatiles-tilemaker)
-- **Documentation:** [Detailed README](versatiles-tilemaker/README.md)
-
-[![Docker Hub Pulls](https://img.shields.io/docker/pulls/versatiles/versatiles-tilemaker)](https://hub.docker.com/r/versatiles/versatiles-tilemaker)
-
-<table>
-<tr>
-	<th>OS</th>
-	<th>Version</th>
-	<th>Image Size</th>
-</tr>
-<tr>
-	<td>Debian</td>
-	<td><img src="https://img.shields.io/docker/v/versatiles/versatiles-tilemaker/latest?label=" alt="Docker Image version versatiles-tilemaker"></td>
-	<td><img src="https://img.shields.io/docker/image-size/versatiles/versatiles-tilemaker/latest?label=" alt="Docker Image size versatiles-tilemaker"></td>
 </tr>
 </table>
 

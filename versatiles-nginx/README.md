@@ -81,8 +81,7 @@ without its extension — `osm.versatiles` becomes `/tiles/osm/…`.
 ### Serving your own tile data
 
 To serve data you built yourself — e.g. with
-[versatiles-tilemaker](https://github.com/versatiles-org/versatiles-docker/tree/main/versatiles-tilemaker)
-or [versatiles-planetiler](https://github.com/versatiles-org/versatiles-docker/tree/main/versatiles-planetiler)
+[versatiles-planetiler](https://github.com/versatiles-org/versatiles-docker/tree/main/versatiles-planetiler)
 — put the `.versatiles`, `.mbtiles` or `.pmtiles` file into the volume and name
 it in `TILE_SOURCES`:
 

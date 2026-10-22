@@ -1,1 +1,0 @@
-Debian with versatiles and tilemaker

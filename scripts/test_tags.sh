@@ -94,9 +94,6 @@ assert_eq "versatiles-gdal: tags" "$(tags_for versatiles-gdal)" "latest,v1.2.3"
 collect_tags versatiles-planetiler/build.sh
 assert_eq "versatiles-planetiler: tags" "$(tags_for versatiles-planetiler)" "latest,v1.2.3"
 
-collect_tags versatiles-tilemaker/build.sh
-assert_eq "versatiles-tilemaker: tags" "$(tags_for versatiles-tilemaker)" "latest,v1.2.3"
-
 collect_tags versatiles-tippecanoe/build.sh
 assert_eq "versatiles-tippecanoe: tags" "$(tags_for versatiles-tippecanoe)" "latest,2.79.0"
 
