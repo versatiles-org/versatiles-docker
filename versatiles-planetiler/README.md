@@ -11,7 +11,7 @@ It is part of the [versatiles-docker](https://github.com/versatiles-org/versatil
 - Fully automated OSM → Shortbread tiles → VersaTiles pipeline
 - Based on **Planetiler** and **versatiles-rs**
 - **Interactive wizard** *or* fully scriptable via flags / environment variables
-- Optional **land cover** injection from [`landcover-vectors.versatiles`](https://download.versatiles.org/landcover-vectors.versatiles) (merged on the fly, no extra download)
+- Optional **land cover** injection from [`landcover-vectors.versatiles`](https://download.versatiles.org/landcover-vectors.versatiles) (merged on the fly, no extra download, and [filtered so each kind comes from one source per zoom](https://github.com/versatiles-org/landcover-vectors#merging-with-osm))
 - **OSM ID renumbering** (`osmium renumber`, on by default) for faster builds and slightly smaller tiles
 - Optional **checksums** (`.md5` + `.sha256`) written next to the output
 - Output as **versatiles** (brotli), **pmtiles** or **mbtiles**
@@ -148,7 +148,7 @@ The container runs [`generate_tiles.sh`](https://github.com/versatiles-org/versa
 
 0. *(on by default; disable with `--no-renumber`)* **Renumber** the OSM input with `osmium renumber` so node/way IDs are dense. This shrinks Planetiler's node map (faster, less I/O) and shortens the feature IDs encoded in each tile (slightly smaller output). For the whole planet this adds time and needs RAM ≈ the pbf size, so disable it there if resources are tight.
 1. **Render** Shortbread tiles with `planetiler shortbread-1.1 --area=<area>` into an intermediate **PMTiles** file (flat layout → fast sequential reads).
-2. **Convert** the PMTiles to the chosen container with `versatiles convert`. When land cover is enabled, the VPL `from_merged_vector` operation folds the remote land cover container's features into the Shortbread layers (range-read on demand, nothing downloaded).
+2. **Convert** the PMTiles to the chosen container with `versatiles convert`. When land cover is enabled, the VPL `from_merged_vector` operation folds the remote land cover container's features into the Shortbread layers (range-read on demand, nothing downloaded). Both sources are filtered first: up to z10 the land cover supplies forest, farmland, glacier and the other land cover kinds, while OSM supplies `water` from z4 and `residential` from z10 (see [Merging with OSM](https://github.com/versatiles-org/landcover-vectors#merging-with-osm)).
 3. **Store** the final result in `/app/data/result/<name>.<format>`.
 4. *(optional, `--checksum`)* **Checksum** — write `<name>.<format>.md5` and `<name>.<format>.sha256` next to the result.
 

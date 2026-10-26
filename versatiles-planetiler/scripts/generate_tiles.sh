@@ -283,6 +283,23 @@ landcover_meta_args() {
         " tilejson_update='{\"type\":\"baselayer\",\"version\":\"1.1\"}'"
 }
 
+###########################################################################
+# 🌍  Land cover handover (VPL filters for the merge)
+###########################################################################
+# The land cover container carries every kind up to z10, so the merge filters
+# both sources to take each kind from exactly one of them per zoom
+# (https://github.com/versatiles-org/landcover-vectors#merging-with-osm):
+#   • OSM's own copies of the land cover kinds are dropped up to z10, because
+#     they are sparse where ESA's are complete;
+#   • the land cover's residential is dropped from z10 and its water from z4,
+#     because OSM maps those better.
+# `zoom` in filter expressions needs versatiles 4.15.0 or later; older releases
+# silently drop every feature of the filtered layers.
+OSM_HANDOVER_FILTER="vector_filter_features layer=[\"land\"] expr=\"!(zoom <= 10 && kind in ['forest', 'farmland', 'bare_rock', 'heath', 'scrub', 'grassland', 'marsh', 'swamp'])\""
+OSM_HANDOVER_FILTER+=" | vector_filter_features layer=[\"water_polygons\"] expr=\"!(zoom <= 10 && kind in ['glacier'])\""
+LANDCOVER_HANDOVER_FILTER="vector_filter_features layer=[\"land\"] expr=\"!(zoom >= 10 && kind in ['residential'])\""
+LANDCOVER_HANDOVER_FILTER+=" | vector_filter_features layer=[\"water_polygons\"] expr=\"!(zoom >= 4 && kind in ['water'])\""
+
 # Echo a container's bounds as "[west,south,east,north]". `versatiles probe` has
 # no machine-readable output: it prints its report to stderr, with the metadata
 # as an indented JSON block after "  meta: {".
@@ -561,8 +578,10 @@ run_pipeline() {
     # 2) Convert / merge → final container
     #
     # When land cover is requested, the VPL `from_merged_vector` operation folds
-    # the remote land cover container's features into the Shortbread layers. The
-    # land cover container is range-read from its URL — nothing is downloaded.
+    # the remote land cover container's features into the Shortbread layers,
+    # with both sources filtered so each kind comes from one of them per zoom
+    # (see "Land cover handover" above). The land cover container is range-read
+    # from its URL — nothing is downloaded.
     # The merge covers the union of both sources, so for a sub-region `filter`
     # crops it back to the Planetiler output's bounds; otherwise the result would
     # hold the whole world's land cover.
@@ -577,7 +596,7 @@ run_pipeline() {
     local meta_args
     if [[ "$LANDCOVER" == "1" ]]; then
         meta_args="$(landcover_meta_args)"
-        source="from_merged_vector [ $source, from_container filename=\"$LANDCOVER_URL\" ]"
+        source="from_merged_vector [ $source | $OSM_HANDOVER_FILTER, from_container filename=\"$LANDCOVER_URL\" | $LANDCOVER_HANDOVER_FILTER ]"
         if [[ "$AREA" != "planet" ]]; then
             local bounds
             bounds="$(read_bounds "$intermediate")" || {
