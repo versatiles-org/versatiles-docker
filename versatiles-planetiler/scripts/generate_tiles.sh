@@ -31,7 +31,7 @@
 #   LANDCOVER_URL          land cover container (default: the public VersaTiles one)
 #   OCEAN_URL              water polygons zip (default: osmdata.openstreetmap.de)
 #   OCEAN_MIRROR           fallback with dated folders (default: the FAU mirror)
-#   LANGUAGES            comma-separated name languages
+#   LANGUAGES              name languages: "extended" (default, 81 languages) or comma-separated codes
 #   EXPERIMENTS            planetiler shortbread_experiments value (default: all)
 #   PLANETILER_EXTRA_FLAGS extra flags passed to planetiler
 #   JAVA_OPTS              extra JVM options, e.g. -Xmx20g
@@ -60,7 +60,7 @@ PLANETILER_JAR="${PLANETILER_JAR:-/opt/planetiler/planetiler.jar}"
 DATA_DIR="${DATA_DIR:-/app/data}"
 RESULT_DIR="${RESULT_DIR:-$DATA_DIR/result}"
 LANDCOVER_URL="${LANDCOVER_URL:-https://download.versatiles.org/landcover-vectors.versatiles}"
-LANGUAGES="${LANGUAGES:-en,fr,es,de,ar,el,it,nl,pl,pt,uk}"
+LANGUAGES="${LANGUAGES:-extended}"
 EXPERIMENTS="${EXPERIMENTS:-all}"
 PLANETILER_EXTRA_FLAGS="${PLANETILER_EXTRA_FLAGS:---nodemap_type=array --storage=mmap}"
 JAVA_OPTS="${JAVA_OPTS:-}"

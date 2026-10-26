@@ -101,7 +101,7 @@ Flags take precedence over environment variables, which take precedence over the
 | `LANDCOVER_URL`          | public `landcover-vectors.versatiles` | Land cover container to merge.                                      |
 | `OCEAN_URL`              | osmdata.openstreetmap.de              | Water polygons zip. See [Water polygons](#-water-polygons).         |
 | `OCEAN_MIRROR`           | [FAU mirror](https://ftp.fau.de/mirrors/openstreetmapdata.com-archive/) | Fallback when `OCEAN_URL` fails: the newest dated folder is used. |
-| `LANGUAGES`              | `en,fr,es,de,ar,el,it,nl,pl,pt,uk`    | `--name_languages` passed to Planetiler.                            |
+| `LANGUAGES`              | `extended`                            | `--name_languages` passed to Planetiler: `extended` for the [81 languages](https://github.com/versatiles-org/planetiler-shortbread#names), a comma-separated list of codes (e.g. `en,de,fr`), or both (`extended,tok`). |
 | `EXPERIMENTS`            | `all`                                 | `--shortbread_experiments` value.                                   |
 | `PLANETILER_EXTRA_FLAGS` | `--nodemap_type=array --storage=mmap` | Extra Planetiler flags.                                             |
 | `JAVA_OPTS`              | *(unset)*                             | Extra JVM options. An explicit `-Xmx` here overrides `--xmx`/`XMX`. |
