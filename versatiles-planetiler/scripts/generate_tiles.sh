@@ -272,17 +272,11 @@ base_meta_args() {
         " schema=\"shortbread@1.1\""
 }
 
-# The land cover merge lets the land cover source overwrite name, type, version
-# and center (versatiles-org/versatiles-rs#276), so restore type and version too.
-# center stays wrong for the planet (Planetiler's output has none to restore; for
-# a sub-region the bbox filter clears it). Drop the
-# type/version override once a release includes the #276 fix.
 landcover_meta_args() {
     printf '%s' "name=\"VersaTiles OSM\"" \
         " description=\"Vector tiles based on OSM in Shortbread scheme, with land cover from ESA WorldCover 2021\"" \
         " attribution=\"$OSM_ATTRIBUTION · $LANDCOVER_ATTRIBUTION\"" \
-        " schema=\"shortbread@1.1\"" \
-        " tilejson_update='{\"type\":\"baselayer\",\"version\":\"1.1\"}'"
+        " schema=\"shortbread@1.1\""
 }
 
 ###########################################################################
