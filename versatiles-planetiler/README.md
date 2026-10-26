@@ -99,6 +99,8 @@ Flags take precedence over environment variables, which take precedence over the
 | Variable                 | Default                               | Description                                                         |
 |--------------------------|---------------------------------------|---------------------------------------------------------------------|
 | `LANDCOVER_URL`          | public `landcover-vectors.versatiles` | Land cover container to merge.                                      |
+| `OCEAN_URL`              | osmdata.openstreetmap.de              | Water polygons zip. See [Water polygons](#-water-polygons).         |
+| `OCEAN_MIRROR`           | [FAU mirror](https://ftp.fau.de/mirrors/openstreetmapdata.com-archive/) | Fallback when `OCEAN_URL` fails: the newest dated folder is used. |
 | `LANGUAGES`              | `en,fr,es,de,ar,el,it,nl,pl,pt,uk`    | `--name_languages` passed to Planetiler.                            |
 | `EXPERIMENTS`            | `all`                                 | `--shortbread_experiments` value.                                   |
 | `PLANETILER_EXTRA_FLAGS` | `--nodemap_type=array --storage=mmap` | Extra Planetiler flags.                                             |
@@ -130,7 +132,7 @@ See Planetiler's [PLANET.md](https://github.com/onthegomap/planetiler/blob/main/
 
 ## 🌍 Planet download
 
-For `--area planet`, Planetiler downloads the ~70 GB planet extract over HTTP by default. With `--torrent` (or `TORRENT=1`) the image instead fetches it via **BitTorrent** using `aria2c` and feeds it to Planetiler with `--osm_path` — usually faster and more reliable. The other sources (water polygons, Natural Earth) are still fetched by Planetiler.
+For `--area planet`, Planetiler downloads the ~70 GB planet extract over HTTP by default. With `--torrent` (or `TORRENT=1`) the image instead fetches it via **BitTorrent** using `aria2c` and feeds it to Planetiler with `--osm_path` — usually faster and more reliable. The water polygons are fetched separately (see [below](#-water-polygons)), the Natural Earth country polygons by Planetiler.
 
 ```bash
 docker run --rm \
@@ -139,6 +141,19 @@ docker run --rm \
 ```
 
 The pbf is cached under `/app/data/sources/planet-<date>.osm.pbf` (resumable, reused on re-runs). Override the snapshot with `PLANET_DATE=YYMMDD`, or the source with `PLANET_PBF_BASE`. `--torrent` is ignored for sub-regions (those download from Geofabrik via `--area`).
+
+---
+
+## 🌊 Water polygons
+
+The `ocean` layer is built from the OSM water polygons (`water-polygons-split-3857.zip`, ~930 MB), which osmdata.openstreetmap.de rebuilds daily. The script fetches them itself before Planetiler runs and caches them at `/app/data/sources/water-polygons-split-3857.zip`:
+
+1. A cached copy less than a week old is reused.
+2. Otherwise the file is downloaded from `OCEAN_URL` (skipped if the server has nothing newer than the cache).
+3. If that fails, the newest dated folder of `OCEAN_MIRROR` is tried.
+4. If both fail, the cached copy is used with a warning; without one, the run stops.
+
+To force a fresh download, delete the cached file.
 
 ---
 

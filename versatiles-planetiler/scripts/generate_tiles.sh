@@ -29,7 +29,9 @@
 # 🌱 ENVIRONMENT VARIABLES (flags take precedence)
 #   AREA, LANDCOVER=1, FORMAT, OUTPUT_NAME, INTERACTIVE=1   configuration
 #   LANDCOVER_URL          land cover container (default: the public VersaTiles one)
-#   LANGUAGES              comma-separated name languages
+#   OCEAN_URL              water polygons zip (default: osmdata.openstreetmap.de)
+#   OCEAN_MIRROR           fallback with dated folders (default: the FAU mirror)
+#   LANGUAGES            comma-separated name languages
 #   EXPERIMENTS            planetiler shortbread_experiments value (default: all)
 #   PLANETILER_EXTRA_FLAGS extra flags passed to planetiler
 #   JAVA_OPTS              extra JVM options, e.g. -Xmx20g
@@ -92,6 +94,13 @@ PLANET_DATE="${PLANET_DATE:-}"
 PLANET_PBF_BASE="${PLANET_PBF_BASE:-https://planet.osm.org/pbf}"
 PLANET_PBF=""
 
+# OSM water polygons (Planetiler's `ocean` source), fetched by the script before
+# Planetiler runs, with a weekly refresh and a mirror fallback (see
+# fetch_water_polygons). OCEAN_MIRROR holds dated folders of the same file.
+OCEAN_URL="${OCEAN_URL:-https://osmdata.openstreetmap.de/download/water-polygons-split-3857.zip}"
+OCEAN_MIRROR="${OCEAN_MIRROR:-https://ftp.fau.de/mirrors/openstreetmapdata.com-archive}"
+OCEAN_PATH="$DATA_DIR/sources/water-polygons-split-3857.zip"
+
 # Path to the intermediate PMTiles; global so the EXIT trap can clean it up.
 intermediate=""
 
@@ -135,6 +144,7 @@ ENVIRONMENT (flags take precedence)
   XMX, JAVA_OPTS                                          JVM heap / JVM options
   RENUMBER=0                                              disable osmium renumber (on by default)
   TORRENT=1, PLANET_DATE=YYMMDD, PLANET_PBF_BASE          planet download
+  OCEAN_URL, OCEAN_MIRROR                                 water polygons download
   LANDCOVER_URL, LANGUAGES, EXPERIMENTS,
   PLANETILER_EXTRA_FLAGS                                  tuning
 EOF
@@ -255,6 +265,64 @@ download_planet_torrent() {
     # file make the multi-hour download resumable; falloc preallocates quickly.
     aria2c --dir="$sources_dir" --seed-time=0 --continue=true \
         --file-allocation=falloc --summary-interval=30 "$torrent"
+}
+
+# Fetch the water polygons into $OCEAN_PATH. Planetiler's --download only fetches
+# a missing file, so a cached copy would never be refreshed (osmdata rebuilds it
+# daily), and it has no fallback when osmdata is down.
+#   • A cached copy less than a week old is kept.
+#   • Otherwise try OCEAN_URL, then the newest dated folder of OCEAN_MIRROR. curl
+#     -R keeps the server's timestamp, so the age check measures the data, and -z
+#     skips the download when the server has nothing newer than the cache.
+#   • If both fail, keep the cached copy with a warning; without one, stop.
+fetch_water_polygons() {
+    require_cmd curl
+    local file="$OCEAN_PATH"
+    mkdir -p "$(dirname "$file")"
+
+    if [[ -f "$file" && -z "$(find "$file" -mmin +$((7 * 24 * 60)))" ]]; then
+        echo "♻️  Reusing $file (less than a week old)."
+        return
+    fi
+
+    download_water_polygons "$OCEAN_URL" && return
+
+    local newest
+    newest="$(curl -fsS --max-time 30 "$OCEAN_MIRROR/" |
+        grep -oE '[0-9]{4}-[0-9]{2}-[0-9]{2}/' | sort | tail -n1 || true)"
+    if [[ -n "$newest" ]]; then
+        download_water_polygons "$OCEAN_MIRROR/${newest}water-polygons-split-3857.zip" && return
+    else
+        echo "⚠️  Could not list the dated folders of $OCEAN_MIRROR" >&2
+    fi
+
+    [[ -f "$file" ]] || {
+        echo "Error: could not download the water polygons, and there is no cached copy." >&2
+        exit 1
+    }
+    echo "⚠️  Could not refresh the water polygons; using the cached copy $file." >&2
+}
+
+# download_water_polygons <url> → downloads into $OCEAN_PATH via a .part file,
+# so an interrupted download never replaces the cached copy. Returns non-zero
+# on failure.
+download_water_polygons() {
+    local url="$1" file="$OCEAN_PATH" part="$OCEAN_PATH.part" status newer_than=()
+    [[ -f "$file" ]] && newer_than=(-z "$file")
+    echo "🌊  Downloading the water polygons from $url …"
+    if status="$(curl -fL -R --connect-timeout 30 --retry 2 "${newer_than[@]}" \
+        -o "$part" -w '%{http_code}' "$url")"; then
+        if [[ "$status" == "304" ]]; then
+            echo "    The cached copy is up to date."
+            rm -f "$part"
+        else
+            mv "$part" "$file"
+        fi
+        return 0
+    fi
+    rm -f "$part"
+    echo "⚠️  Download failed: $url" >&2
+    return 1
 }
 
 ###########################################################################
@@ -478,8 +546,9 @@ run_pipeline() {
     local out_file
     out_file="$RESULT_DIR/$(output_filename "$OUTPUT_NAME")"
 
-    # Remove the intermediate PMTiles and any renumbered pbf on exit.
-    trap 'rm -f "${intermediate:-}" "${renumbered:-}"' EXIT
+    # Remove the intermediate PMTiles, any renumbered pbf and an interrupted
+    # water polygons download on exit.
+    trap 'rm -f "${intermediate:-}" "${renumbered:-}" "$OCEAN_PATH.part"' EXIT
 
     echo "GENERATE SHORTBREAD VECTOR TILES:"
     echo "   AREA:      $AREA"
@@ -519,6 +588,10 @@ run_pipeline() {
     local osm_path_args=()
     local src_pbf=""
 
+    # The water polygons come from fetch_water_polygons, not Planetiler: with the
+    # file in place, Planetiler's --download skips it.
+    fetch_water_polygons
+
     # For a torrent planet build, pre-fetch the pbf via BitTorrent.
     if [[ "$TORRENT" == "1" ]]; then
         if [[ "$AREA" == "planet" ]]; then
@@ -539,7 +612,8 @@ run_pipeline() {
             echo "📥  Downloading sources…"
             # shellcheck disable=SC2086
             time java $JAVA_OPTS -jar "$PLANETILER_JAR" shortbread-1.1 \
-                --area="$AREA" --download --only_download $PLANETILER_EXTRA_FLAGS
+                --area="$AREA" --download --only_download --ocean_path="$OCEAN_PATH" \
+                $PLANETILER_EXTRA_FLAGS
             # `|| true` guards against a SIGPIPE non-zero status (head closes the
             # pipe early) tripping `set -o pipefail` / `set -e`.
             src_pbf="$(find "$DATA_DIR/sources" -maxdepth 3 -name '*.osm.pbf' \
@@ -567,6 +641,7 @@ run_pipeline() {
         --name_languages="$LANGUAGES" \
         --shortbread_experiments="$EXPERIMENTS" \
         --output="$intermediate" \
+        --ocean_path="$OCEAN_PATH" \
         "${osm_path_args[@]}" \
         $PLANETILER_EXTRA_FLAGS
 
