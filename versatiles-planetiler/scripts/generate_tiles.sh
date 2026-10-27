@@ -605,53 +605,40 @@ run_pipeline() {
     # PMTiles is a flat, sequentially-laid-out file, so the `versatiles convert`
     # read below avoids the random-access SQLite overhead of MBTiles.
     ###########################################################################
-    # Source pbf handling. osm_path_args feeds Planetiler a specific .osm.pbf via
-    # --osm_path (instead of letting it download OSM); empty → Planetiler downloads.
-    local osm_path_args=()
-    local src_pbf=""
-
-    # The water polygons come from fetch_water_polygons, not Planetiler: with the
-    # file in place, Planetiler's --download skips it.
+    # All inputs are fetched first, so that their sizes are known before the
+    # long steps. Planetiler's --download only fetches missing sources: with the
+    # .osm.pbf and the water polygons in place, the render step below adds just
+    # the small Natural Earth country polygons, if they are missing.
     fetch_water_polygons
 
-    # For a torrent planet build, pre-fetch the pbf via BitTorrent.
-    if [[ "$TORRENT" == "1" ]]; then
-        if [[ "$AREA" == "planet" ]]; then
-            download_planet_torrent
-            src_pbf="$PLANET_PBF"
-        else
+    local src_pbf="$DATA_DIR/sources/$AREA.osm.pbf"
+    if [[ "$TORRENT" == "1" && "$AREA" == "planet" ]]; then
+        download_planet_torrent
+        src_pbf="$PLANET_PBF"
+    else
+        if [[ "$TORRENT" == "1" ]]; then
             echo "⚠️  --torrent only applies to the planet; ignoring for area '$AREA'." >&2
         fi
+        echo "📥  Downloading sources…"
+        # shellcheck disable=SC2086
+        time java $JAVA_OPTS -jar "$PLANETILER_JAR" shortbread-1.1 \
+            --area="$AREA" --download --only_download \
+            --osm_path="$src_pbf" --ocean_path="$OCEAN_PATH" \
+            $PLANETILER_EXTRA_FLAGS
     fi
+    [[ -f "$src_pbf" ]] || {
+        echo "Error: the OSM input $src_pbf is missing after the download." >&2
+        exit 1
+    }
 
     # Renumber OSM IDs so they are dense (faster, slightly smaller tiles).
+    local osm_pbf="$src_pbf"
     if [[ "$RENUMBER" != "0" ]]; then
         require_cmd osmium
-
-        # Renumber needs the pbf on disk. If we don't already have one (non-torrent),
-        # let Planetiler download all sources first, then locate the OSM file.
-        if [[ -z "$src_pbf" ]]; then
-            echo "📥  Downloading sources…"
-            # shellcheck disable=SC2086
-            time java $JAVA_OPTS -jar "$PLANETILER_JAR" shortbread-1.1 \
-                --area="$AREA" --download --only_download --ocean_path="$OCEAN_PATH" \
-                $PLANETILER_EXTRA_FLAGS
-            # `|| true` guards against a SIGPIPE non-zero status (head closes the
-            # pipe early) tripping `set -o pipefail` / `set -e`.
-            src_pbf="$(find "$DATA_DIR/sources" -maxdepth 3 -name '*.osm.pbf' \
-                ! -name 'renumbered.osm.pbf' | head -n1 || true)"
-        fi
-        [[ -n "$src_pbf" ]] || {
-            echo "Error: could not locate the downloaded .osm.pbf to renumber." >&2
-            exit 1
-        }
-
         echo "🔢  Renumbering OSM IDs (osmium renumber)…"
         renumbered="$DATA_DIR/sources/renumbered.osm.pbf"
         time osmium renumber --progress --overwrite -o "$renumbered" "$src_pbf"
-        osm_path_args=(--osm_path="$renumbered")
-    elif [[ -n "$src_pbf" ]]; then
-        osm_path_args=(--osm_path="$src_pbf")
+        osm_pbf="$renumbered"
     fi
 
     echo "🧱  Rendering tiles with Planetiler…"
@@ -663,8 +650,8 @@ run_pipeline() {
         --name_languages="$LANGUAGES" \
         --shortbread_experiments="$EXPERIMENTS" \
         --output="$intermediate" \
+        --osm_path="$osm_pbf" \
         --ocean_path="$OCEAN_PATH" \
-        "${osm_path_args[@]}" \
         $PLANETILER_EXTRA_FLAGS
 
     ###########################################################################
