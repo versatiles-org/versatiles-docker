@@ -4,7 +4,7 @@
 #
 # Two modes:
 #   • Interactive wizard — when run with no configuration and an attached
-#     terminal (e.g. `docker run -it …`). Asks five questions and runs.
+#     terminal (e.g. `docker run -it …`). Asks a few questions and runs.
 #   • Non-interactive    — when configuration is supplied via flags or
 #     environment variables. Suitable for scripts, CI and docker-compose.
 #
@@ -468,14 +468,11 @@ run_wizard() {
 
     # 1) Whole planet or a sub-region?
     local scope
-    scope="$(ask "Render the whole [p]lanet or a [s]ub-region? [p/s] (default: s): " "s")"
-    if [[ "$scope" == [pP]* ]]; then
+    scope="$(ask "Render the whole [p]lanet or a [s]ub-region? [p/s] (default: p): " "p")"
+    if [[ "$scope" != [sS]* ]]; then
         AREA="planet"
         echo "  ⚠  The whole planet needs a large machine: ~64 GB+ RAM and ~400 GB+ free disk." >&2
         echo "     This container currently sees ${MEM_HUMAN} GB of RAM." >&2
-        local cont
-        cont="$(ask "  Continue with the planet? [y/N]: " "n")"
-        [[ "$cont" == [yY]* ]] || { echo "  Aborted." >&2; exit 1; }
         local tor
         tor="$(ask "  Download the planet via BitTorrent (faster, needs aria2)? [Y/n]: " "y")"
         if [[ "$tor" == [nN]* ]]; then TORRENT=0; else TORRENT=1; fi
@@ -500,7 +497,7 @@ run_wizard() {
 
     # 2) Inject land cover?
     local lc
-    lc="$(ask "Inject land cover data? [y/N]: " "n")"
+    lc="$(ask "Inject land cover data from download.versatiles.org (landcover-vectors.versatiles)? [y/N]: " "n")"
     if [[ "$lc" == [yY]* ]]; then LANDCOVER=1; else LANDCOVER=0; fi
 
     # 3) Container format?

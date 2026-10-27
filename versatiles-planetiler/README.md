@@ -24,7 +24,7 @@ It is part of the [versatiles-docker](https://github.com/versatiles-org/versatil
 
 ### Interactive
 
-Run with an attached terminal (`-it`) and no arguments to launch the wizard. It asks whether to render the whole planet or a sub-region, whether to inject land cover, which container format to use, and the output filename. Mount **one** host directory at `/app/data` — it holds the source cache, temp files and the results:
+Run with an attached terminal (`-it`) and no arguments to launch the wizard. It asks whether to render the whole planet (the default) or a sub-region, whether to inject land cover from download.versatiles.org, which container format to use, and the output filename. Mount **one** host directory at `/app/data` — it holds the source cache, temp files and the results:
 
 ```bash
 docker run -it --rm \
