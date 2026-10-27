@@ -45,6 +45,7 @@
 #   /app/data           Single working volume (mount a host directory here)
 #   /app/data/sources   Downloaded source cache (reused across runs)
 #   /app/data/tmp       Planetiler temporary storage
+#   /app/data/logs      Complete output of each run (<name>.log)
 #   /app/data/result    Final output location (<name>.<format>; with land
 #                       cover, a second file with the land cover merged in)
 #
@@ -91,6 +92,7 @@ MEMORY_CHECKED=0
 # node map (faster, less I/O) and shorten feature IDs (slightly smaller tiles).
 # On by default; set RENUMBER=0 or pass --no-renumber to disable.
 RENUMBER="${RENUMBER:-1}"
+RENUMBER_SKIPPED="" # why check_memory turned renumbering off, if it did
 renumbered=""
 
 # Write .md5 and .sha256 checksum files next to the output. Off by default;
@@ -111,6 +113,8 @@ PLANET_PBF=""
 OCEAN_URL="${OCEAN_URL:-https://osmdata.openstreetmap.de/download/water-polygons-split-3857.zip}"
 OCEAN_MIRROR="${OCEAN_MIRROR:-https://ftp.fau.de/mirrors/openstreetmapdata.com-archive}"
 OCEAN_PATH="$DATA_DIR/sources/water-polygons-split-3857.zip"
+# Natural Earth country polygons, for the locale_names experiment.
+COUNTRIES_PATH="$DATA_DIR/sources/ne_10m_admin_0_countries.zip"
 
 # Path to the intermediate PMTiles; global so the EXIT trap can clean it up.
 intermediate=""
@@ -186,14 +190,12 @@ write_checksums() {
     base="$(basename "$file")"
     require_cmd md5sum
     require_cmd sha256sum
-    echo "🔐  Writing checksums…"
     (
         cd "$dir"
         md5sum "$base" >"$base.md5"
         sha256sum "$base" >"$base.sha256"
     )
-    echo "    $base.md5"
-    echo "    $base.sha256"
+    log "Wrote $base.md5 and $base.sha256"
 }
 
 # Memory (in bytes) available to this container: the cgroup limit if one is set,
@@ -217,6 +219,243 @@ detect_mem_bytes() {
 # Bytes → "12.3" (GiB, one decimal).
 human_gb() {
     awk -v b="$1" 'BEGIN { printf "%.1f", b / 1073741824 }'
+}
+
+###########################################################################
+# 📊  Console output: numbered steps, progress bars and a log file
+###########################################################################
+# The console shows one line per step, "[n/N] label", which a progress bar
+# keeps redrawing on a terminal and which ends with "✓ <duration>". All the
+# tools print goes to LOG_FILE instead: progress_filter copies it there and
+# turns their progress output into the bar on the way. Without a terminal
+# (docker logs, CI), a status line is printed at most once a minute instead.
+LOG_FILE=/dev/null
+STEP_N=0
+STEP_TOTAL=0
+STEP_LABEL=""
+STEP_START=0
+STEP_OPEN=0 # 1 while a step's line is on the console without a line break
+IS_TTY=0
+[[ -t 1 ]] && IS_TTY=1
+# Estimated node count of the .osm.pbf, for the progress of Planetiler's first
+# pass, which reports no percentage.
+NODES_EST=1
+
+# duration <seconds> → "45s", "12m03s" or "2h05m".
+duration() {
+    local s="$1"
+    if ((s < 60)); then
+        printf '%ds' "$s"
+    elif ((s < 3600)); then
+        printf '%dm%02ds' $((s / 60)) $((s % 60))
+    else
+        printf '%dh%02dm' $((s / 3600)) $((s % 3600 / 60))
+    fi
+}
+
+# log <message> → appends a line to the log file.
+log() {
+    printf '%s\n' "$*" >>"$LOG_FILE"
+}
+
+# The current step's "[n/N] label", padded so that the bars line up.
+step_prefix() {
+    printf '[%d/%d] %-25s' "$STEP_N" "$STEP_TOTAL" "$STEP_LABEL"
+}
+
+# step_begin <label> → starts the next step.
+step_begin() {
+    STEP_N=$((STEP_N + 1))
+    STEP_LABEL="$1"
+    STEP_START=$EPOCHSECONDS
+    log ""
+    log "=== [$STEP_N/$STEP_TOTAL] $STEP_LABEL ($(date '+%F %T'))"
+    if ((IS_TTY)); then
+        printf '%s' "$(step_prefix)"
+        STEP_OPEN=1
+    else
+        printf '[%d/%d] %s …\n' "$STEP_N" "$STEP_TOTAL" "$STEP_LABEL"
+    fi
+}
+
+# step_end [detail] → finishes the current step with its duration.
+step_end() {
+    local took
+    took="$(duration $((EPOCHSECONDS - STEP_START)))"
+    log "--- done in $took"
+    if ((IS_TTY)); then
+        printf '\r\033[K%s ✓ %s%s\n' "$(step_prefix)" "$took" "${1:+ · $1}"
+    else
+        printf '[%d/%d] %s ✓ %s%s\n' "$STEP_N" "$STEP_TOTAL" "$STEP_LABEL" "$took" "${1:+ · $1}"
+    fi
+    STEP_OPEN=0
+}
+
+# step_skip <label> <reason> → counts a step that does not run.
+step_skip() {
+    STEP_N=$((STEP_N + 1))
+    STEP_LABEL="$1"
+    log ""
+    log "=== [$STEP_N/$STEP_TOTAL] $STEP_LABEL: skipped, $2"
+    printf '%s – skipped: %s\n' "$(step_prefix)" "$2"
+}
+
+# step_failed → reports the failed step with the end of the log, and exits.
+step_failed() {
+    local took
+    took="$(duration $((EPOCHSECONDS - STEP_START)))"
+    ((STEP_OPEN)) && printf '\r\033[K'
+    printf '[%d/%d] %s ✗ failed after %s\n' "$STEP_N" "$STEP_TOTAL" "$STEP_LABEL" "$took" >&2
+    STEP_OPEN=0
+    echo "Last lines of the log $LOG_FILE:" >&2
+    tail -n 20 "$LOG_FILE" | sed 's/^/  /' >&2
+    exit 1
+}
+
+# note <message> → prints a message on its own line (above the current step's
+# line, which is then redrawn) and logs it.
+note() {
+    log "$*"
+    if ((STEP_OPEN)); then
+        printf '\r\033[K      %s\n%s' "$*" "$(step_prefix)"
+    else
+        printf '      %s\n' "$*"
+    fi
+}
+
+# fail <line>… → ends the current step's line, prints the error and exits.
+fail() {
+    ((STEP_OPEN)) && printf '\n'
+    STEP_OPEN=0
+    local line
+    for line in "$@"; do
+        printf '%s\n' "$line" >&2
+        log "$line"
+    done
+    exit 1
+}
+
+# run_logged <mode[:detail]> <command>… → runs the command with its output
+# going through progress_filter into the log; returns the command's status.
+run_logged() {
+    local mode="$1"
+    shift
+    log "\$ $*"
+    "$@" 2>&1 | progress_filter "$mode" 3>>"$LOG_FILE"
+    return "${PIPESTATUS[0]}"
+}
+
+# progress_filter <mode[:detail]> → copies a tool's output to fd 3 (the log)
+# and draws the current step's progress bar from it. Carriage returns become
+# line breaks and terminal escape codes are dropped. Modes:
+#   generic     the last "NN%" in a line: curl -#, aria2c, osmium, versatiles.
+#               Their progress lines reach the log at most every 30 seconds.
+#   planetiler  Planetiler's progress lines. A render runs through several
+#               stages, so each one gets a share of the bar, measured from
+#               Planetiler's own planet run (PLANET.md): reading OSM 8%,
+#               processing OSM 45%, sorting 4%, writing tiles 42%, ocean 1%.
+#               The first pass reports no percentage, so its progress is the
+#               node count against NODES_EST. Warnings and errors are shown
+#               on the console, except Planetiler's memory-mapped files
+#               warning: it assumes 9.5 billion node IDs for every file, and
+#               check_memory checks the RAM instead.
+progress_filter() {
+    local mode="${1%%:*}" detail=""
+    [[ "$1" == *:* ]] && detail="${1#*:}"
+    local t0=$EPOCHSECONDS line pct=-1 shown=-1 drawn_at=0 printed_at=$EPOCHSECONDS logged_at=0
+    local stage="" base=0 share=100 spct=0 n warn=0
+    local -A shares=([ne_10m_admin_0_countries]=0 [osm_pass1]=8 [osm_pass2]=45 [ocean]=1 [sort]=4 [archive]=42)
+    local -A starts=([ne_10m_admin_0_countries]=0 [osm_pass1]=0 [osm_pass2]=8 [ocean]=53 [sort]=54 [archive]=58)
+    local -A names=([ne_10m_admin_0_countries]="country polygons" [osm_pass1]="reading OSM"
+        [osm_pass2]="processing OSM" [ocean]="ocean" [sort]="sorting" [archive]="writing tiles"
+        [download]="downloading")
+    local re_line='^[0-9:]+ (INF|DEB|WAR|ERR)( \[([a-z0-9_]+)(:[^]]*)?\])? - (.*)$'
+    local re_count='([0-9.]+)([kMBT]?)'
+    stdbuf -oL tr '\r' '\n' |
+        sed -u -E 's/\x1b\[[0-9;?]*[A-Za-z]//g; s/\x1b\][^\x07\x1b]*(\x07|\x1b\\)?//g' |
+        while IFS= read -r line; do
+            if [[ "$mode" == planetiler || "$line" != *%* ]] || ((EPOCHSECONDS - logged_at >= 30)); then
+                printf '%s\n' "$line" >&3
+                [[ "$line" == *%* ]] && logged_at=$EPOCHSECONDS
+            fi
+
+            if [[ "$mode" == generic ]]; then
+                [[ "$line" =~ ([0-9]+)(\.[0-9]+)?%[^%]*$ ]] && pct=$((10#${BASH_REMATCH[1]}))
+            elif [[ "$line" =~ $re_line ]]; then
+                local level="${BASH_REMATCH[1]}" st="${BASH_REMATCH[3]}" msg="${BASH_REMATCH[5]}"
+                warn=0
+                if [[ "$level" == WAR || "$level" == ERR ]]; then
+                    if [[ "$msg" == *"memory-mapped files for node locations"* ]]; then
+                        warn=2
+                    else
+                        warn=1
+                        printf '\r\033[K      ⚠️  %s\n' "$msg"
+                        shown=-2
+                    fi
+                fi
+                if [[ -n "$st" && "$st" != "$stage" ]]; then
+                    stage="$st"
+                    base="${starts[$st]:-0}"
+                    share="${shares[$st]:-100}"
+                    detail="${names[$st]:-$st}"
+                    spct=0
+                fi
+                if [[ -n "$st" ]]; then
+                    if [[ "$msg" == "Finished in"* ]]; then
+                        spct=100
+                    elif [[ "$st" == osm_pass1 && "$msg" =~ nodes:\ \[\ *$re_count ]]; then
+                        n="$(awk -v v="${BASH_REMATCH[1]}" -v u="${BASH_REMATCH[2]}" -v e="$NODES_EST" 'BEGIN {
+                            m = (u == "k") ? 1e3 : (u == "M") ? 1e6 : (u == "B") ? 1e9 : (u == "T") ? 1e12 : 1
+                            p = int(v * m / e * 100); print (p > 99) ? 99 : p }')"
+                        spct="$n"
+                    elif [[ "$st" == osm_pass2 && "$msg" =~ blocks:\ \[\ *[0-9.]+[kMBT]?\ +([0-9]+)% ]] ||
+                        [[ "$st" == archive && "$msg" =~ features:\ \[\ *[0-9.]+[kMBT]?\ +([0-9]+)% ]] ||
+                        [[ "$st" == sort && "$msg" =~ chunks:\ \[\ *[0-9]+\ /\ *[0-9]+\ +([0-9]+)% ]] ||
+                        [[ "$st" != osm_pass2 && "$st" != archive && "$st" != sort &&
+                        "$msg" =~ [a-z_]+:\ \[\ *[0-9.]+[kMBT]?\ +([0-9]+)% ]]; then
+                        spct=$((10#${BASH_REMATCH[1]}))
+                    fi
+                    pct=$((base + share * spct / 100))
+                fi
+            elif ((warn == 1)) && [[ -n "$line" && "$line" != WARNING:* ]]; then
+                printf '\r\033[K      %s\n' "$line"
+                shown=-2
+            fi
+
+            ((pct < 0)) && continue
+            if ((IS_TTY)); then
+                ((pct == shown && EPOCHSECONDS == drawn_at)) && continue
+                draw_progress "$pct" "$detail" $((EPOCHSECONDS - t0))
+                shown=$pct
+                drawn_at=$EPOCHSECONDS
+            elif ((EPOCHSECONDS - printed_at >= 60)); then
+                printf '[%d/%d] %s: %d%%%s\n' "$STEP_N" "$STEP_TOTAL" "$STEP_LABEL" "$pct" "${detail:+ · $detail}"
+                printed_at=$EPOCHSECONDS
+            fi
+        done
+}
+
+# draw_progress <percent> <detail> <elapsed seconds> → redraws the current
+# step's line as "[n/N] label ▕████▌    ▏ 43% · detail · 1m12s · ~1m35s left".
+draw_progress() {
+    local pct="$1" detail="$2" elapsed="$3" width=20 bar="" i eighths full part
+    local -a partial=("" "▏" "▎" "▍" "▌" "▋" "▊" "▉")
+    ((pct > 100)) && pct=100
+    eighths=$((pct * width * 8 / 100))
+    full=$((eighths / 8))
+    part=$((eighths % 8))
+    for ((i = 0; i < full; i++)); do bar+="█"; done
+    if ((part > 0)); then
+        bar+="${partial[part]}"
+        i=$((i + 1))
+    fi
+    for (( ; i < width; i++)); do bar+=" "; done
+    local line
+    line="$(step_prefix)▕${bar}▏ $(printf '%3d' "$pct")%${detail:+ · $detail} · $(duration "$elapsed")"
+    if ((pct >= 1 && pct < 100 && elapsed >= 10)); then
+        line+=" · ~$(duration $((elapsed * (100 - pct) / pct))) left"
+    fi
+    printf '\r\033[K%s' "$line"
 }
 
 ###########################################################################
@@ -294,14 +533,13 @@ check_memory() {
     local pbf="$1"
     plan_memory "$pbf" "$MODE"
     if ((NEED_BYTES > MEM_BYTES)); then
-        echo "Error: $MODE mode needs ~$(human_size "$NEED_BYTES") of RAM for a $(human_size "$pbf") .osm.pbf," >&2
-        echo "       but the container has only ${MEM_HUMAN} GB." >&2
+        local lines=("Error: $MODE mode needs ~$(human_size "$NEED_BYTES") of RAM for a $(human_size "$pbf") .osm.pbf,"
+            "       but the container has only ${MEM_HUMAN} GB.")
         if [[ "$MODE" == "memory" ]]; then
             plan_memory "$pbf" disk
-            echo "       Disk mode (--mode disk) would need ~$(human_size "$NEED_BYTES")." >&2
+            lines+=("       Disk mode (--mode disk) would need ~$(human_size "$NEED_BYTES").")
         fi
-        echo "       On Docker Desktop, raise the memory limit under Settings → Resources." >&2
-        exit 1
+        fail "${lines[@]}" "       On Docker Desktop, raise the memory limit under Settings → Resources."
     fi
     if [[ "$RENUMBER" != "0" ]]; then
         local need
@@ -309,9 +547,10 @@ check_memory() {
             n = 7.5e9 * p / 66691979646; c = 1; while (c < n) c *= 2
             printf "%.0f", 8 * c + 2 * 1073741824 }')"
         if ((need > MEM_BYTES)); then
-            echo "⚠️  Renumbering the OSM IDs needs ~$(human_size "$need") of RAM, but the container has ${MEM_HUMAN} GB;" >&2
-            echo "    skipping it. The tiles are the same, only slightly larger." >&2
+            note "⚠️  Renumbering the OSM IDs needs ~$(human_size "$need") of RAM, but the container has ${MEM_HUMAN} GB;"
+            note "    skipping it. The tiles are the same, only slightly larger."
             RENUMBER=0
+            RENUMBER_SKIPPED="needs ~$(human_size "$need") of RAM"
         fi
     fi
 }
@@ -346,29 +585,26 @@ download_planet_torrent() {
 
     local date="$PLANET_DATE"
     if [[ -z "$date" ]]; then
-        echo "🔎  Resolving latest planet snapshot from ${PLANET_PBF_BASE}/ …"
+        log "Resolving the latest planet snapshot from ${PLANET_PBF_BASE}/"
         date="$(curl -fsSL "${PLANET_PBF_BASE}/" |
             grep -oE 'planet-[0-9]{6}\.osm\.pbf' |
             grep -oE '[0-9]{6}' | sort | tail -n1 || true)"
     fi
-    [[ -n "$date" ]] || {
-        echo "Error: could not determine the latest planet date; set PLANET_DATE=YYMMDD." >&2
-        exit 1
-    }
+    [[ -n "$date" ]] || fail "Error: could not determine the latest planet date; set PLANET_DATE=YYMMDD."
 
     PLANET_PBF="$sources_dir/planet-${date}.osm.pbf"
     if [[ -f "$PLANET_PBF" && ! -f "${PLANET_PBF}.aria2" ]]; then
-        echo "♻️  Reusing existing $PLANET_PBF (delete it to force a fresh download)."
+        note "♻️  Using the cached $(basename "$PLANET_PBF"); delete it to download a fresh copy."
         return
     fi
 
-    echo "📥  Downloading planet-${date}.osm.pbf via BitTorrent (aria2c) …"
     local torrent="$sources_dir/planet-${date}.osm.pbf.torrent"
-    curl -fsSL "${PLANET_PBF_BASE}/planet-${date}.osm.pbf.torrent" -o "$torrent"
+    curl -fsSL "${PLANET_PBF_BASE}/planet-${date}.osm.pbf.torrent" -o "$torrent" ||
+        fail "Error: could not download ${PLANET_PBF_BASE}/planet-${date}.osm.pbf.torrent"
     # --seed-time=0 stops seeding once complete; --continue + the .aria2 control
     # file make the multi-hour download resumable; falloc preallocates quickly.
-    aria2c --dir="$sources_dir" --seed-time=0 --continue=true \
-        --file-allocation=falloc --summary-interval=30 "$torrent"
+    run_logged "generic:planet via BitTorrent" aria2c --dir="$sources_dir" --seed-time=0 \
+        --continue=true --file-allocation=falloc --summary-interval=10 "$torrent" || step_failed
 }
 
 # Fetch the water polygons into $OCEAN_PATH. Planetiler's --download only fetches
@@ -385,7 +621,7 @@ fetch_water_polygons() {
     mkdir -p "$(dirname "$file")"
 
     if [[ -f "$file" && -z "$(find "$file" -mmin +$((7 * 24 * 60)))" ]]; then
-        echo "♻️  Reusing $file (less than a week old)."
+        log "Reusing $file (less than a week old)."
         return
     fi
 
@@ -397,35 +633,32 @@ fetch_water_polygons() {
     if [[ -n "$newest" ]]; then
         download_water_polygons "$OCEAN_MIRROR/${newest}water-polygons-split-3857.zip" && return
     else
-        echo "⚠️  Could not list the dated folders of $OCEAN_MIRROR" >&2
+        note "⚠️  Could not list the dated folders of $OCEAN_MIRROR"
     fi
 
-    [[ -f "$file" ]] || {
-        echo "Error: could not download the water polygons, and there is no cached copy." >&2
-        exit 1
-    }
-    echo "⚠️  Could not refresh the water polygons; using the cached copy $file." >&2
+    [[ -f "$file" ]] || fail "Error: could not download the water polygons, and there is no cached copy."
+    note "⚠️  Could not refresh the water polygons; using the cached copy."
 }
 
 # download_water_polygons <url> → downloads into $OCEAN_PATH via a .part file,
 # so an interrupted download never replaces the cached copy. Returns non-zero
 # on failure.
 download_water_polygons() {
-    local url="$1" file="$OCEAN_PATH" part="$OCEAN_PATH.part" status newer_than=()
+    local url="$1" file="$OCEAN_PATH" part="$OCEAN_PATH.part" headers="$OCEAN_PATH.headers" newer_than=()
     [[ -f "$file" ]] && newer_than=(-z "$file")
-    echo "🌊  Downloading the water polygons from $url …"
-    if status="$(curl -fL -R --connect-timeout 30 --retry 2 "${newer_than[@]}" \
-        -o "$part" -w '%{http_code}' "$url")"; then
-        if [[ "$status" == "304" ]]; then
-            echo "    The cached copy is up to date."
+    if run_logged "generic:water polygons" curl -fL -R -# --connect-timeout 30 --retry 2 \
+        "${newer_than[@]}" -D "$headers" -o "$part" "$url"; then
+        if [[ "$(awk '/^HTTP/ { s = $2 } END { print s }' "$headers")" == "304" ]]; then
+            log "The cached copy is up to date."
             rm -f "$part"
         else
             mv "$part" "$file"
         fi
+        rm -f "$headers"
         return 0
     fi
-    rm -f "$part"
-    echo "⚠️  Download failed: $url" >&2
+    rm -f "$part" "$headers"
+    note "⚠️  Download failed: $url"
     return 1
 }
 
@@ -692,33 +925,32 @@ run_pipeline() {
     require_cmd java
     require_cmd versatiles
 
-    mkdir -p "$DATA_DIR" "$RESULT_DIR"
+    mkdir -p "$DATA_DIR" "$RESULT_DIR" "$DATA_DIR/logs"
 
     intermediate="$DATA_DIR/planetiler.pmtiles"
     local osm_file landcover_file=""
     osm_file="$RESULT_DIR/$(output_filename "$OSM_NAME")"
     [[ "$LANDCOVER" == "1" ]] && landcover_file="$RESULT_DIR/$(output_filename "$LANDCOVER_NAME")"
+    LOG_FILE="$DATA_DIR/logs/$OSM_NAME.log"
+    : >"$LOG_FILE"
+    local t0=$EPOCHSECONDS
 
     # Remove the intermediate PMTiles, any renumbered pbf and an interrupted
-    # water polygons download on exit.
-    trap 'rm -f "${intermediate:-}" "${renumbered:-}" "$OCEAN_PATH.part"' EXIT
+    # water polygons download on exit, and end an open step line.
+    trap '((STEP_OPEN)) && printf "\n"; rm -f "${intermediate:-}" "${renumbered:-}" "$OCEAN_PATH.part" "$OCEAN_PATH.headers"' EXIT
 
-    echo "GENERATE SHORTBREAD VECTOR TILES:"
-    echo "   AREA:      $AREA"
-    if [[ "$LANDCOVER" == "1" ]]; then
-        echo "   LANDCOVER: yes ($LANDCOVER_URL)"
-    else
-        echo "   LANDCOVER: no"
-    fi
-    echo "   FORMAT:    $FORMAT"
-    echo "   OUTPUT:    $osm_file"
-    [[ -n "$landcover_file" ]] && echo "              $landcover_file"
-    echo "   RENUMBER:  $([[ "$RENUMBER" != "0" ]] && echo "yes (osmium renumber)" || echo "no")"
-    echo "   CHECKSUM:  $([[ "$CHECKSUM" == "1" ]] && echo "yes (md5, sha256)" || echo "no")"
-    if [[ "$AREA" == "planet" ]]; then
-        echo "   DOWNLOAD:  $([[ "$TORRENT" == "1" ]] && echo "BitTorrent (aria2)" || echo "HTTP (planetiler --download)")"
-    fi
-    echo "   MODE:      $MODE (${MEM_HUMAN} GB of RAM available)"
+    echo "VersaTiles Planetiler: $AREA$([[ -n "$landcover_file" ]] && echo ", with land cover"), $FORMAT, $MODE mode"
+    echo "   Results: $osm_file"
+    [[ -n "$landcover_file" ]] && echo "            $landcover_file"
+    echo "   Log:     $LOG_FILE"
+    echo
+    {
+        echo "VersaTiles Planetiler, $(date '+%F %T')"
+        echo "   AREA=$AREA LANDCOVER=$LANDCOVER FORMAT=$FORMAT MODE=$MODE RENUMBER=$RENUMBER"
+        echo "   CHECKSUM=$CHECKSUM TORRENT=$TORRENT LANGUAGES=$LANGUAGES EXPERIMENTS=$EXPERIMENTS"
+        echo "   JAVA_OPTS=$JAVA_OPTS PLANETILER_EXTRA_FLAGS=$PLANETILER_EXTRA_FLAGS"
+        echo "   RAM available: ${MEM_HUMAN} GB"
+    } >>"$LOG_FILE"
 
     # Planetiler only *warns* about insufficient resources and we pass --force
     # (so it never blocks on a prompt), so check_memory checks the RAM instead:
@@ -729,67 +961,77 @@ run_pipeline() {
         if planet_size="$(planet_pbf_size)"; then
             check_memory "$planet_size"
         else
-            echo "⚠️  Could not look up the planet's size; the RAM is checked after the download." >&2
+            note "⚠️  Could not look up the planet's size; the RAM is checked after the download."
         fi
     fi
 
+    STEP_TOTAL=$((4 + LANDCOVER))
+
     ###########################################################################
-    # 1) Render with Planetiler → intermediate PMTiles
-    #
-    # PMTiles is a flat, sequentially-laid-out file, so the `versatiles convert`
-    # read below avoids the random-access SQLite overhead of MBTiles.
+    # 1) Download: all inputs are fetched first, so that their sizes are known
+    #    before the long steps. Planetiler's --download only fetches missing
+    #    sources, so it runs only when the .osm.pbf or the country polygons are
+    #    missing; the water polygons come from fetch_water_polygons.
     ###########################################################################
-    # All inputs are fetched first, so that their sizes are known before the
-    # long steps. Planetiler's --download only fetches missing sources: with the
-    # .osm.pbf and the water polygons in place, the render step below adds just
-    # the small Natural Earth country polygons, if they are missing.
+    step_begin "Downloading sources"
     fetch_water_polygons
 
     local src_pbf="$DATA_DIR/sources/$AREA.osm.pbf"
     if [[ "$TORRENT" == "1" && "$AREA" == "planet" ]]; then
         download_planet_torrent
         src_pbf="$PLANET_PBF"
-    else
-        if [[ "$TORRENT" == "1" ]]; then
-            echo "⚠️  --torrent only applies to the planet; ignoring for area '$AREA'." >&2
-        fi
-        # Planetiler never refreshes a cached .osm.pbf, so say that it is used.
-        if [[ -f "$src_pbf" ]]; then
-            echo "♻️  Using the cached $src_pbf from $(date -r "$src_pbf" +%Y-%m-%d)."
-            echo "    Delete it to download a fresh copy."
-        fi
-        echo "📥  Downloading sources…"
+    elif [[ "$TORRENT" == "1" ]]; then
+        note "⚠️  --torrent only applies to the planet; ignoring it for '$AREA'."
+    fi
+    # Planetiler never refreshes a cached .osm.pbf, so say that it is used.
+    if [[ "$src_pbf" != "${PLANET_PBF:-}" && -f "$src_pbf" ]]; then
+        note "♻️  Using the cached $(basename "$src_pbf") from $(date -r "$src_pbf" +%Y-%m-%d); delete it to download a fresh copy."
+    fi
+    if [[ ! -f "$src_pbf" || ! -f "$COUNTRIES_PATH" ]]; then
         # shellcheck disable=SC2086
-        time java $JAVA_OPTS -jar "$PLANETILER_JAR" shortbread-1.1 \
+        run_logged planetiler java $JAVA_OPTS -jar "$PLANETILER_JAR" shortbread-1.1 \
             --area="$AREA" --download --only_download \
             --osm_path="$src_pbf" --ocean_path="$OCEAN_PATH" \
-            $PLANETILER_EXTRA_FLAGS
+            --ne_10m_admin_0_countries_path="$COUNTRIES_PATH" \
+            $PLANETILER_EXTRA_FLAGS || step_failed
     fi
-    [[ -f "$src_pbf" ]] || {
-        echo "Error: the OSM input $src_pbf is missing after the download." >&2
-        exit 1
-    }
+    [[ -f "$src_pbf" ]] || fail "Error: the OSM input $src_pbf is missing after the download."
 
-    check_memory "$(stat -c %s "$src_pbf")"
+    local pbf_size
+    pbf_size="$(stat -c %s "$src_pbf")"
+    NODES_EST="$(awk -v p="$pbf_size" 'BEGIN { n = int(7.5e9 * p / 66691979646); print (n < 1) ? 1 : n }')"
+    check_memory "$pbf_size"
     local render_java_opts="$JAVA_OPTS"
     [[ "$JAVA_OPTS" == *-Xmx* ]] || render_java_opts="-Xmx$(mib "$HEAP_BYTES")m${JAVA_OPTS:+ $JAVA_OPTS}"
-    echo "💾  Memory: $MODE mode, Java heap $(human_size "$HEAP_BYTES"), needs ~$(human_size "$NEED_BYTES") of ${MEM_HUMAN} GB."
+    step_end "$(basename "$src_pbf"), $(human_size "$pbf_size")"
+    note "💾 $MODE mode: Java heap $(human_size "$HEAP_BYTES"), needs ~$(human_size "$NEED_BYTES") of ${MEM_HUMAN} GB RAM"
 
-    # Renumber OSM IDs so they are dense (faster, slightly smaller tiles).
+    ###########################################################################
+    # 2) Renumber OSM IDs so they are dense (faster, slightly smaller tiles).
+    ###########################################################################
     local osm_pbf="$src_pbf"
     if [[ "$RENUMBER" != "0" ]]; then
         require_cmd osmium
-        echo "🔢  Renumbering OSM IDs (osmium renumber)…"
+        step_begin "Renumbering OSM IDs"
         renumbered="$DATA_DIR/sources/renumbered.osm.pbf"
-        time osmium renumber --progress --overwrite -o "$renumbered" "$src_pbf"
+        run_logged generic osmium renumber --progress --overwrite -o "$renumbered" "$src_pbf" || step_failed
         osm_pbf="$renumbered"
+        step_end
+    else
+        step_skip "Renumbering OSM IDs" "${RENUMBER_SKIPPED:-turned off}"
     fi
 
-    echo "🧱  Rendering tiles with Planetiler…"
+    ###########################################################################
+    # 3) Render with Planetiler → intermediate PMTiles
+    #
+    # PMTiles is a flat, sequentially-laid-out file, so the `versatiles convert`
+    # read below avoids the random-access SQLite overhead of MBTiles.
+    ###########################################################################
+    step_begin "Rendering tiles"
     # mode_flags and PLANETILER_EXTRA_FLAGS are split into words on purpose; the
     # extra flags come last, so they override the mode's.
     # shellcheck disable=SC2086,SC2046
-    time java $render_java_opts -jar "$PLANETILER_JAR" shortbread-1.1 \
+    run_logged planetiler java $render_java_opts -jar "$PLANETILER_JAR" shortbread-1.1 \
         --area="$AREA" \
         --download \
         --force \
@@ -799,10 +1041,12 @@ run_pipeline() {
         --output="$intermediate" \
         --osm_path="$osm_pbf" \
         --ocean_path="$OCEAN_PATH" \
-        $PLANETILER_EXTRA_FLAGS
+        --ne_10m_admin_0_countries_path="$COUNTRIES_PATH" \
+        $PLANETILER_EXTRA_FLAGS || step_failed
+    step_end "$(human_size "$(stat -c %s "$intermediate")")"
 
     ###########################################################################
-    # 2) Convert → final container(s)
+    # 4) Convert → final container(s)
     #
     # The OSM output is always written. With land cover, a second output is
     # converted from the same intermediate: the VPL `from_merged_vector`
@@ -818,25 +1062,28 @@ run_pipeline() {
     # with VersaTiles branding (see issue #53).
     ###########################################################################
     local source="from_container filename=\"$intermediate\""
-    echo "🚀  Converting to ${FORMAT}…"
+    step_begin "Converting to $FORMAT"
     convert_output "$source | meta_update $(base_meta_args)" "$osm_file"
+    step_end "$(human_size "$(stat -c %s "$osm_file")")"
 
     if [[ -n "$landcover_file" ]]; then
+        step_begin "Merging land cover"
         source="from_merged_vector [ $source | $OSM_HANDOVER_FILTER, from_container filename=\"$LANDCOVER_URL\" | $LANDCOVER_HANDOVER_FILTER ]"
         if [[ "$AREA" != "planet" ]]; then
             local bounds
-            bounds="$(read_bounds "$intermediate")" || {
-                echo "Error: could not read the bounds of $intermediate to crop the land cover." >&2
-                exit 1
-            }
+            bounds="$(read_bounds "$intermediate")" ||
+                fail "Error: could not read the bounds of $intermediate to crop the land cover."
             source="$source | filter bbox=$bounds"
         fi
-        echo "🌍  Merging land cover and converting to ${FORMAT}…"
         convert_output "$source | meta_update $(landcover_meta_args)" "$landcover_file"
+        step_end "$(human_size "$(stat -c %s "$landcover_file")")"
     fi
 
-    echo "✅  Done: $osm_file"
-    [[ -n "$landcover_file" ]] && echo "          $landcover_file"
+    echo
+    echo "✅ Done in $(duration $((EPOCHSECONDS - t0))):"
+    echo "   $osm_file"
+    [[ -n "$landcover_file" ]] && echo "   $landcover_file"
+    log "=== done in $(duration $((EPOCHSECONDS - t0)))"
     return 0
 }
 
@@ -845,7 +1092,7 @@ run_pipeline() {
 convert_output() {
     local compression_args=()
     [[ "$FORMAT" == "versatiles" ]] && compression_args=(-c brotli)
-    time versatiles convert "${compression_args[@]}" "[,vpl]($1)" "$2"
+    run_logged generic versatiles convert "${compression_args[@]}" "[,vpl]($1)" "$2" || step_failed
     if [[ "$CHECKSUM" == "1" ]]; then
         write_checksums "$2"
     fi

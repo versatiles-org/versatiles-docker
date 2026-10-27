@@ -16,6 +16,7 @@ It is part of the [versatiles-docker](https://github.com/versatiles-org/versatil
 - Optional **checksums** (`.md5` + `.sha256`) written next to each output
 - Output as **versatiles** (brotli), **pmtiles** or **mbtiles**
 - Renders the whole **planet** or any **Geofabrik** sub-region
+- A clean console: one line per step with a progress bar and ETA; the complete output goes to a log file
 - Graceful shutdown on Ctrl-C (`tini` enabled)
 
 ---
@@ -177,9 +178,28 @@ The container runs [`generate_tiles.sh`](https://github.com/versatiles-org/versa
 
 ## 💾 Disk & host mounts
 
-Mount **one** host directory at `/app/data`; it holds everything — the source cache (`sources/`), Planetiler's temp files (`tmp/`), the intermediate tiles and the results (`result/`). Keeping the cache on the host means re-runs reuse already-downloaded sources. A cached `.osm.pbf` is never refreshed (the log says when one is used), so delete `sources/<area>.osm.pbf` to render current OSM data.
+Mount **one** host directory at `/app/data`; it holds everything — the source cache (`sources/`), Planetiler's temp files (`tmp/`), the intermediate tiles, the results (`result/`) and the logs (`logs/`). Keeping the cache on the host means re-runs reuse already-downloaded sources. A cached `.osm.pbf` is never refreshed (the log says when one is used), so delete `sources/<area>.osm.pbf` to render current OSM data.
 
 Rendering the whole planet is heavy: budget **~400 GB+ free disk** and a few hours (see [Memory](#-memory) for RAM). Test with a small region first, e.g. `--area monaco`. To put results elsewhere, set `RESULT_DIR`.
+
+---
+
+## 📟 Console and log
+
+The console shows one line per step. On a terminal (`docker run -t` or `-it`), a progress bar with the elapsed time and an estimate of the time left redraws that line:
+
+```
+[1/5] Downloading sources       ✓ 0s · monaco.osm.pbf, 0.7 MB
+      💾 disk mode: Java heap 2.0 GB, needs ~3.0 GB of 7.7 GB RAM
+[2/5] Renumbering OSM IDs       ✓ 0s
+[3/5] Rendering tiles           ▕██████████▊         ▏  54% · processing OSM · 41m12s · ~35m left
+```
+
+Without a terminal (`docker logs`, CI), each step prints a start line, a status line at most once a minute, and an end line.
+
+The complete output of all tools, including Planetiler's debug messages, goes to `/app/data/logs/<name>.log`. Planetiler's warnings and errors also appear on the console. If a step fails, the console shows the last lines of the log.
+
+The time estimate for *Rendering tiles* gives each of Planetiler's stages a fixed share, taken from a planet run. For small regions, where the ocean stage takes most of the time, the estimate is rough.
 
 ---
 
