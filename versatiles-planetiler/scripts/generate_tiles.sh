@@ -52,7 +52,7 @@
 #   Override the output location with RESULT_DIR if you want it elsewhere.
 #
 # 🔄 PIPELINE
-#   0) (optional) osmium renumber the OSM input so its IDs are dense
+#   0) (optional, --renumber) osmium renumber the OSM input so its IDs are dense
 #   1) planetiler shortbread-1.1 → intermediate PMTiles
 #   2) versatiles convert → final container; with land cover, a second
 #      container with the land cover merged in via VPL
@@ -89,9 +89,10 @@ XMX="${XMX:-}"
 MEMORY_CHECKED=0
 
 # Renumber OSM IDs with `osmium renumber` before rendering. Dense IDs shrink the
-# node map (faster, less I/O) and shorten feature IDs (slightly smaller tiles).
-# On by default; set RENUMBER=0 or pass --no-renumber to disable.
-RENUMBER="${RENUMBER:-1}"
+# node map (faster, less I/O) and shorten feature IDs (2-4% smaller tiles), but
+# the tiles' feature IDs are then no longer OSM IDs, and they change from build
+# to build. Off by default; set RENUMBER=1 or pass --renumber to enable.
+RENUMBER="${RENUMBER:-0}"
 RENUMBER_SKIPPED="" # why check_memory turned renumbering off, if it did
 renumbered=""
 
@@ -148,13 +149,14 @@ OPTIONS
   --mode <disk|memory>     How Planetiler keeps its temporary data: "disk"
                            (default) in memory-mapped files, ~0.5× the .osm.pbf
                            size + 3 GB of RAM; "memory" on the Java heap, faster,
-                           ~1.5× + 3 GB. The run stops if the RAM is too small.
+                           ~1.7× + 3 GB. The run stops if the RAM is too small.
   --xmx <SIZE>             Override the Java heap that --mode derives, e.g. 20g.
   --torrent                For --area planet: download the planet .osm.pbf via
                            BitTorrent (aria2) and feed it to Planetiler. Faster
                            and more reliable than the default HTTP download.
-  --no-renumber            Skip the osmium renumber step (it is on by default;
-                           dense IDs render faster and yield slightly smaller tiles).
+  --renumber               Renumber the OSM IDs with osmium first: renders a
+                           bit faster and makes the tiles 2-4% smaller, but their
+                           feature IDs are no longer OSM IDs. Off by default.
   --checksum               Write <output>.md5 and <output>.sha256 next to each output.
   -i, --interactive        Force the interactive wizard.
   -h, --help               Show this help.
@@ -162,7 +164,7 @@ OPTIONS
 ENVIRONMENT (flags take precedence)
   AREA, LANDCOVER=1, FORMAT, OUTPUT_NAME, CHECKSUM=1, INTERACTIVE=1   configuration
   MODE, XMX, JAVA_OPTS                                    memory mode / JVM heap / JVM options
-  RENUMBER=0                                              disable osmium renumber (on by default)
+  RENUMBER=1                                              renumber the OSM IDs (off by default)
   TORRENT=1, PLANET_DATE=YYMMDD, PLANET_PBF_BASE          planet download
   OCEAN_URL, OCEAN_MIRROR                                 water polygons download
   LANDCOVER_URL, LANGUAGES, EXPERIMENTS,
@@ -470,8 +472,9 @@ draw_progress() {
 # checks (PLANET.md, Planetiler.checkMemory):
 #   disk    heap 0.3× pbf + 2 GB (the Shortbread profile's estimate), plus
 #           0.2× pbf as page cache and 1 GB for the JVM     → 0.5× pbf + 3 GB
-#   memory  heap 1.5× pbf + 2 GB (Planetiler's figure for keeping node
-#           locations in RAM), plus 1 GB for the JVM        → 1.5× pbf + 3 GB
+#   memory  heap 1.7× pbf + 2 GB (node locations, multipolygon geometries and
+#           the profile come to ~1.5× pbf; PLANET.md gives a 67 GB planet a
+#           110 GB heap), plus 1 GB for the JVM             → 1.7× pbf + 3 GB
 #   osmium renumber: keeps the old node IDs (8 bytes each) in a std::vector
 #           that doubles its capacity when full, so its last doubling asks
 #           for 8 bytes × the next power of two above the node count, while
@@ -479,7 +482,7 @@ draw_progress() {
 #           Planetiler's ratio (7.5 billion nodes in a 66.7 GB planet).
 #                                                           → 8 × 2^⌈log2 nodes⌉ + 2 GB
 # For the 89 GB planet of October 2026 (binary GB, ~10.7 billion nodes): disk
-# ~48 GB, memory ~137 GB, renumber ~130 GB.
+# ~48 GB, memory ~154 GB, renumber ~130 GB.
 GIB=1073741824
 
 # to_bytes <size> → bytes, for a JVM-style size such as "20g", "512m" or "1t".
@@ -518,7 +521,7 @@ plan_memory() {
     local pbf="$1" mode="$2" override
     override="$(heap_override_bytes)"
     if [[ "$mode" == "memory" ]]; then
-        HEAP_BYTES="${override:-$(awk -v p="$pbf" 'BEGIN { printf "%.0f", 1.5 * p + 2 * 1073741824 }')}"
+        HEAP_BYTES="${override:-$(awk -v p="$pbf" 'BEGIN { printf "%.0f", 1.7 * p + 2 * 1073741824 }')}"
         NEED_BYTES=$((HEAP_BYTES + GIB))
     else
         HEAP_BYTES="${override:-$(awk -v p="$pbf" 'BEGIN { printf "%.0f", 0.3 * p + 2 * 1073741824 }')}"
@@ -555,16 +558,21 @@ check_memory() {
     fi
 }
 
-# Planetiler flags for MODE. Without renumbering the node IDs are sparse, so
-# memory mode uses a sparse array instead of a plain array for the node map.
+# Planetiler flags for MODE. The node map is a plain array indexed by node ID
+# where the IDs are dense, i.e. renumbered; its size follows the highest node
+# ID (~110 GB for real OSM IDs, which reach 13.7 billion). In disk mode, that
+# array also suits the planet, which uses nearly every ID, and a memory-mapped
+# file only takes disk space where it is written. Everything else gets a
+# sparse array, whose size follows the node count. (On Docker Desktop, a host
+# folder does not keep the array's file sparse, so even Monaco would write
+# tens of GB.)
 mode_flags() {
-    if [[ "$MODE" != "memory" ]]; then
-        printf '%s' "--storage=mmap --nodemap_type=array"
-    elif [[ "$RENUMBER" != "0" ]]; then
-        printf '%s' "--storage=ram --nodemap_type=array"
-    else
-        printf '%s' "--storage=ram --nodemap_type=sparsearray"
+    local storage=mmap nodemap=sparsearray
+    [[ "$MODE" == "memory" ]] && storage=ram
+    if [[ "$RENUMBER" != "0" ]] || [[ "$MODE" != "memory" && "$AREA" == "planet" ]]; then
+        nodemap=array
     fi
+    printf '%s' "--storage=$storage --nodemap_type=$nodemap"
 }
 
 # Size of the newest planet .osm.pbf in bytes, from a HEAD request; empty (and
@@ -779,6 +787,7 @@ parse_args() {
         --xmx) XMX="${2:-}"; shift 2 ;;
         --xmx=*) XMX="${1#*=}"; shift ;;
         --torrent) TORRENT=1; shift ;;
+        --renumber) RENUMBER=1; shift ;;
         --no-renumber) RENUMBER=0; shift ;;
         --checksum) CHECKSUM=1; shift ;;
         -i | --interactive) INTERACTIVE=1; shift ;;
@@ -874,7 +883,7 @@ run_wizard() {
     else
         echo "  This container has ${MEM_HUMAN} GB of RAM. Each mode needs, relative to the .osm.pbf:" >&2
         echo "    [d]isk   — temporary data in memory-mapped files:  ~0.5× its size + 3 GB" >&2
-        echo "    [m]emory — temporary data on the Java heap, faster: ~1.5× its size + 3 GB" >&2
+        echo "    [m]emory — temporary data on the Java heap, faster: ~1.7× its size + 3 GB" >&2
         echo "  The RAM is checked once the .osm.pbf is downloaded." >&2
     fi
     mode="$(ask "Processing mode — [d]isk or [m]emory? (default: ${default_mode}): " "$default_mode")"
@@ -965,7 +974,9 @@ run_pipeline() {
         fi
     fi
 
-    STEP_TOTAL=$((4 + LANDCOVER))
+    # Renumbering is a step of its own only when it is requested; check_memory
+    # may still skip it.
+    STEP_TOTAL=$((3 + (RENUMBER != 0) + LANDCOVER))
 
     ###########################################################################
     # 1) Download: all inputs are fetched first, so that their sizes are known
@@ -1007,7 +1018,8 @@ run_pipeline() {
     note "💾 $MODE mode: Java heap $(human_size "$HEAP_BYTES"), needs ~$(human_size "$NEED_BYTES") of ${MEM_HUMAN} GB RAM"
 
     ###########################################################################
-    # 2) Renumber OSM IDs so they are dense (faster, slightly smaller tiles).
+    # 2) Renumber OSM IDs so they are dense (faster, slightly smaller tiles),
+    #    if requested with --renumber.
     ###########################################################################
     local osm_pbf="$src_pbf"
     if [[ "$RENUMBER" != "0" ]]; then
@@ -1017,8 +1029,8 @@ run_pipeline() {
         run_logged generic osmium renumber --progress --overwrite -o "$renumbered" "$src_pbf" || step_failed
         osm_pbf="$renumbered"
         step_end
-    else
-        step_skip "Renumbering OSM IDs" "${RENUMBER_SKIPPED:-turned off}"
+    elif [[ -n "$RENUMBER_SKIPPED" ]]; then
+        step_skip "Renumbering OSM IDs" "$RENUMBER_SKIPPED"
     fi
 
     ###########################################################################

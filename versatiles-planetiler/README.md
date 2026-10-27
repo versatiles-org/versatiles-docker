@@ -12,7 +12,7 @@ It is part of the [versatiles-docker](https://github.com/versatiles-org/versatil
 - Based on **Planetiler** and **versatiles-rs**
 - **Interactive wizard** *or* fully scriptable via flags / environment variables
 - Optional **land cover** injection from [`landcover-vectors.versatiles`](https://download.versatiles.org/landcover-vectors.versatiles) (merged on the fly, no extra download, and [filtered so each kind comes from one source per zoom](https://github.com/versatiles-org/landcover-vectors#merging-with-osm)), written as a second output next to the plain OSM one
-- **OSM ID renumbering** (`osmium renumber`, on by default) for faster builds and slightly smaller tiles
+- Feature IDs in the tiles are **OSM IDs** (see [Feature IDs](#-feature-ids)); optional renumbering for 2–4% smaller tiles
 - Optional **checksums** (`.md5` + `.sha256`) written next to each output
 - Output as **versatiles** (brotli), **pmtiles** or **mbtiles**
 - Renders the whole **planet** or any **Geofabrik** sub-region
@@ -88,7 +88,7 @@ The terminal check (`[ -t 0 ]`) prevents a detached or CI run from hanging on a 
 | `--mode <disk\|memory>`   | `MODE`          | `disk`                    | Where Planetiler keeps its temporary data: memory-mapped files, or the Java heap (faster, more RAM). See [Memory](#-memory) below. |
 | `--xmx <SIZE>`            | `XMX`           | from `--mode`             | Override the Java heap that `--mode` derives, e.g. `20g`.             |
 | `--torrent`               | `TORRENT=1`     | off                       | For `--area planet`: fetch the pbf via BitTorrent. See [Planet download](#-planet-download). |
-| `--no-renumber`           | `RENUMBER=0`    | on                        | Skip renumbering OSM IDs with `osmium` (renumbering is on by default — faster and slightly smaller tiles). |
+| `--renumber`              | `RENUMBER=1`    | off                       | Renumber the OSM IDs with `osmium` first: renders a bit faster and makes the tiles 2–4% smaller, but the feature IDs are no longer OSM IDs. See [Feature IDs](#-feature-ids). |
 | `--checksum`              | `CHECKSUM=1`    | off                       | Write `<output>.md5` and `<output>.sha256` next to each output.       |
 | `-i`, `--interactive`     | `INTERACTIVE=1` | —                         | Force the interactive wizard.                                         |
 
@@ -118,14 +118,14 @@ Choose a mode with `--mode` / `MODE`, or in the wizard:
 
 | Mode             | Planetiler flags                       | Java heap            | RAM needed           | Planet (89 GB pbf, Oct 2026) |
 |------------------|----------------------------------------|----------------------|----------------------|------------------------------|
-| `disk` (default) | `--storage=mmap --nodemap_type=array`  | 0.3× pbf size + 2 GB | 0.5× pbf size + 3 GB | ~48 GB                       |
-| `memory`         | `--storage=ram --nodemap_type=array`   | 1.5× pbf size + 2 GB | 1.5× pbf size + 3 GB | ~137 GB                      |
+| `disk` (default) | `--storage=mmap`                       | 0.3× pbf size + 2 GB | 0.5× pbf size + 3 GB | ~48 GB                       |
+| `memory`         | `--storage=ram`                        | 1.7× pbf size + 2 GB | 1.7× pbf size + 3 GB | ~154 GB                      |
 
 Sizes are binary (1 GB = 1024³ bytes), as Docker and the JVM count them.
 
 In **disk** mode, Planetiler keeps node locations and multipolygon geometries in memory-mapped files, and the RAM beyond the Java heap serves as page cache for them. In **memory** mode they stay on the Java heap, which is faster but needs about three times as much RAM. The wizard shows both figures for the planet and suggests memory mode when it fits.
 
-**Renumbering** (`osmium renumber`, on by default) keeps all old node IDs in a list that doubles in size when full, so it needs 8 bytes × the next power of two above the node count, plus 2 GB — for the planet (~10.7 billion nodes) ~130 GB, more than disk mode itself. If it doesn't fit but Planetiler does, renumbering is skipped with a notice; the tiles are the same, only slightly larger. Without renumbering, memory mode uses `--nodemap_type=sparsearray`.
+**Renumbering** (`--renumber`, off by default) keeps all old node IDs in a list that doubles in size when full, so it needs 8 bytes × the next power of two above the node count, plus 2 GB — for the planet (~10.7 billion nodes) ~130 GB, more than disk mode itself. If it doesn't fit but Planetiler does, renumbering is skipped with a notice; the tiles are the same, only slightly larger. The node map is a plain array indexed by node ID (`--nodemap_type=array`) for renumbered input and for the planet in disk mode; its size follows the highest node ID, ~110 GB for real OSM IDs. Everything else uses `--nodemap_type=sparsearray`, whose size follows the node count.
 
 **Overrides:** `--xmx 40g` / `XMX=40g`, or `-Xmx` in `JAVA_OPTS`, replaces the derived heap; the check then uses that heap. Storage flags in `PLANETILER_EXTRA_FLAGS` override the mode's, but the check still assumes the mode's.
 
@@ -166,13 +166,21 @@ To force a fresh download, delete the cached file.
 
 The container runs [`generate_tiles.sh`](https://github.com/versatiles-org/versatiles-docker/blob/main/versatiles-planetiler/scripts/generate_tiles.sh), which performs:
 
-0. *(on by default; disable with `--no-renumber`)* **Renumber** the OSM input with `osmium renumber` so node/way IDs are dense. This shrinks Planetiler's node map (faster, less I/O) and shortens the feature IDs encoded in each tile (slightly smaller output). For the whole planet this adds time and needs RAM ≈ the pbf size, so disable it there if resources are tight.
+0. *(optional, `--renumber`)* **Renumber** the OSM input with `osmium renumber` so node/way IDs are dense. This shrinks Planetiler's node map (faster, less I/O) and shortens the feature IDs encoded in each tile (2–4% smaller output), but the IDs are then no longer OSM IDs. For the whole planet it needs ~130 GB of RAM (see [Memory](#-memory)); with less, it is skipped.
 1. **Render** Shortbread tiles with `planetiler shortbread-1.1 --area=<area>` into an intermediate **PMTiles** file (flat layout → fast sequential reads).
 2. **Convert** the PMTiles to the chosen container with `versatiles convert`. When land cover is enabled, a second container is converted from the same PMTiles: the VPL `from_merged_vector` operation folds the remote land cover container's features into the Shortbread layers (range-read on demand, nothing downloaded). Both sources are filtered first: up to z10 the land cover supplies forest, farmland, glacier and the other land cover kinds, while OSM supplies `water` from z4 and `residential` from z10 (see [Merging with OSM](https://github.com/versatiles-org/landcover-vectors#merging-with-osm)).
 3. **Store** the final result(s) in `/app/data/result/<name>.<format>`.
 4. *(optional, `--checksum`)* **Checksum** — write `<name>.<format>.md5` and `<name>.<format>.sha256` next to each result.
 
 `.versatiles` output is compressed with **brotli**; `.pmtiles` / `.mbtiles` keep their default compression.
+
+---
+
+## 🔖 Feature IDs
+
+Every feature in the tiles carries its OSM ID, encoded as `OSM ID × 10 + type`, where the type is 1 for a node, 2 for a way and 3 for a relation. For example, `15670183441` is node 1567018344, and `13691913` is relation 1369191.
+
+With `--renumber`, `osmium renumber` replaces the OSM IDs with sequential numbers first. The tiles become 2–4% smaller (Monaco 3.7%, Liechtenstein 1.7%), but their IDs no longer point to the OSM objects — a renumbered ID is usually a valid OSM ID of an unrelated object — and they change from build to build. Use it only when nothing needs the IDs.
 
 ---
 
@@ -189,10 +197,9 @@ Rendering the whole planet is heavy: budget **~400 GB+ free disk** and a few hou
 The console shows one line per step. On a terminal (`docker run -t` or `-it`), a progress bar with the elapsed time and an estimate of the time left redraws that line:
 
 ```
-[1/5] Downloading sources       ✓ 0s · monaco.osm.pbf, 0.7 MB
-      💾 disk mode: Java heap 2.0 GB, needs ~3.0 GB of 7.7 GB RAM
-[2/5] Renumbering OSM IDs       ✓ 0s
-[3/5] Rendering tiles           ▕██████████▊         ▏  54% · processing OSM · 41m12s · ~35m left
+[1/4] Downloading sources       ✓ 3m12s · planet-261019.osm.pbf, 88.9 GB
+      💾 disk mode: Java heap 28.7 GB, needs ~47.5 GB of 122.8 GB RAM
+[2/4] Rendering tiles           ▕██████████▊         ▏  54% · processing OSM · 1h41m · ~1h26m left
 ```
 
 Without a terminal (`docker logs`, CI), each step prints a start line, a status line at most once a minute, and an end line.
