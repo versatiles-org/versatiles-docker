@@ -609,15 +609,13 @@ run_wizard() {
     *) FORMAT="versatiles" ;;
     esac
 
-    # 4) Output filename. Empty keeps the default names.
-    local default_names
-    default_names="$(default_output_name osm).${FORMAT}"
+    # 4) Output name, without extension. With land cover it names both files
+    #    (see resolve_output_names). Empty keeps the default names.
     if [[ "$LANDCOVER" == "1" ]]; then
-        default_names+=" and $(default_output_name osm-landcover).${FORMAT}"
-        echo "  With land cover, two files are written: OSM only, and OSM with land cover." >&2
-        echo "  A custom name is used for the first; the second gets \"-landcover\" added." >&2
+        OUTPUT_NAME="$(ask "Output name, one for both files (default: $(default_output_name osm) / $(default_output_name osm-landcover)): " "")"
+    else
+        OUTPUT_NAME="$(ask "Output name (default: $(default_output_name osm)): " "")"
     fi
-    OUTPUT_NAME="$(ask "Output filename (default: ${default_names}): " "")"
 
     # 5) Checksums?
     local cs
