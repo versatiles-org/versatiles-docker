@@ -358,9 +358,10 @@ run_logged() {
 #               processing OSM 45%, sorting 4%, writing tiles 42%, ocean 1%.
 #               The first pass reports no percentage, so its progress is the
 #               node count against NODES_EST. Warnings and errors are shown
-#               on the console, except Planetiler's memory-mapped files
-#               warning: it assumes 9.5 billion node IDs for every file, and
-#               check_memory checks the RAM instead.
+#               on the console, except two: Planetiler's memory-mapped files
+#               warning, which assumes 9.5 billion node IDs for every file
+#               (check_memory checks the RAM instead), and its warning for
+#               every tile over 1 MB, which summarize_big_tiles sums up once.
 progress_filter() {
     local mode="${1%%:*}" detail=""
     [[ "$1" == *:* ]] && detail="${1#*:}"
@@ -387,7 +388,8 @@ progress_filter() {
                 local level="${BASH_REMATCH[1]}" st="${BASH_REMATCH[3]}" msg="${BASH_REMATCH[5]}"
                 warn=0
                 if [[ "$level" == WAR || "$level" == ERR ]]; then
-                    if [[ "$msg" == *"memory-mapped files for node locations"* ]]; then
+                    if [[ "$msg" == *"memory-mapped files for node locations"* ||
+                        "$msg" =~ ^\{x=[0-9]+\ y=[0-9]+\ z=[0-9]+\}\ [0-9]+kb\ uncompressed$ ]]; then
                         warn=2
                     else
                         warn=1
@@ -435,6 +437,22 @@ progress_filter() {
                 printed_at=$EPOCHSECONDS
             fi
         done
+}
+
+# summarize_big_tiles → after rendering, sums up Planetiler's warnings about
+# tiles over 1 MB uncompressed (progress_filter keeps them off the console) and
+# lists the biggest tiles from its "Biggest tiles (gzipped)" table in the log:
+#   1. 14/6435/8361 (951k) https://onthegomap.github.io/… (buildings:1.7M)
+summarize_big_tiles() {
+    local count coord size layer
+    count="$(grep -c 'kb uncompressed$' "$LOG_FILE" || true)"
+    ((count > 0)) || return 0
+    note "⚠️  $count tiles are over 1 MB uncompressed. The biggest (gzipped, largest layer uncompressed):"
+    while read -r coord size layer; do
+        note "    $coord ${size//[()]/} ${layer//[()]/}"
+    done < <(sed -n '/Biggest tiles (gzipped)/,/ - /p' "$LOG_FILE" |
+        awk '/^[0-9]+\. / { print $2, $3, $NF }' | head -n 3)
+    note "    Details: \"Biggest tiles\" and \"Max tile sizes\" in the log."
 }
 
 # draw_progress <percent> <detail> <elapsed seconds> → redraws the current
@@ -1056,6 +1074,7 @@ run_pipeline() {
         --ne_10m_admin_0_countries_path="$COUNTRIES_PATH" \
         $PLANETILER_EXTRA_FLAGS || step_failed
     step_end "$(human_size "$(stat -c %s "$intermediate")")"
+    summarize_big_tiles
 
     ###########################################################################
     # 4) Convert → final container(s)
