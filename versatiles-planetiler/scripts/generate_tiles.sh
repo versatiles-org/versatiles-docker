@@ -366,7 +366,8 @@ progress_filter() {
     local mode="${1%%:*}" detail=""
     [[ "$1" == *:* ]] && detail="${1#*:}"
     local t0=$EPOCHSECONDS line pct=-1 shown=-1 drawn_at=0 printed_at=$EPOCHSECONDS logged_at=0
-    local stage="" base=0 share=100 spct=0 n warn=0
+    local stage="" base=0 share=100 spct=0 n warn=0 clear=""
+    ((IS_TTY)) && clear=$'\r\033[K' # a warning replaces the step's line on a terminal
     local -A shares=([ne_10m_admin_0_countries]=0 [osm_pass1]=8 [osm_pass2]=45 [ocean]=1 [sort]=4 [archive]=42)
     local -A starts=([ne_10m_admin_0_countries]=0 [osm_pass1]=0 [osm_pass2]=8 [ocean]=53 [sort]=54 [archive]=58)
     local -A names=([ne_10m_admin_0_countries]="country polygons" [osm_pass1]="reading OSM"
@@ -393,7 +394,7 @@ progress_filter() {
                         warn=2
                     else
                         warn=1
-                        printf '\r\033[K      ⚠️  %s\n' "$msg"
+                        printf '%s      ⚠️  %s\n' "$clear" "$msg"
                         shown=-2
                     fi
                 fi
@@ -422,7 +423,7 @@ progress_filter() {
                     pct=$((base + share * spct / 100))
                 fi
             elif ((warn == 1)) && [[ -n "$line" && "$line" != WARNING:* ]]; then
-                printf '\r\033[K      %s\n' "$line"
+                printf '%s      %s\n' "$clear" "$line"
                 shown=-2
             fi
 
