@@ -24,7 +24,7 @@ It is part of the [versatiles-docker](https://github.com/versatiles-org/versatil
 
 ### Interactive
 
-Run with an attached terminal (`-it`) and no arguments to launch the wizard. It asks whether to render the whole planet (the default) or a sub-region, whether to inject land cover from download.versatiles.org, which container format to use, and the output filename. Mount **one** host directory at `/app/data` — it holds the source cache, temp files and the results:
+Run with an attached terminal (`-it`) and no arguments to launch the wizard. It asks whether to render the whole planet (the default) or a sub-region, whether to inject land cover from download.versatiles.org, which container format to use, the output filename, and whether Planetiler works in disk or memory mode (see [Memory](#-memory)). Mount **one** host directory at `/app/data` — it holds the source cache, temp files and the results:
 
 ```bash
 docker run -it --rm \
@@ -53,7 +53,7 @@ services:
       AREA: planet
       LANDCOVER: "1"
       FORMAT: versatiles
-      JAVA_OPTS: -Xmx20g
+      MODE: disk
     volumes:
       - ./planetiler:/app/data
 ```
@@ -84,7 +84,8 @@ The terminal check (`[ -t 0 ]`) prevents a detached or CI run from hanging on a 
 | `--landcover`             | `LANDCOVER=1`   | off                       | Also write a second output with land cover merged into the Shortbread layers. |
 | `--format <FMT>`          | `FORMAT`        | `versatiles`              | `versatiles` (brotli), `pmtiles` or `mbtiles`.                        |
 | `--name <BASENAME>`       | `OUTPUT_NAME`   | `osm[.<region>].<date>`   | Output filename; the extension is added automatically. Sub-regions include the region name. The land cover output is `osm-landcover[.<region>].<date>` by default, or `<BASENAME>-landcover` for a custom name. |
-| `--xmx <SIZE>`            | `XMX`           | auto (from available RAM) | JVM heap for Planetiler, e.g. `20g`. See [Memory](#-memory) below.    |
+| `--mode <disk\|memory>`   | `MODE`          | `disk`                    | Where Planetiler keeps its temporary data: memory-mapped files, or the Java heap (faster, more RAM). See [Memory](#-memory) below. |
+| `--xmx <SIZE>`            | `XMX`           | from `--mode`             | Override the Java heap that `--mode` derives, e.g. `20g`.             |
 | `--torrent`               | `TORRENT=1`     | off                       | For `--area planet`: fetch the pbf via BitTorrent. See [Planet download](#-planet-download). |
 | `--no-renumber`           | `RENUMBER=0`    | on                        | Skip renumbering OSM IDs with `osmium` (renumbering is on by default — faster and slightly smaller tiles). |
 | `--checksum`              | `CHECKSUM=1`    | off                       | Write `<output>.md5` and `<output>.sha256` next to each output.       |
@@ -103,28 +104,31 @@ Flags take precedence over environment variables, which take precedence over the
 | `OCEAN_MIRROR`           | [FAU mirror](https://ftp.fau.de/mirrors/openstreetmapdata.com-archive/) | Fallback when `OCEAN_URL` fails: the newest dated folder is used. |
 | `LANGUAGES`              | `extended`                            | `--name_languages` passed to Planetiler: `extended` for the [81 languages](https://github.com/versatiles-org/planetiler-shortbread#names), a comma-separated list of codes (e.g. `en,de,fr`), or both (`extended,tok`). |
 | `EXPERIMENTS`            | `all`                                 | `--shortbread_experiments` value.                                   |
-| `PLANETILER_EXTRA_FLAGS` | `--nodemap_type=array --storage=mmap` | Extra Planetiler flags.                                             |
+| `PLANETILER_EXTRA_FLAGS` | *(unset)*                             | Extra Planetiler flags. They come after the flags of `--mode`, so they override them. |
 | `JAVA_OPTS`              | *(unset)*                             | Extra JVM options. An explicit `-Xmx` here overrides `--xmx`/`XMX`. |
 
 ---
 
 ## 🧠 Memory
 
-Planetiler does **not** auto-abort on low memory — it only logs a warning and continues — so plan capacity yourself.
+Planetiler itself only logs a warning when memory is short and then carries on, very slowly. This image checks instead: it estimates the RAM a run needs from the size of the `.osm.pbf` and stops with an error if the container has less. For the planet it checks before the download, using the size of the latest planet file on the server; for a region, as soon as the `.osm.pbf` is downloaded.
 
-With the default `--storage=mmap --nodemap_type=array`, Planetiler keeps node locations in **memory-mapped files**, so the JVM heap can stay modest and the dominant requirement is **free RAM for the OS page cache**. Rule of thumb: **≥ 0.5× the `.osm.pbf` size as free RAM** (the whole planet is a ~70 GB pbf → **64 GB+ RAM** recommended).
+Choose a mode with `--mode` / `MODE`, or in the wizard:
 
-**JVM heap (`-Xmx`):** In a container the JVM otherwise grabs only ~25 % of the cgroup limit. This image instead derives a sensible default (~40 % of the memory available to the container, capped at 32 GB) and prints it on startup. Override it with `--xmx 20g` / `XMX=20g`, or set the full `JAVA_OPTS` (an explicit `-Xmx` there wins).
+| Mode             | Planetiler flags                       | Java heap            | RAM needed           | Planet (89 GB pbf, Oct 2026) |
+|------------------|----------------------------------------|----------------------|----------------------|------------------------------|
+| `disk` (default) | `--storage=mmap --nodemap_type=array`  | 0.3× pbf size + 2 GB | 0.5× pbf size + 3 GB | ~48 GB                       |
+| `memory`         | `--storage=ram --nodemap_type=array`   | 1.5× pbf size + 2 GB | 1.5× pbf size + 3 GB | ~137 GB                      |
 
-**Big machines:** to keep everything in RAM for maximum speed, switch storage and raise the heap:
+Sizes are binary (1 GB = 1024³ bytes), as Docker and the JVM count them.
 
-```bash
-docker run --rm \
-  -e PLANETILER_EXTRA_FLAGS="--storage=ram --nodemap_type=array" \
-  -e XMX=110g \
-  -v $(pwd)/planetiler:/app/data \
-  versatiles/versatiles-planetiler:latest --area planet
-```
+In **disk** mode, Planetiler keeps node locations and multipolygon geometries in memory-mapped files, and the RAM beyond the Java heap serves as page cache for them. In **memory** mode they stay on the Java heap, which is faster but needs about three times as much RAM. The wizard shows both figures for the planet and suggests memory mode when it fits.
+
+**Renumbering** (`osmium renumber`, on by default) needs about 1× the pbf size + 1 GB of RAM — for the planet ~90 GB, more than disk mode itself. If it doesn't fit but Planetiler does, renumbering is skipped with a notice; the tiles are the same, only slightly larger. Without renumbering, memory mode uses `--nodemap_type=sparsearray`.
+
+**Overrides:** `--xmx 40g` / `XMX=40g`, or `-Xmx` in `JAVA_OPTS`, replaces the derived heap; the check then uses that heap. Storage flags in `PLANETILER_EXTRA_FLAGS` override the mode's, but the check still assumes the mode's.
+
+**Docker Desktop** (Mac, Windows) runs containers in a virtual machine, so the container only sees that machine's memory. If the check fails there, raise the limit under *Settings → Resources*.
 
 See Planetiler's [PLANET.md](https://github.com/onthegomap/planetiler/blob/main/PLANET.md) for details.
 
@@ -132,7 +136,7 @@ See Planetiler's [PLANET.md](https://github.com/onthegomap/planetiler/blob/main/
 
 ## 🌍 Planet download
 
-For `--area planet`, Planetiler downloads the ~70 GB planet extract over HTTP by default. With `--torrent` (or `TORRENT=1`) the image instead fetches it via **BitTorrent** using `aria2c` and feeds it to Planetiler with `--osm_path` — usually faster and more reliable. The water polygons are fetched separately (see [below](#-water-polygons)), the Natural Earth country polygons by Planetiler.
+For `--area planet`, Planetiler downloads the ~89 GB planet extract over HTTP by default. With `--torrent` (or `TORRENT=1`) the image instead fetches it via **BitTorrent** using `aria2c` and feeds it to Planetiler with `--osm_path` — usually faster and more reliable. The water polygons are fetched separately (see [below](#-water-polygons)), the Natural Earth country polygons by Planetiler.
 
 ```bash
 docker run --rm \

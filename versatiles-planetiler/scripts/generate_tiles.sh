@@ -25,6 +25,8 @@
 #                            osm.<region>.<date> for a sub-region. The land cover
 #                            output is osm-landcover.… by default, or
 #                            <BASENAME>-landcover for a custom name.
+#   --mode <disk|memory>     Planetiler's temporary data in memory-mapped files
+#                            (default) or on the Java heap (faster, more RAM).
 #   -i, --interactive        Force the interactive wizard.
 #   -h, --help               Show this help.
 #
@@ -36,7 +38,8 @@
 #   LANGUAGES              name languages: "extended" (default, 81 languages) or comma-separated codes
 #   EXPERIMENTS            planetiler shortbread_experiments value (default: all)
 #   PLANETILER_EXTRA_FLAGS extra flags passed to planetiler
-#   JAVA_OPTS              extra JVM options, e.g. -Xmx20g
+#   MODE                   disk (default) or memory, see --mode
+#   XMX, JAVA_OPTS         Java heap override / extra JVM options
 #
 # 📁 DIRECTORY LAYOUT (inside the container) — mount ONE volume at /app/data
 #   /app/data           Single working volume (mount a host directory here)
@@ -66,7 +69,7 @@ RESULT_DIR="${RESULT_DIR:-$DATA_DIR/result}"
 LANDCOVER_URL="${LANDCOVER_URL:-https://download.versatiles.org/landcover-vectors.versatiles}"
 LANGUAGES="${LANGUAGES:-extended}"
 EXPERIMENTS="${EXPERIMENTS:-all}"
-PLANETILER_EXTRA_FLAGS="${PLANETILER_EXTRA_FLAGS:---nodemap_type=array --storage=mmap}"
+PLANETILER_EXTRA_FLAGS="${PLANETILER_EXTRA_FLAGS:-}"
 JAVA_OPTS="${JAVA_OPTS:-}"
 DATE="$(date +%Y-%m-%d)"
 
@@ -76,9 +79,13 @@ LANDCOVER="${LANDCOVER:-0}"
 FORMAT="${FORMAT:-versatiles}"
 OUTPUT_NAME="${OUTPUT_NAME:-}"
 INTERACTIVE="${INTERACTIVE:-0}"
-# JVM heap (-Xmx) value, e.g. "20g". Empty → auto-derived from available memory.
+# Processing mode: "disk" keeps Planetiler's temporary data in memory-mapped
+# files, "memory" keeps it on the Java heap (see "Memory planning" below).
+MODE="${MODE:-disk}"
+# JVM heap (-Xmx) value, e.g. "20g". Empty → derived from MODE and the .osm.pbf.
 XMX="${XMX:-}"
-XMX_AUTO=0
+# Set once check_memory has run with the planet's size, before any download.
+MEMORY_CHECKED=0
 
 # Renumber OSM IDs with `osmium renumber` before rendering. Dense IDs shrink the
 # node map (faster, less I/O) and shorten feature IDs (slightly smaller tiles).
@@ -134,8 +141,11 @@ OPTIONS
                            osm.<date>, or osm.<region>.<date> for a sub-region.
                            The land cover output is osm-landcover.… by default,
                            or <BASENAME>-landcover for a custom name.
-  --xmx <SIZE>             JVM heap for Planetiler, e.g. 20g. Default: derived
-                           from the memory available to the container.
+  --mode <disk|memory>     How Planetiler keeps its temporary data: "disk"
+                           (default) in memory-mapped files, ~0.5× the .osm.pbf
+                           size + 3 GB of RAM; "memory" on the Java heap, faster,
+                           ~1.5× + 3 GB. The run stops if the RAM is too small.
+  --xmx <SIZE>             Override the Java heap that --mode derives, e.g. 20g.
   --torrent                For --area planet: download the planet .osm.pbf via
                            BitTorrent (aria2) and feed it to Planetiler. Faster
                            and more reliable than the default HTTP download.
@@ -147,7 +157,7 @@ OPTIONS
 
 ENVIRONMENT (flags take precedence)
   AREA, LANDCOVER=1, FORMAT, OUTPUT_NAME, CHECKSUM=1, INTERACTIVE=1   configuration
-  XMX, JAVA_OPTS                                          JVM heap / JVM options
+  MODE, XMX, JAVA_OPTS                                    memory mode / JVM heap / JVM options
   RENUMBER=0                                              disable osmium renumber (on by default)
   TORRENT=1, PLANET_DATE=YYMMDD, PLANET_PBF_BASE          planet download
   OCEAN_URL, OCEAN_MIRROR                                 water polygons download
@@ -209,32 +219,114 @@ human_gb() {
     awk -v b="$1" 'BEGIN { printf "%.1f", b / 1073741824 }'
 }
 
-# Default -Xmx when the user didn't specify one. Planetiler keeps node locations
-# off-heap in memory-mapped files (the default --storage=mmap), so a modest heap
-# is enough and the rest of RAM should stay free for the OS page cache. Use ~40%
-# of available memory, clamped to [2g, 32g]. For --storage=ram on a big machine,
-# raise it explicitly via --xmx / JAVA_OPTS.
-default_xmx() {
-    local gb
-    gb=$(awk -v b="$1" 'BEGIN { g = int(b / 1073741824 * 0.4); if (g < 2) g = 2; if (g > 32) g = 32; printf "%d", g }')
-    printf '%dg' "$gb"
+###########################################################################
+# 🧮  Memory planning
+###########################################################################
+# Two modes, chosen with --mode / MODE or in the wizard:
+#   disk    Planetiler keeps node locations and multipolygon geometries in
+#           memory-mapped files (--storage=mmap); free RAM caches them.
+#   memory  Planetiler keeps them on the Java heap (--storage=ram): faster,
+#           but needs about three times as much RAM.
+# The estimates scale with the size of the .osm.pbf, like Planetiler's own
+# checks (PLANET.md, Planetiler.checkMemory):
+#   disk    heap 0.3× pbf + 2 GB (the Shortbread profile's estimate), plus
+#           0.2× pbf as page cache and 1 GB for the JVM     → 0.5× pbf + 3 GB
+#   memory  heap 1.5× pbf + 2 GB (Planetiler's figure for keeping node
+#           locations in RAM), plus 1 GB for the JVM        → 1.5× pbf + 3 GB
+#   osmium renumber: at least 8 bytes per OSM ID (osmium-renumber(1)),
+#           about 1 byte per byte of pbf                    → 1× pbf + 1 GB
+# For the 89 GB planet of October 2026 (binary GB): disk ~48 GB, memory
+# ~137 GB, renumber ~90 GB.
+GIB=1073741824
+
+# to_bytes <size> → bytes, for a JVM-style size such as "20g", "512m" or "1t".
+to_bytes() {
+    awk -v s="$1" 'BEGIN {
+        n = s + 0; u = tolower(substr(s, length(s)))
+        if (u == "k") n *= 1024; else if (u == "m") n *= 1024 ^ 2
+        else if (u == "g") n *= 1024 ^ 3; else if (u == "t") n *= 1024 ^ 4
+        printf "%.0f", n }'
 }
 
-# Resolve the JVM heap into JAVA_OPTS. An explicit -Xmx in JAVA_OPTS wins; then
-# XMX (flag/env); otherwise an auto value derived from available memory.
-resolve_java_opts() {
-    if [[ "$JAVA_OPTS" == *-Xmx* ]]; then
-        if [[ -n "$XMX" ]]; then
-            echo "⚠️  Both JAVA_OPTS (-Xmx) and --xmx/XMX are set; JAVA_OPTS takes precedence." >&2
+# mib <bytes> → whole MiB, rounded up (for -Xmx).
+mib() {
+    awk -v b="$1" 'BEGIN { m = b / 1048576; printf "%d", (m == int(m)) ? m : int(m) + 1 }'
+}
+
+# human_size <bytes> → "652 MB" below 1 GB, else "88.9 GB" (binary units).
+human_size() {
+    awk -v b="$1" 'BEGIN { if (b < 1073741824) printf "%.1f MB", b / 1048576; else printf "%.1f GB", b / 1073741824 }'
+}
+
+# The heap the user set, in bytes: -Xmx in JAVA_OPTS, else --xmx/XMX, else empty.
+heap_override_bytes() {
+    local xmx
+    xmx="$(grep -oE -- '-Xmx[0-9]+[kKmMgGtT]?' <<<"$JAVA_OPTS" | tail -n1 || true)"
+    xmx="${xmx#-Xmx}"
+    [[ -z "$xmx" ]] && xmx="$XMX"
+    [[ -n "$xmx" ]] && to_bytes "$xmx"
+    return 0
+}
+
+# plan_memory <pbf bytes> <mode> → sets HEAP_BYTES (the Java heap) and
+# NEED_BYTES (the RAM the run needs). A heap set by the user replaces the
+# estimate.
+plan_memory() {
+    local pbf="$1" mode="$2" override
+    override="$(heap_override_bytes)"
+    if [[ "$mode" == "memory" ]]; then
+        HEAP_BYTES="${override:-$(awk -v p="$pbf" 'BEGIN { printf "%.0f", 1.5 * p + 2 * 1073741824 }')}"
+        NEED_BYTES=$((HEAP_BYTES + GIB))
+    else
+        HEAP_BYTES="${override:-$(awk -v p="$pbf" 'BEGIN { printf "%.0f", 0.3 * p + 2 * 1073741824 }')}"
+        NEED_BYTES="$(awk -v h="$HEAP_BYTES" -v p="$pbf" 'BEGIN { printf "%.0f", h + 0.2 * p + 1073741824 }')"
+    fi
+}
+
+# check_memory <pbf bytes> → plans MODE's memory for this input, stops with an
+# error when the container has too little RAM, and turns renumbering off (with
+# a notice) when only renumbering does not fit.
+check_memory() {
+    local pbf="$1"
+    plan_memory "$pbf" "$MODE"
+    if ((NEED_BYTES > MEM_BYTES)); then
+        echo "Error: $MODE mode needs ~$(human_size "$NEED_BYTES") of RAM for a $(human_size "$pbf") .osm.pbf," >&2
+        echo "       but the container has only ${MEM_HUMAN} GB." >&2
+        if [[ "$MODE" == "memory" ]]; then
+            plan_memory "$pbf" disk
+            echo "       Disk mode (--mode disk) would need ~$(human_size "$NEED_BYTES")." >&2
         fi
-        return
+        echo "       On Docker Desktop, raise the memory limit under Settings → Resources." >&2
+        exit 1
     fi
-    local xmx="$XMX"
-    if [[ -z "$xmx" ]]; then
-        xmx="$(default_xmx "$MEM_BYTES")"
-        XMX_AUTO=1
+    if [[ "$RENUMBER" != "0" ]]; then
+        local need
+        need="$(awk -v p="$pbf" 'BEGIN { printf "%.0f", p + 1073741824 }')"
+        if ((need > MEM_BYTES)); then
+            echo "⚠️  Renumbering the OSM IDs needs ~$(human_size "$need") of RAM, but the container has ${MEM_HUMAN} GB;" >&2
+            echo "    skipping it. The tiles are the same, only slightly larger." >&2
+            RENUMBER=0
+        fi
     fi
-    JAVA_OPTS="-Xmx${xmx}${JAVA_OPTS:+ $JAVA_OPTS}"
+}
+
+# Planetiler flags for MODE. Without renumbering the node IDs are sparse, so
+# memory mode uses a sparse array instead of a plain array for the node map.
+mode_flags() {
+    if [[ "$MODE" != "memory" ]]; then
+        printf '%s' "--storage=mmap --nodemap_type=array"
+    elif [[ "$RENUMBER" != "0" ]]; then
+        printf '%s' "--storage=ram --nodemap_type=array"
+    else
+        printf '%s' "--storage=ram --nodemap_type=sparsearray"
+    fi
+}
+
+# Size of the newest planet .osm.pbf in bytes, from a HEAD request; empty (and
+# non-zero) when the server cannot be reached.
+planet_pbf_size() {
+    curl -fsSIL --max-time 30 "$PLANET_PBF_BASE/planet-latest.osm.pbf" | tr -d '\r' |
+        awk 'tolower($1) == "content-length:" { n = $2 } END { if (n) print n; else exit 1 }'
 }
 
 # Download the planet .osm.pbf via BitTorrent into $DATA_DIR/sources and set the
@@ -443,6 +535,8 @@ parse_args() {
         --format=*) FORMAT="${1#*=}"; shift ;;
         --name) OUTPUT_NAME="${2:-}"; shift 2 ;;
         --name=*) OUTPUT_NAME="${1#*=}"; shift ;;
+        --mode) MODE="${2:-}"; shift 2 ;;
+        --mode=*) MODE="${1#*=}"; shift ;;
         --xmx) XMX="${2:-}"; shift 2 ;;
         --xmx=*) XMX="${1#*=}"; shift ;;
         --torrent) TORRENT=1; shift ;;
@@ -471,8 +565,8 @@ run_wizard() {
     scope="$(ask "Render the whole [p]lanet or a [s]ub-region? [p/s] (default: p): " "p")"
     if [[ "$scope" != [sS]* ]]; then
         AREA="planet"
-        echo "  ⚠  The whole planet needs a large machine: ~64 GB+ RAM and ~400 GB+ free disk." >&2
-        echo "     This container currently sees ${MEM_HUMAN} GB of RAM." >&2
+        echo "  ⚠  The whole planet needs a large machine: ~48 GB+ RAM and ~400 GB+ free disk." >&2
+        echo "     The RAM is checked after the processing mode is chosen." >&2
         local tor
         tor="$(ask "  Download the planet via BitTorrent (faster, needs aria2)? [Y/n]: " "y")"
         if [[ "$tor" == [nN]* ]]; then TORRENT=0; else TORRENT=1; fi
@@ -524,11 +618,33 @@ run_wizard() {
     cs="$(ask "Write .md5 and .sha256 checksum files for each output? [y/N]: " "n")"
     if [[ "$cs" == [yY]* ]]; then CHECKSUM=1; else CHECKSUM=0; fi
 
-    # 6) JVM heap (-Xmx). Empty keeps the auto value derived from available memory.
-    if [[ -z "$XMX" ]]; then
-        local heap_in
-        heap_in="$(ask "JVM heap -Xmx (default: auto $(default_xmx "$MEM_BYTES")): " "")"
-        [[ -n "$heap_in" ]] && XMX="$heap_in"
+    # 6) Processing mode. For the planet, the size of the .osm.pbf is known
+    #    now, so the RAM is checked right away; for a region, after download.
+    local pbf="" default_mode="d" mode
+    if [[ "$AREA" == "planet" ]]; then
+        pbf="$(planet_pbf_size || true)"
+    fi
+    if [[ -n "$pbf" ]]; then
+        local disk_need memory_need
+        plan_memory "$pbf" disk
+        disk_need="$NEED_BYTES"
+        plan_memory "$pbf" memory
+        memory_need="$NEED_BYTES"
+        ((memory_need <= MEM_BYTES)) && default_mode="m"
+        echo "  The planet .osm.pbf is $(human_size "$pbf"); this container has ${MEM_HUMAN} GB of RAM." >&2
+        echo "    [d]isk   — temporary data in memory-mapped files:  needs ~$(human_size "$disk_need")" >&2
+        echo "    [m]emory — temporary data on the Java heap, faster: needs ~$(human_size "$memory_need")" >&2
+    else
+        echo "  This container has ${MEM_HUMAN} GB of RAM. Each mode needs, relative to the .osm.pbf:" >&2
+        echo "    [d]isk   — temporary data in memory-mapped files:  ~0.5× its size + 3 GB" >&2
+        echo "    [m]emory — temporary data on the Java heap, faster: ~1.5× its size + 3 GB" >&2
+        echo "  The RAM is checked once the .osm.pbf is downloaded." >&2
+    fi
+    mode="$(ask "Processing mode — [d]isk or [m]emory? (default: ${default_mode}): " "$default_mode")"
+    if [[ "$mode" == [mM]* ]]; then MODE=memory; else MODE=disk; fi
+    if [[ -n "$pbf" ]]; then
+        check_memory "$pbf"
+        MEMORY_CHECKED=1
     fi
 
     echo >&2
@@ -550,6 +666,17 @@ finalize_config() {
         exit 1
         ;;
     esac
+    case "$MODE" in
+    disk | memory) ;;
+    *)
+        echo "Error: invalid --mode '$MODE' (expected disk or memory)." >&2
+        exit 1
+        ;;
+    esac
+    if [[ -n "$XMX" && ! "$XMX" =~ ^[0-9]+[kKmMgGtT]?$ ]]; then
+        echo "Error: invalid --xmx '$XMX' (expected a size such as 20g)." >&2
+        exit 1
+    fi
     resolve_output_names
 }
 
@@ -586,18 +713,20 @@ run_pipeline() {
     if [[ "$AREA" == "planet" ]]; then
         echo "   DOWNLOAD:  $([[ "$TORRENT" == "1" ]] && echo "BitTorrent (aria2)" || echo "HTTP (planetiler --download)")"
     fi
-    if [[ "$XMX_AUTO" == "1" ]]; then
-        echo "   MEMORY:    ${MEM_HUMAN} GB available, JVM heap ${JAVA_OPTS%% *} (auto)"
-    else
-        echo "   MEMORY:    ${MEM_HUMAN} GB available, JVM opts: ${JAVA_OPTS}"
-    fi
+    echo "   MODE:      $MODE (${MEM_HUMAN} GB of RAM available)"
 
     # Planetiler only *warns* about insufficient resources and we pass --force
-    # (so it never blocks on a prompt). Surface the rule of thumb here instead.
-    echo "ℹ️  Planetiler keeps most data in memory-mapped files; keep RAM free for the OS"
-    echo "    page cache. Rule of thumb: ≥ 0.5× the .osm.pbf size as free RAM (the whole"
-    echo "    planet ≈ 70 GB pbf → 64 GB+ RAM). Tune with --xmx / JAVA_OPTS, or switch to"
-    echo "    in-memory storage via PLANETILER_EXTRA_FLAGS=\"--storage=ram --nodemap_type=array\"."
+    # (so it never blocks on a prompt), so check_memory checks the RAM instead:
+    # for the planet before the download, from the server's file size, and for
+    # every area once the .osm.pbf is on disk.
+    if [[ "$AREA" == "planet" && "$MEMORY_CHECKED" != "1" ]]; then
+        local planet_size
+        if planet_size="$(planet_pbf_size)"; then
+            check_memory "$planet_size"
+        else
+            echo "⚠️  Could not look up the planet's size; the RAM is checked after the download." >&2
+        fi
+    fi
 
     ###########################################################################
     # 1) Render with Planetiler → intermediate PMTiles
@@ -631,6 +760,11 @@ run_pipeline() {
         exit 1
     }
 
+    check_memory "$(stat -c %s "$src_pbf")"
+    local render_java_opts="$JAVA_OPTS"
+    [[ "$JAVA_OPTS" == *-Xmx* ]] || render_java_opts="-Xmx$(mib "$HEAP_BYTES")m${JAVA_OPTS:+ $JAVA_OPTS}"
+    echo "💾  Memory: $MODE mode, Java heap $(human_size "$HEAP_BYTES"), needs ~$(human_size "$NEED_BYTES") of ${MEM_HUMAN} GB."
+
     # Renumber OSM IDs so they are dense (faster, slightly smaller tiles).
     local osm_pbf="$src_pbf"
     if [[ "$RENUMBER" != "0" ]]; then
@@ -642,11 +776,14 @@ run_pipeline() {
     fi
 
     echo "🧱  Rendering tiles with Planetiler…"
-    # shellcheck disable=SC2086
-    time java $JAVA_OPTS -jar "$PLANETILER_JAR" shortbread-1.1 \
+    # mode_flags and PLANETILER_EXTRA_FLAGS are split into words on purpose; the
+    # extra flags come last, so they override the mode's.
+    # shellcheck disable=SC2086,SC2046
+    time java $render_java_opts -jar "$PLANETILER_JAR" shortbread-1.1 \
         --area="$AREA" \
         --download \
         --force \
+        $(mode_flags) \
         --name_languages="$LANGUAGES" \
         --shortbread_experiments="$EXPERIMENTS" \
         --output="$intermediate" \
@@ -725,5 +862,4 @@ elif [[ $ARGC -eq 0 && -z "$AREA" ]]; then
 fi
 
 finalize_config
-resolve_java_opts
 run_pipeline
