@@ -748,6 +748,11 @@ run_pipeline() {
         if [[ "$TORRENT" == "1" ]]; then
             echo "⚠️  --torrent only applies to the planet; ignoring for area '$AREA'." >&2
         fi
+        # Planetiler never refreshes a cached .osm.pbf, so say that it is used.
+        if [[ -f "$src_pbf" ]]; then
+            echo "♻️  Using the cached $src_pbf from $(date -r "$src_pbf" +%Y-%m-%d)."
+            echo "    Delete it to download a fresh copy."
+        fi
         echo "📥  Downloading sources…"
         # shellcheck disable=SC2086
         time java $JAVA_OPTS -jar "$PLANETILER_JAR" shortbread-1.1 \

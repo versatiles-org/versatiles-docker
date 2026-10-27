@@ -177,7 +177,7 @@ The container runs [`generate_tiles.sh`](https://github.com/versatiles-org/versa
 
 ## 💾 Disk & host mounts
 
-Mount **one** host directory at `/app/data`; it holds everything — the source cache (`sources/`), Planetiler's temp files (`tmp/`), the intermediate tiles and the results (`result/`). Keeping the cache on the host means re-runs reuse already-downloaded sources.
+Mount **one** host directory at `/app/data`; it holds everything — the source cache (`sources/`), Planetiler's temp files (`tmp/`), the intermediate tiles and the results (`result/`). Keeping the cache on the host means re-runs reuse already-downloaded sources. A cached `.osm.pbf` is never refreshed (the log says when one is used), so delete `sources/<area>.osm.pbf` to render current OSM data.
 
 Rendering the whole planet is heavy: budget **~400 GB+ free disk** and a few hours (see [Memory](#-memory) for RAM). Test with a small region first, e.g. `--area monaco`. To put results elsewhere, set `RESULT_DIR`.
 
