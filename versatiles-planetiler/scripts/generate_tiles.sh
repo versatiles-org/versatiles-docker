@@ -16,13 +16,15 @@
 #                            such as "monaco" or "berlin". Planetiler matches the
 #                            name against the Geofabrik index and downloads it.
 #                            REQUIRED in non-interactive mode.
-#   --landcover              Merge land cover data (default: off).
+#   --landcover              Also write a second output with land cover merged
+#                            in (default: off).
 #   --format <FMT>           Output container: versatiles (default), mbtiles or
 #                            pmtiles. "versatiles" uses brotli compression.
 #   --name <BASENAME>        Output filename (the extension is added
-#                            automatically). Default: osm[-landcover].<date>
-#                            for the planet, osm[-landcover].<region>.<date>
-#                            for a sub-region.
+#                            automatically). Default: osm.<date> for the planet,
+#                            osm.<region>.<date> for a sub-region. The land cover
+#                            output is osm-landcover.… by default, or
+#                            <BASENAME>-landcover for a custom name.
 #   -i, --interactive        Force the interactive wizard.
 #   -h, --help               Show this help.
 #
@@ -40,14 +42,16 @@
 #   /app/data           Single working volume (mount a host directory here)
 #   /app/data/sources   Downloaded source cache (reused across runs)
 #   /app/data/tmp       Planetiler temporary storage
-#   /app/data/result    Final output location (<name>.<format>)
+#   /app/data/result    Final output location (<name>.<format>; with land
+#                       cover, a second file with the land cover merged in)
 #
 #   Override the output location with RESULT_DIR if you want it elsewhere.
 #
 # 🔄 PIPELINE
 #   0) (optional) osmium renumber the OSM input so its IDs are dense
 #   1) planetiler shortbread-1.1 → intermediate PMTiles
-#   2) versatiles convert (optionally merging land cover via VPL) → final container
+#   2) versatiles convert → final container; with land cover, a second
+#      container with the land cover merged in via VPL
 #
 set -euo pipefail
 
@@ -122,12 +126,14 @@ OPTIONS
   --area <planet|REGION>   What to render: "planet" or a Geofabrik area name
                            such as "monaco" or "berlin" (matched against the
                            Geofabrik index). REQUIRED in non-interactive mode.
-  --landcover              Merge land cover data (default: off).
+  --landcover              Also write a second output with land cover merged
+                           in (default: off).
   --format <FMT>           Output container: versatiles (default), mbtiles or
                            pmtiles. "versatiles" uses brotli compression.
   --name <BASENAME>        Output filename without extension. Default:
-                           osm[-landcover].<date>, or
-                           osm[-landcover].<region>.<date> for a sub-region.
+                           osm.<date>, or osm.<region>.<date> for a sub-region.
+                           The land cover output is osm-landcover.… by default,
+                           or <BASENAME>-landcover for a custom name.
   --xmx <SIZE>             JVM heap for Planetiler, e.g. 20g. Default: derived
                            from the memory available to the container.
   --torrent                For --area planet: download the planet .osm.pbf via
@@ -135,7 +141,7 @@ OPTIONS
                            and more reliable than the default HTTP download.
   --no-renumber            Skip the osmium renumber step (it is on by default;
                            dense IDs render faster and yield slightly smaller tiles).
-  --checksum               Write <output>.md5 and <output>.sha256 next to the result.
+  --checksum               Write <output>.md5 and <output>.sha256 next to each output.
   -i, --interactive        Force the interactive wizard.
   -h, --help               Show this help.
 
@@ -388,12 +394,11 @@ region_slug() {
         sed -E 's/-+/-/g; s/^-//; s/-$//'
 }
 
-# Base filename (without extension) used as the default output name:
-#   planet → osm[-landcover].<date>
-#   region → osm[-landcover].<region>.<date>
+# default_output_name <prefix> → the default base filename (without extension):
+#   planet → <prefix>.<date>
+#   region → <prefix>.<region>.<date>
 default_output_name() {
-    local base="osm"
-    [[ "$LANDCOVER" == "1" ]] && base="osm-landcover"
+    local base="$1"
     if [[ "$AREA" == "planet" || -z "$AREA" ]]; then
         printf '%s.%s' "$base" "$DATE"
     else
@@ -407,6 +412,21 @@ output_filename() {
     case "$name" in
     *.versatiles | *.mbtiles | *.pmtiles) printf '%s' "$name" ;;
     *) printf '%s.%s' "$name" "$FORMAT" ;;
+    esac
+}
+
+# Base names of the outputs: OSM_NAME is OUTPUT_NAME or the default
+# osm[.<region>].<date>. With land cover, LANDCOVER_NAME is the default
+# osm-landcover[.<region>].<date>, or a custom name with "-landcover" added
+# (before its extension, if it has one).
+resolve_output_names() {
+    OSM_NAME="${OUTPUT_NAME:-$(default_output_name osm)}"
+    LANDCOVER_NAME=""
+    [[ "$LANDCOVER" == "1" ]] || return 0
+    case "$OUTPUT_NAME" in
+    "") LANDCOVER_NAME="$(default_output_name osm-landcover)" ;;
+    *.versatiles | *.mbtiles | *.pmtiles) LANDCOVER_NAME="${OUTPUT_NAME%.*}-landcover.${OUTPUT_NAME##*.}" ;;
+    *) LANDCOVER_NAME="$OUTPUT_NAME-landcover" ;;
     esac
 }
 
@@ -492,14 +512,19 @@ run_wizard() {
     *) FORMAT="versatiles" ;;
     esac
 
-    # 4) Output filename
-    local default_name
-    default_name="$(default_output_name)"
-    OUTPUT_NAME="$(ask "Output filename (default: ${default_name}.${FORMAT}): " "$default_name")"
+    # 4) Output filename. Empty keeps the default names.
+    local default_names
+    default_names="$(default_output_name osm).${FORMAT}"
+    if [[ "$LANDCOVER" == "1" ]]; then
+        default_names+=" and $(default_output_name osm-landcover).${FORMAT}"
+        echo "  With land cover, two files are written: OSM only, and OSM with land cover." >&2
+        echo "  A custom name is used for the first; the second gets \"-landcover\" added." >&2
+    fi
+    OUTPUT_NAME="$(ask "Output filename (default: ${default_names}): " "")"
 
     # 5) Checksums?
     local cs
-    cs="$(ask "Write .md5 and .sha256 checksum files? [y/N]: " "n")"
+    cs="$(ask "Write .md5 and .sha256 checksum files for each output? [y/N]: " "n")"
     if [[ "$cs" == [yY]* ]]; then CHECKSUM=1; else CHECKSUM=0; fi
 
     # 6) JVM heap (-Xmx). Empty keeps the auto value derived from available memory.
@@ -528,9 +553,7 @@ finalize_config() {
         exit 1
         ;;
     esac
-    if [[ -z "$OUTPUT_NAME" ]]; then
-        OUTPUT_NAME="$(default_output_name)"
-    fi
+    resolve_output_names
 }
 
 ###########################################################################
@@ -543,8 +566,9 @@ run_pipeline() {
     mkdir -p "$DATA_DIR" "$RESULT_DIR"
 
     intermediate="$DATA_DIR/planetiler.pmtiles"
-    local out_file
-    out_file="$RESULT_DIR/$(output_filename "$OUTPUT_NAME")"
+    local osm_file landcover_file=""
+    osm_file="$RESULT_DIR/$(output_filename "$OSM_NAME")"
+    [[ "$LANDCOVER" == "1" ]] && landcover_file="$RESULT_DIR/$(output_filename "$LANDCOVER_NAME")"
 
     # Remove the intermediate PMTiles, any renumbered pbf and an interrupted
     # water polygons download on exit.
@@ -558,7 +582,8 @@ run_pipeline() {
         echo "   LANDCOVER: no"
     fi
     echo "   FORMAT:    $FORMAT"
-    echo "   OUTPUT:    $out_file"
+    echo "   OUTPUT:    $osm_file"
+    [[ -n "$landcover_file" ]] && echo "              $landcover_file"
     echo "   RENUMBER:  $([[ "$RENUMBER" != "0" ]] && echo "yes (osmium renumber)" || echo "no")"
     echo "   CHECKSUM:  $([[ "$CHECKSUM" == "1" ]] && echo "yes (md5, sha256)" || echo "no")"
     if [[ "$AREA" == "planet" ]]; then
@@ -646,13 +671,14 @@ run_pipeline() {
         $PLANETILER_EXTRA_FLAGS
 
     ###########################################################################
-    # 2) Convert / merge → final container
+    # 2) Convert → final container(s)
     #
-    # When land cover is requested, the VPL `from_merged_vector` operation folds
-    # the remote land cover container's features into the Shortbread layers,
-    # with both sources filtered so each kind comes from one of them per zoom
-    # (see "Land cover handover" above). The land cover container is range-read
-    # from its URL — nothing is downloaded.
+    # The OSM output is always written. With land cover, a second output is
+    # converted from the same intermediate: the VPL `from_merged_vector`
+    # operation folds the remote land cover container's features into the
+    # Shortbread layers, with both sources filtered so each kind comes from one
+    # of them per zoom (see "Land cover handover" above). The land cover
+    # container is range-read from its URL — nothing is downloaded.
     # The merge covers the union of both sources, so for a sub-region `filter`
     # crops it back to the Planetiler output's bounds; otherwise the result would
     # hold the whole world's land cover.
@@ -660,13 +686,11 @@ run_pipeline() {
     # Either way, `meta_update` replaces Planetiler's generic Shortbread metadata
     # with VersaTiles branding (see issue #53).
     ###########################################################################
-    local compression_args=()
-    [[ "$FORMAT" == "versatiles" ]] && compression_args=(-c brotli)
-
     local source="from_container filename=\"$intermediate\""
-    local meta_args
-    if [[ "$LANDCOVER" == "1" ]]; then
-        meta_args="$(landcover_meta_args)"
+    echo "🚀  Converting to ${FORMAT}…"
+    convert_output "$source | meta_update $(base_meta_args)" "$osm_file"
+
+    if [[ -n "$landcover_file" ]]; then
         source="from_merged_vector [ $source | $OSM_HANDOVER_FILTER, from_container filename=\"$LANDCOVER_URL\" | $LANDCOVER_HANDOVER_FILTER ]"
         if [[ "$AREA" != "planet" ]]; then
             local bounds
@@ -677,19 +701,23 @@ run_pipeline() {
             source="$source | filter bbox=$bounds"
         fi
         echo "🌍  Merging land cover and converting to ${FORMAT}…"
-    else
-        meta_args="$(base_meta_args)"
-        echo "🚀  Converting to ${FORMAT}…"
+        convert_output "$source | meta_update $(landcover_meta_args)" "$landcover_file"
     fi
-    time versatiles convert "${compression_args[@]}" \
-        "[,vpl]($source | meta_update $meta_args)" \
-        "$out_file"
 
+    echo "✅  Done: $osm_file"
+    [[ -n "$landcover_file" ]] && echo "          $landcover_file"
+    return 0
+}
+
+# convert_output <vpl> <file> → converts the VPL pipeline into <file> (brotli
+# for .versatiles) and writes its checksums if requested.
+convert_output() {
+    local compression_args=()
+    [[ "$FORMAT" == "versatiles" ]] && compression_args=(-c brotli)
+    time versatiles convert "${compression_args[@]}" "[,vpl]($1)" "$2"
     if [[ "$CHECKSUM" == "1" ]]; then
-        write_checksums "$out_file"
+        write_checksums "$2"
     fi
-
-    echo "✅  Done: $out_file"
 }
 
 ###########################################################################
