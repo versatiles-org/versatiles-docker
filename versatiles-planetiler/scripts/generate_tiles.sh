@@ -233,10 +233,14 @@ human_gb() {
 #           0.2× pbf as page cache and 1 GB for the JVM     → 0.5× pbf + 3 GB
 #   memory  heap 1.5× pbf + 2 GB (Planetiler's figure for keeping node
 #           locations in RAM), plus 1 GB for the JVM        → 1.5× pbf + 3 GB
-#   osmium renumber: at least 8 bytes per OSM ID (osmium-renumber(1)),
-#           about 1 byte per byte of pbf                    → 1× pbf + 1 GB
-# For the 89 GB planet of October 2026 (binary GB): disk ~48 GB, memory
-# ~137 GB, renumber ~90 GB.
+#   osmium renumber: keeps the old node IDs (8 bytes each) in a std::vector
+#           that doubles its capacity when full, so its last doubling asks
+#           for 8 bytes × the next power of two above the node count, while
+#           the old half is still in use. The node count is estimated with
+#           Planetiler's ratio (7.5 billion nodes in a 66.7 GB planet).
+#                                                           → 8 × 2^⌈log2 nodes⌉ + 2 GB
+# For the 89 GB planet of October 2026 (binary GB, ~10.7 billion nodes): disk
+# ~48 GB, memory ~137 GB, renumber ~130 GB.
 GIB=1073741824
 
 # to_bytes <size> → bytes, for a JVM-style size such as "20g", "512m" or "1t".
@@ -301,7 +305,9 @@ check_memory() {
     fi
     if [[ "$RENUMBER" != "0" ]]; then
         local need
-        need="$(awk -v p="$pbf" 'BEGIN { printf "%.0f", p + 1073741824 }')"
+        need="$(awk -v p="$pbf" 'BEGIN {
+            n = 7.5e9 * p / 66691979646; c = 1; while (c < n) c *= 2
+            printf "%.0f", 8 * c + 2 * 1073741824 }')"
         if ((need > MEM_BYTES)); then
             echo "⚠️  Renumbering the OSM IDs needs ~$(human_size "$need") of RAM, but the container has ${MEM_HUMAN} GB;" >&2
             echo "    skipping it. The tiles are the same, only slightly larger." >&2
@@ -673,8 +679,9 @@ finalize_config() {
         exit 1
         ;;
     esac
-    if [[ -n "$XMX" && ! "$XMX" =~ ^[0-9]+[kKmMgGtT]?$ ]]; then
-        echo "Error: invalid --xmx '$XMX' (expected a size such as 20g)." >&2
+    # The JVM reads a bare number as bytes, so "96" would be a 96-byte heap.
+    if [[ -n "$XMX" && ! "$XMX" =~ ^[0-9]+[kKmMgGtT]$ ]]; then
+        echo "Error: invalid --xmx '$XMX' (expected a size with a unit, such as 20g)." >&2
         exit 1
     fi
     resolve_output_names

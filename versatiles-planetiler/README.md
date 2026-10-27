@@ -124,7 +124,7 @@ Sizes are binary (1 GB = 1024³ bytes), as Docker and the JVM count them.
 
 In **disk** mode, Planetiler keeps node locations and multipolygon geometries in memory-mapped files, and the RAM beyond the Java heap serves as page cache for them. In **memory** mode they stay on the Java heap, which is faster but needs about three times as much RAM. The wizard shows both figures for the planet and suggests memory mode when it fits.
 
-**Renumbering** (`osmium renumber`, on by default) needs about 1× the pbf size + 1 GB of RAM — for the planet ~90 GB, more than disk mode itself. If it doesn't fit but Planetiler does, renumbering is skipped with a notice; the tiles are the same, only slightly larger. Without renumbering, memory mode uses `--nodemap_type=sparsearray`.
+**Renumbering** (`osmium renumber`, on by default) keeps all old node IDs in a list that doubles in size when full, so it needs 8 bytes × the next power of two above the node count, plus 2 GB — for the planet (~10.7 billion nodes) ~130 GB, more than disk mode itself. If it doesn't fit but Planetiler does, renumbering is skipped with a notice; the tiles are the same, only slightly larger. Without renumbering, memory mode uses `--nodemap_type=sparsearray`.
 
 **Overrides:** `--xmx 40g` / `XMX=40g`, or `-Xmx` in `JAVA_OPTS`, replaces the derived heap; the check then uses that heap. Storage flags in `PLANETILER_EXTRA_FLAGS` override the mode's, but the check still assumes the mode's.
 
