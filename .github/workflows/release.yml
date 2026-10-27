@@ -6,32 +6,32 @@ on:
   workflow_dispatch:
     inputs:
       build_base:
-        description: 'Build base image'
+        description: 'base'
         required: false
         type: boolean
         default: true
       build_frontend:
-        description: 'Build frontend image'
+        description: 'frontend'
         required: false
         type: boolean
         default: true
       build_nginx:
-        description: 'Build nginx image'
+        description: 'nginx'
         required: false
         type: boolean
         default: true
       build_tippecanoe:
-        description: 'Build tippecanoe image'
+        description: 'tippecanoe'
         required: false
         type: boolean
         default: true
       build_gdal:
-        description: 'Build gdal image'
+        description: 'gdal'
         required: false
         type: boolean
         default: true
       build_planetiler:
-        description: 'Build planetiler image'
+        description: 'planetiler'
         required: false
         type: boolean
         default: true
