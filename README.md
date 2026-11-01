@@ -187,9 +187,9 @@ VersaTiles combined with [GDAL](https://gdal.org) for working with geospatial da
 
 #### `versatiles-planetiler`
 
-Generate OpenStreetMap based vector tiles in the [Shortbread schema](https://shortbread-tiles.org) using [Planetiler](https://github.com/onthegomap/planetiler), with an interactive wizard and optional land cover injection.
+Generate OpenStreetMap based vector tiles in the [Shortbread schema](https://shortbread-tiles.org) using [Planetiler](https://github.com/onthegomap/planetiler), with an interactive wizard.
 
-- **Contains:** versatiles + planetiler (VersaTiles fork + Shortbread profile) + helper tools (aria2, curl, jq, osmium)
+- **Contains:** versatiles + planetiler (VersaTiles fork + Shortbread profile) + helper tools (aria2, curl, osmium)
 - **Supported OS:** Debian
 - **Architectures:** AMD64, ARM64
 - **Registries:** [GitHub Container Registry](https://github.com/versatiles-org/versatiles-docker/pkgs/container/versatiles-planetiler) | [Docker Hub](https://hub.docker.com/r/versatiles/versatiles-planetiler)
@@ -212,14 +212,14 @@ Generate OpenStreetMap based vector tiles in the [Shortbread schema](https://sho
 
 **Example usage:**
 ```bash
-# Interactive wizard (planet/region, land cover, format, filename)
+# Interactive wizard (planet/region, format, filename)
 # Mount one volume at /app/data for the cache, temp files and results.
 docker run -it --rm -v $(pwd)/planetiler:/app/data \
   versatiles/versatiles-planetiler:latest
 
-# Non-interactive: render a Geofabrik region with land cover
+# Non-interactive: render a Geofabrik region
 docker run --rm -v $(pwd)/planetiler:/app/data \
-  versatiles/versatiles-planetiler:latest --area monaco --landcover
+  versatiles/versatiles-planetiler:latest --area monaco
 ```
 
 #### `versatiles-tippecanoe`

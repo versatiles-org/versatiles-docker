@@ -16,23 +16,18 @@
 #                            such as "monaco" or "berlin". Planetiler matches the
 #                            name against the Geofabrik index and downloads it.
 #                            REQUIRED in non-interactive mode.
-#   --landcover              Also write a second output with land cover merged
-#                            in (default: off).
 #   --format <FMT>           Output container: versatiles (default), mbtiles or
 #                            pmtiles. "versatiles" uses brotli compression.
 #   --name <BASENAME>        Output filename (the extension is added
 #                            automatically). Default: osm.<date> for the planet,
-#                            osm.<region>.<date> for a sub-region. The land cover
-#                            output is osm-landcover.… by default, or
-#                            <BASENAME>-landcover for a custom name.
+#                            osm.<region>.<date> for a sub-region.
 #   --mode <disk|memory>     Planetiler's temporary data in memory-mapped files
 #                            (default) or on the Java heap (faster, more RAM).
 #   -i, --interactive        Force the interactive wizard.
 #   -h, --help               Show this help.
 #
 # 🌱 ENVIRONMENT VARIABLES (flags take precedence)
-#   AREA, LANDCOVER=1, FORMAT, OUTPUT_NAME, INTERACTIVE=1   configuration
-#   LANDCOVER_URL          land cover container (default: the public VersaTiles one)
+#   AREA, FORMAT, OUTPUT_NAME, INTERACTIVE=1   configuration
 #   OCEAN_URL              water polygons zip (default: osmdata.openstreetmap.de)
 #   OCEAN_MIRROR           fallback with dated folders (default: the FAU mirror)
 #   LANGUAGES              name languages: "extended" (default, 81 languages) or comma-separated codes
@@ -46,16 +41,14 @@
 #   /app/data/sources   Downloaded source cache (reused across runs)
 #   /app/data/tmp       Planetiler temporary storage
 #   /app/data/logs      Complete output of each run (<name>.log)
-#   /app/data/result    Final output location (<name>.<format>; with land
-#                       cover, a second file with the land cover merged in)
+#   /app/data/result    Final output location (<name>.<format>)
 #
 #   Override the output location with RESULT_DIR if you want it elsewhere.
 #
 # 🔄 PIPELINE
 #   0) (optional, --renumber) osmium renumber the OSM input so its IDs are dense
 #   1) planetiler shortbread-1.1 → intermediate PMTiles
-#   2) versatiles convert → final container; with land cover, a second
-#      container with the land cover merged in via VPL
+#   2) versatiles convert → final container
 #
 set -euo pipefail
 
@@ -67,7 +60,6 @@ PLANETILER_JAR="${PLANETILER_JAR:-/opt/planetiler/planetiler.jar}"
 # tiles and (by default) the results — mount one host directory at $DATA_DIR.
 DATA_DIR="${DATA_DIR:-/app/data}"
 RESULT_DIR="${RESULT_DIR:-$DATA_DIR/result}"
-LANDCOVER_URL="${LANDCOVER_URL:-https://download.versatiles.org/landcover-vectors.versatiles}"
 LANGUAGES="${LANGUAGES:-extended}"
 EXPERIMENTS="${EXPERIMENTS:-all}"
 PLANETILER_EXTRA_FLAGS="${PLANETILER_EXTRA_FLAGS:-}"
@@ -76,7 +68,6 @@ DATE="$(date +%Y-%m-%d)"
 
 # Configuration (seeded from the environment, overridden by flags / wizard)
 AREA="${AREA:-}"
-LANDCOVER="${LANDCOVER:-0}"
 FORMAT="${FORMAT:-versatiles}"
 OUTPUT_NAME="${OUTPUT_NAME:-}"
 INTERACTIVE="${INTERACTIVE:-0}"
@@ -138,14 +129,10 @@ OPTIONS
   --area <planet|REGION>   What to render: "planet" or a Geofabrik area name
                            such as "monaco" or "berlin" (matched against the
                            Geofabrik index). REQUIRED in non-interactive mode.
-  --landcover              Also write a second output with land cover merged
-                           in (default: off).
   --format <FMT>           Output container: versatiles (default), mbtiles or
                            pmtiles. "versatiles" uses brotli compression.
   --name <BASENAME>        Output filename without extension. Default:
                            osm.<date>, or osm.<region>.<date> for a sub-region.
-                           The land cover output is osm-landcover.… by default,
-                           or <BASENAME>-landcover for a custom name.
   --mode <disk|memory>     How Planetiler keeps its temporary data: "disk"
                            (default) in memory-mapped files, ~0.5× the .osm.pbf
                            size + 3 GB of RAM; "memory" on the Java heap, faster,
@@ -157,17 +144,17 @@ OPTIONS
   --renumber               Renumber the OSM IDs with osmium first: renders a
                            bit faster and makes the tiles 2-4% smaller, but their
                            feature IDs are no longer OSM IDs. Off by default.
-  --checksum               Write <output>.md5 and <output>.sha256 next to each output.
+  --checksum               Write <output>.md5 and <output>.sha256 next to the output.
   -i, --interactive        Force the interactive wizard.
   -h, --help               Show this help.
 
 ENVIRONMENT (flags take precedence)
-  AREA, LANDCOVER=1, FORMAT, OUTPUT_NAME, CHECKSUM=1, INTERACTIVE=1   configuration
+  AREA, FORMAT, OUTPUT_NAME, CHECKSUM=1, INTERACTIVE=1    configuration
   MODE, XMX, JAVA_OPTS                                    memory mode / JVM heap / JVM options
   RENUMBER=1                                              renumber the OSM IDs (off by default)
   TORRENT=1, PLANET_DATE=YYMMDD, PLANET_PBF_BASE          planet download
   OCEAN_URL, OCEAN_MIRROR                                 water polygons download
-  LANDCOVER_URL, LANGUAGES, EXPERIMENTS,
+  LANGUAGES, EXPERIMENTS,
   PLANETILER_EXTRA_FLAGS                                  tuning
 EOF
 }
@@ -175,6 +162,14 @@ EOF
 print_usage_hint() {
     echo "No configuration provided and no interactive terminal detected." >&2
     echo "Provide --area <planet|REGION> (see --help), or use 'docker run -it' for the interactive wizard." >&2
+}
+
+# land_cover_removed <what was asked for> → explains the removal and exits.
+land_cover_removed() {
+    echo "Error: $1 was removed: this image no longer merges land cover into the tiles." >&2
+    echo "Land cover is now a separate tile source that a style draws under OSM, next to this image's output:" >&2
+    echo "https://github.com/versatiles-org/landcover-vectors#using-it-with-osm" >&2
+    exit 1
 }
 
 require_cmd() {
@@ -695,46 +690,12 @@ download_water_polygons() {
 # HTML attributes use single quotes so the values need no escaping inside the
 # double-quoted VPL strings.
 OSM_ATTRIBUTION="<a href='https://www.openstreetmap.org/copyright' target='_blank'>&copy; OpenStreetMap contributors</a>"
-LANDCOVER_ATTRIBUTION="<a href='https://esa-worldcover.org/en/data-access' target='_blank'>ESA WorldCover 2021</a> (<a href='https://creativecommons.org/licenses/by/4.0/' target='_blank'>CC BY 4.0</a>)"
 
 base_meta_args() {
     printf '%s' "name=\"VersaTiles OSM\"" \
         " description=\"Vector tiles based on OSM in Shortbread scheme\"" \
         " attribution=\"$OSM_ATTRIBUTION\"" \
         " schema=\"shortbread@1.1\""
-}
-
-landcover_meta_args() {
-    printf '%s' "name=\"VersaTiles OSM\"" \
-        " description=\"Vector tiles based on OSM in Shortbread scheme, with land cover from ESA WorldCover 2021\"" \
-        " attribution=\"$OSM_ATTRIBUTION · $LANDCOVER_ATTRIBUTION\"" \
-        " schema=\"shortbread@1.1\""
-}
-
-###########################################################################
-# 🌍  Land cover handover (VPL filters for the merge)
-###########################################################################
-# The land cover container carries every kind up to z10, so the merge filters
-# both sources to take each kind from exactly one of them per zoom
-# (https://github.com/versatiles-org/landcover-vectors#merging-with-osm):
-#   • OSM's own copies of the land cover kinds are dropped up to z10, because
-#     they are sparse where ESA's are complete;
-#   • the land cover's residential is dropped from z10 and its water from z4,
-#     because OSM maps those better.
-# `zoom` in filter expressions needs versatiles 4.15.0 or later; older releases
-# silently drop every feature of the filtered layers.
-OSM_HANDOVER_FILTER="vector_filter_features layer=[\"land\"] expr=\"!(zoom <= 10 && kind in ['forest', 'farmland', 'bare_rock', 'heath', 'scrub', 'grassland', 'marsh', 'swamp'])\""
-OSM_HANDOVER_FILTER+=" | vector_filter_features layer=[\"water_polygons\"] expr=\"!(zoom <= 10 && kind in ['glacier'])\""
-LANDCOVER_HANDOVER_FILTER="vector_filter_features layer=[\"land\"] expr=\"!(zoom >= 10 && kind in ['residential'])\""
-LANDCOVER_HANDOVER_FILTER+=" | vector_filter_features layer=[\"water_polygons\"] expr=\"!(zoom >= 4 && kind in ['water'])\""
-
-# Echo a container's bounds as "[west,south,east,north]". `versatiles probe` has
-# no machine-readable output: it prints its report to stderr, with the metadata
-# as an indented JSON block after "  meta: {".
-read_bounds() {
-    versatiles probe "$1" 2>&1 >/dev/null |
-        awk '/^  meta: \{/ { f = 1; print "{"; next } f && /^  \}/ { print "}"; exit } f' |
-        jq -ce '.bounds | select(type == "array" and length == 4 and all(type == "number"))'
 }
 
 # ask <prompt> <default> → echoes the user's answer, or the default on empty/EOF.
@@ -773,21 +734,6 @@ output_filename() {
     esac
 }
 
-# Base names of the outputs: OSM_NAME is OUTPUT_NAME or the default
-# osm[.<region>].<date>. With land cover, LANDCOVER_NAME is the default
-# osm-landcover[.<region>].<date>, or a custom name with "-landcover" added
-# (before its extension, if it has one).
-resolve_output_names() {
-    OSM_NAME="${OUTPUT_NAME:-$(default_output_name osm)}"
-    LANDCOVER_NAME=""
-    [[ "$LANDCOVER" == "1" ]] || return 0
-    case "$OUTPUT_NAME" in
-    "") LANDCOVER_NAME="$(default_output_name osm-landcover)" ;;
-    *.versatiles | *.mbtiles | *.pmtiles) LANDCOVER_NAME="${OUTPUT_NAME%.*}-landcover.${OUTPUT_NAME##*.}" ;;
-    *) LANDCOVER_NAME="$OUTPUT_NAME-landcover" ;;
-    esac
-}
-
 ###########################################################################
 # 🏷️  Argument parsing
 ###########################################################################
@@ -796,7 +742,7 @@ parse_args() {
         case "$1" in
         --area) AREA="${2:-}"; shift 2 ;;
         --area=*) AREA="${1#*=}"; shift ;;
-        --landcover) LANDCOVER=1; shift ;;
+        --landcover) land_cover_removed "--landcover" ;;
         --format) FORMAT="${2:-}"; shift 2 ;;
         --format=*) FORMAT="${1#*=}"; shift ;;
         --name) OUTPUT_NAME="${2:-}"; shift 2 ;;
@@ -856,12 +802,7 @@ run_wizard() {
         done
     fi
 
-    # 2) Inject land cover?
-    local lc
-    lc="$(ask "Inject land cover data from download.versatiles.org (landcover-vectors.versatiles)? [y/N]: " "n")"
-    if [[ "$lc" == [yY]* ]]; then LANDCOVER=1; else LANDCOVER=0; fi
-
-    # 3) Container format?
+    # 2) Container format?
     local fmt
     fmt="$(ask "Container format — [v]ersatiles, [m]btiles, [p]mtiles? (default: v): " "v")"
     case "$fmt" in
@@ -870,20 +811,15 @@ run_wizard() {
     *) FORMAT="versatiles" ;;
     esac
 
-    # 4) Output name, without extension. With land cover it names both files
-    #    (see resolve_output_names). Empty keeps the default names.
-    if [[ "$LANDCOVER" == "1" ]]; then
-        OUTPUT_NAME="$(ask "Output name, one for both files (default: $(default_output_name osm) / $(default_output_name osm-landcover)): " "")"
-    else
-        OUTPUT_NAME="$(ask "Output name (default: $(default_output_name osm)): " "")"
-    fi
+    # 3) Output name, without extension. Empty keeps the default name.
+    OUTPUT_NAME="$(ask "Output name (default: $(default_output_name osm)): " "")"
 
-    # 5) Checksums?
+    # 4) Checksums?
     local cs
-    cs="$(ask "Write .md5 and .sha256 checksum files for each output? [y/N]: " "n")"
+    cs="$(ask "Write .md5 and .sha256 checksum files for the output? [y/N]: " "n")"
     if [[ "$cs" == [yY]* ]]; then CHECKSUM=1; else CHECKSUM=0; fi
 
-    # 6) Processing mode. For the planet, the size of the .osm.pbf is known
+    # 5) Processing mode. For the planet, the size of the .osm.pbf is known
     #    now, so the RAM is checked right away; for a region, after download.
     local pbf="" default_mode="d" mode
     if [[ "$AREA" == "planet" ]]; then
@@ -943,7 +879,7 @@ finalize_config() {
         echo "Error: invalid --xmx '$XMX' (expected a size with a unit, such as 20g)." >&2
         exit 1
     fi
-    resolve_output_names
+    OSM_NAME="${OUTPUT_NAME:-$(default_output_name osm)}"
 }
 
 ###########################################################################
@@ -956,9 +892,8 @@ run_pipeline() {
     mkdir -p "$DATA_DIR" "$RESULT_DIR" "$DATA_DIR/logs"
 
     intermediate="$DATA_DIR/planetiler.pmtiles"
-    local osm_file landcover_file=""
+    local osm_file
     osm_file="$RESULT_DIR/$(output_filename "$OSM_NAME")"
-    [[ "$LANDCOVER" == "1" ]] && landcover_file="$RESULT_DIR/$(output_filename "$LANDCOVER_NAME")"
     LOG_FILE="$DATA_DIR/logs/$OSM_NAME.log"
     : >"$LOG_FILE"
     local t0=$EPOCHSECONDS
@@ -967,14 +902,13 @@ run_pipeline() {
     # water polygons download on exit, and end an open step line.
     trap '((STEP_OPEN)) && printf "\n"; rm -f "${intermediate:-}" "${renumbered:-}" "$OCEAN_PATH.part" "$OCEAN_PATH.headers"' EXIT
 
-    echo "VersaTiles Planetiler: $AREA$([[ -n "$landcover_file" ]] && echo ", with land cover"), $FORMAT, $MODE mode"
-    echo "   Results: $osm_file"
-    [[ -n "$landcover_file" ]] && echo "            $landcover_file"
-    echo "   Log:     $LOG_FILE"
+    echo "VersaTiles Planetiler: $AREA, $FORMAT, $MODE mode"
+    echo "   Result: $osm_file"
+    echo "   Log:    $LOG_FILE"
     echo
     {
         echo "VersaTiles Planetiler, $(date '+%F %T')"
-        echo "   AREA=$AREA LANDCOVER=$LANDCOVER FORMAT=$FORMAT MODE=$MODE RENUMBER=$RENUMBER"
+        echo "   AREA=$AREA FORMAT=$FORMAT MODE=$MODE RENUMBER=$RENUMBER"
         echo "   CHECKSUM=$CHECKSUM TORRENT=$TORRENT LANGUAGES=$LANGUAGES EXPERIMENTS=$EXPERIMENTS"
         echo "   JAVA_OPTS=$JAVA_OPTS PLANETILER_EXTRA_FLAGS=$PLANETILER_EXTRA_FLAGS"
         echo "   RAM available: ${MEM_HUMAN} GB"
@@ -995,7 +929,7 @@ run_pipeline() {
 
     # Renumbering is a step of its own only when it is requested; check_memory
     # may still skip it.
-    STEP_TOTAL=$((3 + (RENUMBER != 0) + LANDCOVER))
+    STEP_TOTAL=$((3 + (RENUMBER != 0)))
 
     ###########################################################################
     # 1) Download: all inputs are fetched first, so that their sizes are known
@@ -1078,43 +1012,19 @@ run_pipeline() {
     summarize_big_tiles
 
     ###########################################################################
-    # 4) Convert → final container(s)
+    # 4) Convert → final container
     #
-    # The OSM output is always written. With land cover, a second output is
-    # converted from the same intermediate: the VPL `from_merged_vector`
-    # operation folds the remote land cover container's features into the
-    # Shortbread layers, with both sources filtered so each kind comes from one
-    # of them per zoom (see "Land cover handover" above). The land cover
-    # container is range-read from its URL — nothing is downloaded.
-    # The merge covers the union of both sources, so for a sub-region `filter`
-    # crops it back to the Planetiler output's bounds; otherwise the result would
-    # hold the whole world's land cover.
-    #
-    # Either way, `meta_update` replaces Planetiler's generic Shortbread metadata
-    # with VersaTiles branding (see issue #53).
+    # `meta_update` replaces Planetiler's generic Shortbread metadata with
+    # VersaTiles branding (see issue #53).
     ###########################################################################
     local source="from_container filename=\"$intermediate\""
     step_begin "Converting to $FORMAT"
     convert_output "$source | meta_update $(base_meta_args)" "$osm_file"
     step_end "$(human_size "$(stat -c %s "$osm_file")")"
 
-    if [[ -n "$landcover_file" ]]; then
-        step_begin "Merging land cover"
-        source="from_merged_vector [ $source | $OSM_HANDOVER_FILTER, from_container filename=\"$LANDCOVER_URL\" | $LANDCOVER_HANDOVER_FILTER ]"
-        if [[ "$AREA" != "planet" ]]; then
-            local bounds
-            bounds="$(read_bounds "$intermediate")" ||
-                fail "Error: could not read the bounds of $intermediate to crop the land cover."
-            source="$source | filter bbox=$bounds"
-        fi
-        convert_output "$source | meta_update $(landcover_meta_args)" "$landcover_file"
-        step_end "$(human_size "$(stat -c %s "$landcover_file")")"
-    fi
-
     echo
     echo "✅ Done in $(duration $((EPOCHSECONDS - t0))):"
     echo "   $osm_file"
-    [[ -n "$landcover_file" ]] && echo "   $landcover_file"
     log "=== done in $(duration $((EPOCHSECONDS - t0)))"
     return 0
 }
@@ -1138,6 +1048,7 @@ MEM_HUMAN="$(human_gb "$MEM_BYTES")"
 
 ARGC=$#
 parse_args "$@"
+[[ "${LANDCOVER:-0}" == "0" ]] || land_cover_removed "LANDCOVER=$LANDCOVER"
 
 if [[ "$INTERACTIVE" == "1" ]]; then
     run_wizard

@@ -11,9 +11,8 @@ It is part of the [versatiles-docker](https://github.com/versatiles-org/versatil
 - Fully automated OSM → Shortbread tiles → VersaTiles pipeline
 - Based on **Planetiler** and **versatiles-rs**
 - **Interactive wizard** *or* fully scriptable via flags / environment variables
-- Optional **land cover** injection from [`landcover-vectors.versatiles`](https://download.versatiles.org/landcover-vectors.versatiles) (merged on the fly, no extra download, and [filtered so each kind comes from one source per zoom](https://github.com/versatiles-org/landcover-vectors#merging-with-osm)), written as a second output next to the plain OSM one
 - Feature IDs in the tiles are **OSM IDs** (see [Feature IDs](#-feature-ids)); optional renumbering for 2–4% smaller tiles
-- Optional **checksums** (`.md5` + `.sha256`) written next to each output
+- Optional **checksums** (`.md5` + `.sha256`) written next to the output
 - Output as **versatiles** (brotli), **pmtiles** or **mbtiles**
 - Renders the whole **planet** or any **Geofabrik** sub-region
 - A clean console: one line per step with a progress bar and ETA; the complete output goes to a log file
@@ -25,7 +24,7 @@ It is part of the [versatiles-docker](https://github.com/versatiles-org/versatil
 
 ### Interactive
 
-Run with an attached terminal (`-it`) and no arguments to launch the wizard. It asks whether to render the whole planet (the default) or a sub-region, whether to inject land cover from download.versatiles.org, which container format to use, the output filename, and whether Planetiler works in disk or memory mode (see [Memory](#-memory)). Mount **one** host directory at `/app/data` — it holds the source cache, temp files and the results:
+Run with an attached terminal (`-it`) and no arguments to launch the wizard. It asks whether to render the whole planet (the default) or a sub-region, which container format to use, the output filename, and whether Planetiler works in disk or memory mode (see [Memory](#-memory)). Mount **one** host directory at `/app/data` — it holds the source cache, temp files and the results:
 
 ```bash
 docker run -it --rm \
@@ -41,7 +40,7 @@ Only `--area` is required; everything else has a default:
 docker run --rm \
   -v $(pwd)/planetiler:/app/data \
   versatiles/versatiles-planetiler:latest \
-  --area monaco --landcover
+  --area monaco
 ```
 
 ### Non-interactive (docker-compose)
@@ -52,14 +51,17 @@ services:
     image: versatiles/versatiles-planetiler:latest
     environment:
       AREA: planet
-      LANDCOVER: "1"
       FORMAT: versatiles
       MODE: disk
     volumes:
       - ./planetiler:/app/data
 ```
 
-The final file is written to `./planetiler/result/<name>.<format>`. With land cover, two files are written from the same render: `osm[.<region>].<date>.<format>` (OSM only) and `osm-landcover[.<region>].<date>.<format>` (OSM with land cover).
+The final file is written to `./planetiler/result/<name>.<format>`.
+
+### Land cover
+
+This image only writes OSM tiles. Land cover is a separate tileset, [`landcover-vectors.versatiles`](https://download.versatiles.org/landcover-vectors.versatiles), that a style draws under OSM, so there is nothing to merge: see [Using it with OSM](https://github.com/versatiles-org/landcover-vectors#using-it-with-osm). The `--landcover` option and `LANDCOVER=1` have been removed and now stop with an error.
 
 ---
 
@@ -82,14 +84,13 @@ The terminal check (`[ -t 0 ]`) prevents a detached or CI run from hanging on a 
 | Flag                      | Environment     | Default                   | Description                                                           |
 |---------------------------|-----------------|---------------------------|-----------------------------------------------------------------------|
 | `--area <planet\|REGION>` | `AREA`          | *(required)*              | `planet`, or a Geofabrik area name (e.g. `monaco`, `berlin`) matched against the [Geofabrik index](https://download.geofabrik.de/). |
-| `--landcover`             | `LANDCOVER=1`   | off                       | Also write a second output with land cover merged into the Shortbread layers. |
 | `--format <FMT>`          | `FORMAT`        | `versatiles`              | `versatiles` (brotli), `pmtiles` or `mbtiles`.                        |
-| `--name <BASENAME>`       | `OUTPUT_NAME`   | `osm[.<region>].<date>`   | Output filename; the extension is added automatically. Sub-regions include the region name. The land cover output is `osm-landcover[.<region>].<date>` by default, or `<BASENAME>-landcover` for a custom name. |
+| `--name <BASENAME>`       | `OUTPUT_NAME`   | `osm[.<region>].<date>`   | Output filename; the extension is added automatically. Sub-regions include the region name. |
 | `--mode <disk\|memory>`   | `MODE`          | `disk`                    | Where Planetiler keeps its temporary data: memory-mapped files, or the Java heap (faster, more RAM). See [Memory](#-memory) below. |
 | `--xmx <SIZE>`            | `XMX`           | from `--mode`             | Override the Java heap that `--mode` derives, e.g. `20g`.             |
 | `--torrent`               | `TORRENT=1`     | off                       | For `--area planet`: fetch the pbf via BitTorrent. See [Planet download](#-planet-download). |
 | `--renumber`              | `RENUMBER=1`    | off                       | Renumber the OSM IDs with `osmium` first: renders a bit faster and makes the tiles 2–4% smaller, but the feature IDs are no longer OSM IDs. See [Feature IDs](#-feature-ids). |
-| `--checksum`              | `CHECKSUM=1`    | off                       | Write `<output>.md5` and `<output>.sha256` next to each output.       |
+| `--checksum`              | `CHECKSUM=1`    | off                       | Write `<output>.md5` and `<output>.sha256` next to the output.        |
 | `-i`, `--interactive`     | `INTERACTIVE=1` | —                         | Force the interactive wizard.                                         |
 
 Flags take precedence over environment variables, which take precedence over the built-in defaults.
@@ -100,7 +101,6 @@ Flags take precedence over environment variables, which take precedence over the
 
 | Variable                 | Default                               | Description                                                         |
 |--------------------------|---------------------------------------|---------------------------------------------------------------------|
-| `LANDCOVER_URL`          | public `landcover-vectors.versatiles` | Land cover container to merge.                                      |
 | `OCEAN_URL`              | osmdata.openstreetmap.de              | Water polygons zip. See [Water polygons](#-water-polygons).         |
 | `OCEAN_MIRROR`           | [FAU mirror](https://ftp.fau.de/mirrors/openstreetmapdata.com-archive/) | Fallback when `OCEAN_URL` fails: the newest dated folder is used. |
 | `LANGUAGES`              | `extended`                            | `--name_languages` passed to Planetiler: `extended` for the [81 languages](https://github.com/versatiles-org/planetiler-shortbread#names), a comma-separated list of codes (e.g. `en,de,fr`), or both (`extended,tok`). |
@@ -168,9 +168,9 @@ The container runs [`generate_tiles.sh`](https://github.com/versatiles-org/versa
 
 0. *(optional, `--renumber`)* **Renumber** the OSM input with `osmium renumber` so node/way IDs are dense. This shrinks Planetiler's node map (faster, less I/O) and shortens the feature IDs encoded in each tile (2–4% smaller output), but the IDs are then no longer OSM IDs. For the whole planet it needs ~130 GB of RAM (see [Memory](#-memory)); with less, it is skipped.
 1. **Render** Shortbread tiles with `planetiler shortbread-1.1 --area=<area>` into an intermediate **PMTiles** file (flat layout → fast sequential reads).
-2. **Convert** the PMTiles to the chosen container with `versatiles convert`. When land cover is enabled, a second container is converted from the same PMTiles: the VPL `from_merged_vector` operation folds the remote land cover container's features into the Shortbread layers (range-read on demand, nothing downloaded). Both sources are filtered first: up to z10 the land cover supplies forest, farmland, glacier and the other land cover kinds, while OSM supplies `water` from z4 and `residential` from z10 (see [Merging with OSM](https://github.com/versatiles-org/landcover-vectors#merging-with-osm)).
-3. **Store** the final result(s) in `/app/data/result/<name>.<format>`.
-4. *(optional, `--checksum`)* **Checksum** — write `<name>.<format>.md5` and `<name>.<format>.sha256` next to each result.
+2. **Convert** the PMTiles to the chosen container with `versatiles convert`.
+3. **Store** the final result in `/app/data/result/<name>.<format>`.
+4. *(optional, `--checksum`)* **Checksum** — write `<name>.<format>.md5` and `<name>.<format>.sha256` next to the result.
 
 `.versatiles` output is compressed with **brotli**; `.pmtiles` / `.mbtiles` keep their default compression.
 
@@ -197,9 +197,9 @@ Rendering the whole planet is heavy: budget **~400 GB+ free disk** and a few hou
 The console shows one line per step. On a terminal (`docker run -t` or `-it`), a progress bar with the elapsed time and an estimate of the time left redraws that line:
 
 ```
-[1/4] Downloading sources       ✓ 3m12s · planet-261019.osm.pbf, 88.9 GB
+[1/3] Downloading sources       ✓ 3m12s · planet-261019.osm.pbf, 88.9 GB
       💾 disk mode: Java heap 28.7 GB, needs ~47.5 GB of 122.8 GB RAM
-[2/4] Rendering tiles           ▕██████████▊         ▏  54% · processing OSM · 1h41m · ~1h26m left
+[2/3] Rendering tiles           ▕██████████▊         ▏  54% · processing OSM · 1h41m · ~1h26m left
 ```
 
 Without a terminal (`docker logs`, CI), each step prints a start line, a status line at most once a minute, and an end line.

@@ -50,7 +50,6 @@ RUN apt-get update -y && \
         aria2 \
         ca-certificates \
         curl \
-        jq \
         osmium-tool \
         tini && \
     rm -rf /var/lib/apt/lists/*
