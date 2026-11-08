@@ -20,7 +20,7 @@ docker run -d --name versatiles \
   -e DOMAIN=maps.example.com \
   -e EMAIL=admin@example.com \
   -e FRONTEND=standard \
-  -e TILE_SOURCES=osm.versatiles \
+  -e TILE_SOURCES=osm-vector.versatiles \
   -e BBOX="9.5,46.3,17.2,49.1" \
   versatiles/versatiles-nginx:latest
 ```
@@ -31,7 +31,7 @@ docker run -d --name versatiles \
 > HTTP‑01. Renewal checks then run in the background.
 
 The first start also downloads the frontend and the map data. The optional `BBOX` crops the
-download to one region — worth setting, since the full `osm.versatiles` planet
+download to one region — worth setting, since the full `osm-vector.versatiles` planet
 is ~66 GB and nothing is served until it has finished downloading.
 
 To run **without TLS** — behind a CDN, a load balancer, or on a private network
@@ -76,7 +76,17 @@ Each entry in `TILE_SOURCES` is resolved against `/data/tiles/`:
 | File missing   | Downloaded once from [download.versatiles.org](https://download.versatiles.org/), then kept.        |
 
 Tiles are served at `/tiles/{name}/{z}/{x}/{y}`, where `{name}` is the filename
-without its extension — `osm.versatiles` becomes `/tiles/osm/…`.
+without its extension — `osm-vector.versatiles` becomes `/tiles/osm-vector/…`.
+
+> [!NOTE]
+> The hosted tilesets were renamed so each name ends with its format:
+> `osm` → `osm-vector`, `landcover-vectors` → `landcover-vector`,
+> `hillshade-vectors` → `hillshade-vector`, `bathymetry-vectors` →
+> `bathymetry-vector`, `elevation` → `elevation-raster`, `satellite` →
+> `satellite-raster`. Old names in `TILE_SOURCES` still work: the file is
+> downloaded under its new name but saved and served under the old one
+> (`/tiles/osm/…`). To switch to the new name without downloading again, rename
+> the file in `data/tiles/` along with the entry in `TILE_SOURCES`.
 
 ### Serving your own tile data
 
@@ -90,7 +100,7 @@ cp my-region.mbtiles data/tiles/
 docker run … -e TILE_SOURCES=my-region.mbtiles …
 ```
 
-Mixed lists work: `TILE_SOURCES=osm.versatiles,my-region.mbtiles` downloads the
+Mixed lists work: `TILE_SOURCES=osm-vector.versatiles,my-region.mbtiles` downloads the
 first and serves the second from disk.
 
 > [!IMPORTANT]

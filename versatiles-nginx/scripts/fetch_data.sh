@@ -10,7 +10,7 @@
 # REQUIRED ENVIRONMENT VARIABLES
 #   TILE_SOURCES    Comma-separated list of tile files to download
 #                   Supported formats: *.versatiles, *.mbtiles, *.pmtiles
-#                   Example: "osm.versatiles,hillshade.versatiles"
+#                   Example: "osm-vector.versatiles,hillshade-vector.versatiles"
 #
 # OPTIONAL ENVIRONMENT VARIABLES
 #   BBOX    Geographic bounding box for cropping tiles (lng_min,lat_min,lng_max,lat_max)
@@ -21,7 +21,9 @@
 #   1. Validate TILE_SOURCES and optional BBOX format
 #   2. For each tile source:
 #      - Check if file already exists in /data/tiles/
-#      - If not, download from https://download.versatiles.org/
+#      - If not, download from https://download.versatiles.org/<slug>/<file>,
+#        where <slug> is the part before the first dot (old names are mapped
+#        to the new ones; the file keeps the name given in TILE_SOURCES)
 #      - If BBOX is set, crop tiles using versatiles convert
 #      - Otherwise, download full file with curl
 #      - Use .part extension during download, rename when complete
@@ -35,8 +37,8 @@
 #   1    Required environment variable missing, invalid BBOX, or download failed
 #
 # EXAMPLES
-#   TILE_SOURCES="osm.versatiles" ./fetch_data.sh
-#   TILE_SOURCES="osm.versatiles,hillshade.versatiles" BBOX="13.0,52.3,13.8,52.7" ./fetch_data.sh
+#   TILE_SOURCES="osm-vector.versatiles" ./fetch_data.sh
+#   TILE_SOURCES="osm-vector.versatiles,hillshade-vector.versatiles" BBOX="13.0,52.3,13.8,52.7" ./fetch_data.sh
 #
 set -euo pipefail
 . /scripts/utils.sh
@@ -56,6 +58,27 @@ if [ -z "$TILE_SOURCES" ]; then
     exit 0
 fi
 
+# download.versatiles.org keeps each dataset in a folder of its own:
+# <slug>/<slug>[.<date>].versatiles. Only the old top-level URLs redirect, so
+# old dataset names are mapped to their new <content>-<format> names here.
+download_url() {
+    local file="$1" slug="${1%%.*}"
+    local rest="${file#"$slug"}" new
+    case "$slug" in
+    osm) new=osm-vector ;;
+    landcover-vectors) new=landcover-vector ;;
+    hillshade-vectors) new=hillshade-vector ;;
+    bathymetry-vectors) new=bathymetry-vector ;;
+    elevation) new=elevation-raster ;;
+    satellite) new=satellite-raster ;;
+    *) new="$slug" ;;
+    esac
+    if [ "$new" != "$slug" ]; then
+        log "'$file' is the old name of '$new$rest'. Downloading that, still saved as '$file'." WARN
+    fi
+    printf 'https://download.versatiles.org/%s/%s%s' "$new" "$new" "$rest"
+}
+
 mkdir -p /data/tiles
 IFS=',' read -ra TS <<<"$TILE_SOURCES"
 args=""
@@ -67,7 +90,7 @@ for src in "${TS[@]}"; do
 
     if [ ! -f "$target" ]; then
         tmp="${target%.*}.part.${target##*.}"
-        url="https://download.versatiles.org/$src"
+        url="$(download_url "$src")"
 
         if [ -n "${BBOX:-}" ]; then
             log "Fetching $src inside bounding box $BBOX …"

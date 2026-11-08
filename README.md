@@ -86,7 +86,7 @@ Minimal image containing only the [versatiles](https://github.com/versatiles-org
 # Download and crop map data to Paris
 docker run -it --rm -v $(pwd):/data versatiles/versatiles:latest \
   convert --bbox-border 3 --bbox "2.224,48.815,2.47,48.903" \
-  "https://download.versatiles.org/osm.versatiles" "paris.versatiles"
+  "https://download.versatiles.org/osm-vector/osm-vector.versatiles" "paris.versatiles"
 ```
 
 #### `versatiles-frontend`

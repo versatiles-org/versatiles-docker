@@ -19,8 +19,8 @@
 #   --format <FMT>           Output container: versatiles (default), mbtiles or
 #                            pmtiles. "versatiles" uses brotli compression.
 #   --name <BASENAME>        Output filename (the extension is added
-#                            automatically). Default: osm.<date> for the planet,
-#                            osm.<region>.<date> for a sub-region.
+#                            automatically). Default: osm-vector.<date> for the
+#                            planet, osm-vector.<region>.<date> for a sub-region.
 #   --mode <disk|memory>     Planetiler's temporary data in memory-mapped files
 #                            (default) or on the Java heap (faster, more RAM).
 #   -i, --interactive        Force the interactive wizard.
@@ -132,7 +132,7 @@ OPTIONS
   --format <FMT>           Output container: versatiles (default), mbtiles or
                            pmtiles. "versatiles" uses brotli compression.
   --name <BASENAME>        Output filename without extension. Default:
-                           osm.<date>, or osm.<region>.<date> for a sub-region.
+                           osm-vector.<date>, or osm-vector.<region>.<date> for a sub-region.
   --mode <disk|memory>     How Planetiler keeps its temporary data: "disk"
                            (default) in memory-mapped files, ~0.5× the .osm.pbf
                            size + 3 GB of RAM; "memory" on the Java heap, faster,
@@ -812,7 +812,7 @@ run_wizard() {
     esac
 
     # 3) Output name, without extension. Empty keeps the default name.
-    OUTPUT_NAME="$(ask "Output name (default: $(default_output_name osm)): " "")"
+    OUTPUT_NAME="$(ask "Output name (default: $(default_output_name osm-vector)): " "")"
 
     # 4) Checksums?
     local cs
@@ -879,7 +879,7 @@ finalize_config() {
         echo "Error: invalid --xmx '$XMX' (expected a size with a unit, such as 20g)." >&2
         exit 1
     fi
-    OSM_NAME="${OUTPUT_NAME:-$(default_output_name osm)}"
+    OSM_NAME="${OUTPUT_NAME:-$(default_output_name osm-vector)}"
 }
 
 ###########################################################################

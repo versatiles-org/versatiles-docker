@@ -61,7 +61,7 @@ The final file is written to `./planetiler/result/<name>.<format>`.
 
 ### Land cover
 
-This image only writes OSM tiles. Land cover is a separate tileset, [`landcover-vectors.versatiles`](https://download.versatiles.org/landcover-vectors.versatiles), that a style draws under OSM, so there is nothing to merge: see [Using it with OSM](https://github.com/versatiles-org/landcover-vectors#using-it-with-osm). The `--landcover` option and `LANDCOVER=1` have been removed and now stop with an error.
+This image only writes OSM tiles. Land cover is a separate tileset, [`landcover-vector.versatiles`](https://download.versatiles.org/landcover-vector/landcover-vector.versatiles), that a style draws under OSM, so there is nothing to merge: see [Using it with OSM](https://github.com/versatiles-org/landcover-vectors#using-it-with-osm). The `--landcover` option and `LANDCOVER=1` have been removed and now stop with an error.
 
 ---
 
@@ -85,7 +85,7 @@ The terminal check (`[ -t 0 ]`) prevents a detached or CI run from hanging on a 
 |---------------------------|-----------------|---------------------------|-----------------------------------------------------------------------|
 | `--area <planet\|REGION>` | `AREA`          | *(required)*              | `planet`, or a Geofabrik area name (e.g. `monaco`, `berlin`) matched against the [Geofabrik index](https://download.geofabrik.de/). |
 | `--format <FMT>`          | `FORMAT`        | `versatiles`              | `versatiles` (brotli), `pmtiles` or `mbtiles`.                        |
-| `--name <BASENAME>`       | `OUTPUT_NAME`   | `osm[.<region>].<date>`   | Output filename; the extension is added automatically. Sub-regions include the region name. |
+| `--name <BASENAME>`       | `OUTPUT_NAME`   | `osm-vector[.<region>].<date>` | Output filename; the extension is added automatically. Sub-regions include the region name. |
 | `--mode <disk\|memory>`   | `MODE`          | `disk`                    | Where Planetiler keeps its temporary data: memory-mapped files, or the Java heap (faster, more RAM). See [Memory](#-memory) below. |
 | `--xmx <SIZE>`            | `XMX`           | from `--mode`             | Override the Java heap that `--mode` derives, e.g. `20g`.             |
 | `--torrent`               | `TORRENT=1`     | off                       | For `--area planet`: fetch the pbf via BitTorrent. See [Planet download](#-planet-download). |
