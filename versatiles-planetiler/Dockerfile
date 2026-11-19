@@ -19,10 +19,21 @@ RUN apt-get update -y && \
 # Build the VersaTiles fork of Planetiler. The Shortbread profile lives in its
 # own repo (versatiles-org/planetiler-shortbread) and is pulled in as a git
 # submodule, hence --recurse-submodules.
+#
+# The Maven build downloads Maven itself and every dependency, so a brief
+# outage of a Maven repository fails the whole image build. It is therefore
+# tried three times, 60 s and 120 s apart. Downloads that succeeded stay in
+# ~/.m2 for the next attempt. -U makes Maven retry downloads that failed,
+# which it otherwise remembers as missing and doesn't request again.
 RUN git clone --depth 1 --recurse-submodules \
         --branch main \
         https://github.com/versatiles-org/planetiler.git /src && \
-    ./mvnw -q -pl planetiler-dist -am package -DskipTests && \
+    for attempt in 1 2 3; do \
+        ./mvnw -q -U -pl planetiler-dist -am package -DskipTests && break; \
+        if [ "$attempt" -eq 3 ]; then exit 1; fi; \
+        echo "Maven build failed (attempt $attempt of 3), retrying in $((attempt * 60)) s" >&2; \
+        sleep $((attempt * 60)); \
+    done && \
     cp planetiler-dist/target/*with-deps*.jar /planetiler.jar
 
 ###############################################################################
