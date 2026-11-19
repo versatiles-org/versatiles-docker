@@ -1,0 +1,104 @@
+name: Scan Images
+
+# -----------------------------------------------------------------------------
+# Weekly vulnerability scan of the PUBLISHED images.
+#
+# ci.yml scans the repository files; this scans what users actually pull,
+# including the OS packages installed at build time (e.g. nginx from Alpine).
+#
+# Monday sits halfway between the Thursday rebuilds in release.yml:
+# - a CVE published since the last build that already has a fix shows up here
+#   in time to trigger a rebuild early, instead of waiting for Thursday;
+# - a finding that is still there after a rebuild means the fix needs a code
+#   change (base image, pinned version), not just another build.
+#
+# Only CRITICAL and HIGH findings with an available fix fail the job, since
+# those are the ones a rebuild or an update can resolve. A failed scheduled
+# run sends GitHub's failure email; the findings themselves are listed under
+# Security → Code scanning, one category per image. To accept a finding,
+# add its ID to a `.trivyignore` file in the repository root with a comment
+# saying why.
+# -----------------------------------------------------------------------------
+
+on:
+  schedule:
+    - cron: '0 6 * * 1' # Every Monday at 06:00 UTC
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: scan-images
+  cancel-in-progress: true
+
+jobs:
+  scan:
+    name: Scan ${{ matrix.image }}:${{ matrix.tag }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    permissions:
+      contents: read
+      security-events: write
+    strategy:
+      fail-fast: false
+      # Every tag family that build.sh pushes. GHCR carries the same images as
+      # Docker Hub (one push writes both) without Docker Hub's pull limits.
+      matrix:
+        include:
+          - { image: versatiles, tag: latest }
+          - { image: versatiles, tag: latest-debian }
+          - { image: versatiles, tag: latest-scratch }
+          - { image: versatiles-frontend, tag: latest }
+          - { image: versatiles-frontend, tag: latest-debian }
+          - { image: versatiles-frontend, tag: latest-scratch }
+          - { image: versatiles-nginx, tag: latest }
+          - { image: versatiles-tippecanoe, tag: latest }
+          - { image: versatiles-gdal, tag: latest }
+          - { image: versatiles-planetiler, tag: latest }
+    steps:
+      # Needed by upload-sarif, and lets Trivy read a .trivyignore file.
+      - name: Checkout repository
+        uses: actions/checkout@v7
+
+      # Pinned to a commit, not a tag: in March 2026 an attacker rewrote
+      # almost every trivy-action tag to point at malicious code.
+      - name: Scan image
+        id: scan
+        uses: aquasecurity/trivy-action@ed142fd0673e97e23eac54620cfb913e5ce36c25 # v0.36.0
+        with:
+          scan-type: image
+          image-ref: ghcr.io/versatiles-org/${{ matrix.image }}:${{ matrix.tag }}
+          scanners: vuln
+          severity: CRITICAL,HIGH
+          ignore-unfixed: true
+          # Without this the action drops the severity filter for SARIF
+          # output, and exit-code would fire on LOW findings too.
+          limit-severities-for-sarif: true
+          format: sarif
+          output: trivy-results.sarif
+          exit-code: '1'
+          timeout: 15m
+
+      - name: Upload results to GitHub Security
+        if: always() && hashFiles('trivy-results.sarif') != ''
+        uses: github/codeql-action/upload-sarif@v4
+        with:
+          sarif_file: trivy-results.sarif
+          category: trivy-image-${{ matrix.image }}-${{ matrix.tag }}
+
+      # SARIF isn't readable in the log, so on failure print the same findings
+      # as a table. Trivy is already installed and its database cached.
+      - name: List findings
+        if: always() && steps.scan.outcome == 'failure'
+        uses: aquasecurity/trivy-action@ed142fd0673e97e23eac54620cfb913e5ce36c25 # v0.36.0
+        with:
+          scan-type: image
+          image-ref: ghcr.io/versatiles-org/${{ matrix.image }}:${{ matrix.tag }}
+          scanners: vuln
+          severity: CRITICAL,HIGH
+          ignore-unfixed: true
+          format: table
+          exit-code: '0'
+          timeout: 15m
+          skip-setup-trivy: true
