@@ -206,6 +206,21 @@ buildx_cache_args() {
     fi
 }
 
+# --------------------------------------------------------------------------- #
+#  BUILD_DATE
+# --------------------------------------------------------------------------- #
+# Today's UTC date, passed to every build as --build-arg BUILD_DATE.
+#
+# The stages that run `apt-get upgrade` declare `ARG BUILD_DATE` right before
+# it, so that layer misses the cache once a day. Without this the Buildx cache
+# would keep reusing an upgrade layer from an older build until the base image
+# itself changes, and new security fixes would never reach the image.
+#
+# Overridable: any new value upgrades again, e.g. on the same day with
+# BUILD_DATE=$(date -u +%FT%T).
+# --------------------------------------------------------------------------- #
+: "${BUILD_DATE:=$(date -u +%Y-%m-%d)}"
+
 #############################################################################
 # 🏷  Registry namespaces
 #############################################################################
@@ -297,6 +312,7 @@ build_load_image() {
         $(build_image_args "$name" "$tags") \
         --platform "linux/${host_arch}" \
         $(buildx_cache_args "$name") \
+        --build-arg "BUILD_DATE=$BUILD_DATE" \
         ${BUILD_ARGS:-} \
         --load .
 }
@@ -332,6 +348,7 @@ build_push_image() {
         $(build_image_args "$(_image_names "$name")" "$tags") \
         --platform linux/amd64,linux/arm64 \
         $(buildx_cache_args "$name") \
+        --build-arg "BUILD_DATE=$BUILD_DATE" \
         ${BUILD_ARGS:-} \
         --push . >/dev/null
 }
@@ -371,6 +388,7 @@ build_push_digest() {
         --target "$target" \
         --platform "linux/${host_arch}" \
         $(buildx_cache_args "$name") \
+        --build-arg "BUILD_DATE=$BUILD_DATE" \
         ${BUILD_ARGS:-} \
         --metadata-file "$metadata" \
         --output "$out" \

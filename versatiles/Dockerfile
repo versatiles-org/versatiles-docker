@@ -46,7 +46,13 @@ ENTRYPOINT ["/app/versatiles"]
 FROM debian:13-slim AS versatiles-debian
 LABEL maintainer="Michael Kreil <versatiles@michael-kreil.de>"
 LABEL org.opencontainers.image.source="https://github.com/versatiles-org/versatiles-docker"
-RUN apt-get update && apt-get install -y --no-install-recommends tini && rm -rf /var/lib/apt/lists/*
+# BUILD_DATE changes daily, so this upgrade isn't reused from the cache.
+# See BUILD_DATE in scripts/utils.sh.
+ARG BUILD_DATE
+RUN apt-get update && \
+    DEBIAN_FRONTEND=noninteractive apt-get upgrade -y && \
+    DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends tini && \
+    rm -rf /var/lib/apt/lists/*
 COPY --from=builder-gnu --chmod=0755 --chown=root /app/versatiles /app/
 WORKDIR /data
 ENV PATH="$PATH:/app"

@@ -46,7 +46,18 @@ RUN \
   \
   cd /; \
   dpkg-query -Wf '${Installed-Size}\t${Package}\n' | sort -n
-  
+
+# Security updates in their own step: BUILD_DATE changes daily, so this step
+# isn't reused from the cache, while the slow build above still can be.
+# See BUILD_DATE in scripts/utils.sh.
+ARG BUILD_DATE
+RUN \
+  apt-get update; \
+  DEBIAN_FRONTEND=noninteractive apt-get upgrade -y; \
+  apt-get clean; \
+  rm -rf /var/lib/apt/lists/* /var/cache/apt/*.bin; \
+  rm -rf /usr/share/doc/* /usr/share/man/* /usr/share/locale/*
+
 WORKDIR /data
 ENV PATH="$PATH:/app"
 ENTRYPOINT ["/usr/bin/tini", "--", "/app/versatiles"]

@@ -56,7 +56,11 @@ LABEL maintainer="Michael Kreil <versatiles@michael-kreil.de>"
 LABEL org.opencontainers.image.source="https://github.com/versatiles-org/versatiles-docker"
 
 SHELL ["/bin/bash", "-eo", "pipefail", "-c"]
+# BUILD_DATE changes daily, so this upgrade isn't reused from the cache.
+# See BUILD_DATE in scripts/utils.sh.
+ARG BUILD_DATE
 RUN apt-get update -y && \
+    DEBIAN_FRONTEND=noninteractive apt-get upgrade -y && \
     DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends \
         aria2 \
         ca-certificates \
