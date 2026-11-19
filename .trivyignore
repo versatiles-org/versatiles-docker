@@ -1,0 +1,9 @@
+# Findings accepted on purpose. Read by Trivy in scan-images.yml and ci.yml.
+# Give every entry a reason and an expiry date (exp:YYYY-MM-DD), so the scan
+# reports it again if the cause hasn't been fixed by then.
+
+# guava DoS during deserialization (CVE-2026-102554), bundled in planetiler.jar.
+# Not reachable: planetiler never deserializes Java objects.
+# Fixed in guava 33.7.2. Upstream planetiler is on 33.7.1 and its Dependabot
+# will bump it; then move the fork's head up and delete this entry.
+CVE-2026-102554 exp:2026-12-31
