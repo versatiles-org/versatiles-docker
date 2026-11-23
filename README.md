@@ -11,7 +11,7 @@ Get up and running in seconds:
 ```bash
 # Pull and run a map server with web frontend
 docker run -p 8080:8080 -v $(pwd):/data \
-  versatiles/versatiles-frontend:latest osm.versatiles
+  versatiles/versatiles-frontend:latest osm-vector.versatiles
 ```
 
 Open http://localhost:8080/ in your browser to view your map.
@@ -128,7 +128,7 @@ Map server bundled with the [versatiles-frontend](https://github.com/versatiles-
 ```bash
 # Serve tiles with web interface
 docker run -d -p 8080:8080 -v $(pwd):/data:ro \
-  versatiles/versatiles-frontend:latest osm.versatiles
+  versatiles/versatiles-frontend:latest osm-vector.versatiles
 ```
 
 ### Production

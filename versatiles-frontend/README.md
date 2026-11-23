@@ -14,7 +14,7 @@ docker run -it --rm versatiles/versatiles-frontend --help
 
 To serve a VersaTiles container together with the web front‑end using the latest image:
 
-1. Navigate to the directory that contains an `osm.versatiles` (or any other `*.versatiles`) file.  
+1. Navigate to the directory that contains an `osm-vector.versatiles` file, from [download.versatiles.org](https://download.versatiles.org/osm-vector/) or [versatiles-planetiler](https://github.com/versatiles-org/versatiles-docker/blob/main/versatiles-planetiler/README.md).  
 2. Start the server with:
 
 ```bash
@@ -22,7 +22,7 @@ docker run \
   -p 8080:8080 \
   -v "$(pwd)":/data:ro \
   versatiles/versatiles-frontend:alpine \
-  osm.versatiles
+  osm-vector.versatiles
 ```
 
 Open <http://localhost:8080/> in your browser. You should see something like this: [screenshot](../assets/screenshots/frontend_index.png).
@@ -34,9 +34,11 @@ Open <http://localhost:8080/> in your browser. You should see something like thi
 - **`-v "$(pwd)":/data:ro`** — Binds the current directory to **/data** inside the container (read‑only).  
 - **`versatiles/versatiles-frontend:alpine`** — Specifies the Docker image (see [other tags](https://github.com/versatiles-org/versatiles-docker#images-versatiles-frontend)).
 
-Everything after the image name is passed to `versatiles server`:
+Everything after the image name is passed to `versatiles serve`:
 
-- **`'osm.versatiles'`** — Serves the mounted `osm.versatiles` file (adjust the path if your file is named differently).
+- **`osm-vector.versatiles`** — Serves the mounted `osm-vector.versatiles` file at `/tiles/osm-vector/`.
+
+The front‑end loads the map from `/tiles/osm-vector/`, and a file is served under its name without the extension. So a file with another name, such as a dated `osm-vector.20261101.versatiles`, shows no map until it is renamed to `osm-vector.versatiles`.
 
 ## Image Variants
 
@@ -58,7 +60,7 @@ The Alpine and Debian variants include tini as the init system, ensuring server 
 
 For the scratch variant, if you need proper signal handling, use Docker's `--init` flag:
 ```bash
-docker run --init -p 8080:8080 -v "$(pwd)":/data versatiles/versatiles-frontend:scratch osm.versatiles
+docker run --init -p 8080:8080 -v "$(pwd)":/data versatiles/versatiles-frontend:scratch osm-vector.versatiles
 ```
 
 ## Resources

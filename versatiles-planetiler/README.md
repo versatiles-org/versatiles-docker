@@ -59,6 +59,8 @@ services:
 
 The final file is written to `./planetiler/result/<name>.<format>`.
 
+The VersaTiles frontends load the map from `/tiles/osm-vector/`. [versatiles-nginx](https://github.com/versatiles-org/versatiles-docker/blob/main/versatiles-nginx/README.md#tile-data) serves the default `osm-vector.<date>.versatiles` there. `versatiles serve` and [versatiles-frontend](https://github.com/versatiles-org/versatiles-docker/blob/main/versatiles-frontend/README.md) serve a file under its name without the extension, so for them pass `--name osm-vector` or rename the result to `osm-vector.versatiles`.
+
 ### Land cover
 
 This image only writes OSM tiles. Land cover is a separate tileset, [`landcover-vector.versatiles`](https://download.versatiles.org/landcover-vector/landcover-vector.versatiles), that a style draws under OSM, so there is nothing to merge: see [Using it with OSM](https://github.com/versatiles-org/landcover-vectors#using-it-with-osm). The `--landcover` option and `LANDCOVER=1` have been removed and now stop with an error.
