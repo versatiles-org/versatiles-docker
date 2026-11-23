@@ -25,14 +25,14 @@ docker run \
   osm-vector.versatiles
 ```
 
-Open <http://localhost:8080/> in your browser. You should see something like this: [screenshot](../assets/screenshots/frontend_index.png).
+Open <http://localhost:8080/> in your browser.
 
 ## Command Breakdown
 
 - **`docker run`** — Launches the container.  
 - **`-p 8080:8080`** — Maps port **8080** inside the container to **8080** on the host.  
 - **`-v "$(pwd)":/data:ro`** — Binds the current directory to **/data** inside the container (read‑only).  
-- **`versatiles/versatiles-frontend:alpine`** — Specifies the Docker image (see [other tags](https://github.com/versatiles-org/versatiles-docker#images-versatiles-frontend)).
+- **`versatiles/versatiles-frontend:alpine`** — Specifies the Docker image (see [other tags](https://github.com/versatiles-org/versatiles-docker#versatiles-frontend)).
 
 Everything after the image name is passed to `versatiles serve`:
 

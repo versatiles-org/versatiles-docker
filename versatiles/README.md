@@ -27,7 +27,7 @@ docker run -it --rm -v $(pwd):/data versatiles/versatiles:latest \
 
 > [!TIP]
 > For production deployments with **caching**, **TLS**, and **reverse‑proxy features**, see the companion image  
-> **versatiles-nginx**: [GHCR](https://github.com/versatiles-org/versatiles-docker/pkgs/container/versatiles-nginx), [Docker Hub](https://hub.docker.com/r/versatiles/versatiles-nginx), [Repo](https://github.com/versatiles-org/versatiles-docker?tab=readme-ov-file#image-versatiles-nginx), [Readme](https://github.com/versatiles-org/versatiles-docker/blob/main/versatiles-nginx/README.md)
+> **versatiles-nginx**: [GHCR](https://github.com/versatiles-org/versatiles-docker/pkgs/container/versatiles-nginx), [Docker Hub](https://hub.docker.com/r/versatiles/versatiles-nginx), [Repo](https://github.com/versatiles-org/versatiles-docker?tab=readme-ov-file#versatiles-nginx), [Readme](https://github.com/versatiles-org/versatiles-docker/blob/main/versatiles-nginx/README.md)
 
 After generating or downloading a `.versatiles` file, start the server:
 
