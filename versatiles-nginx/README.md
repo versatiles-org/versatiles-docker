@@ -51,7 +51,6 @@ To run **without TLS** — behind a CDN, a load balancer, or on a private networ
 | `CACHE_SIZE_MAX`      | No                 | ≈60 % RAM        | Maximum cached bytes, e.g. `2g`.                                            |
 | `CERT_MIN_DAYS`       | No                 | `30`             | Skip ACME on startup if the current certificate is valid for longer.        |
 | `CERT_RENEW_INTERVAL` | No                 | `86400` (24 h)   | Seconds between background `certbot renew` attempts.                        |
-| `UID` / `GID`         | No                 | `10001`          | Numeric uid / gid of the unprivileged `vs` user.                            |
 
 ## Data Directory
 
@@ -65,6 +64,11 @@ The container needs **one** bind‑mount at `/data`:
  ├─ static/         your static files (served before frontend files)
  └─ tiles/          tile archives
 ```
+
+VersaTiles runs as the unprivileged user `vs`, with uid and gid `10001`. At every
+start the container makes `/data` and everything in it owned by them. The ids
+are fixed when the image is built; setting `UID` or `GID` when running it
+changes nothing.
 
 ## Tile Data
 
