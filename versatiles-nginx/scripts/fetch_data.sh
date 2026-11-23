@@ -27,10 +27,15 @@
 #      - If BBOX is set, crop tiles using versatiles convert
 #      - Otherwise, download full file with curl
 #      - Use .part extension during download, rename when complete
-#   3. Output space-separated list of tile paths to stdout
+#      - Serve it under the current name of its dataset, the part before the
+#        first dot with old names mapped (osm.versatiles and
+#        osm-vector.20261101.versatiles are both served as osm-vector), which
+#        is the name the frontends load. The name versatiles would derive from
+#        the file stays an alias.
+#   3. Write the tile sources into the versatiles config $CONFIG
 #
 # OUTPUT
-#   Prints space-separated list of tile file paths to stdout for use by caller
+#   Prints "-c $CONFIG" to stdout for use by caller
 #
 # EXIT CODES
 #   0    All tiles fetched successfully
@@ -58,35 +63,75 @@ if [ -z "$TILE_SOURCES" ]; then
     exit 0
 fi
 
+# The versatiles config with the tile sources, written below.
+CONFIG=/etc/versatiles/tiles.yaml
+
+# dataset_name <file> — the current name of the file's dataset: the part before
+# the first dot, with old dataset names mapped to their new <content>-<format>
+# names.
+dataset_name() {
+    local slug="${1%%.*}"
+    case "$slug" in
+    osm) echo osm-vector ;;
+    landcover-vectors) echo landcover-vector ;;
+    hillshade-vectors) echo hillshade-vector ;;
+    bathymetry-vectors) echo bathymetry-vector ;;
+    elevation) echo elevation-raster ;;
+    satellite) echo satellite-raster ;;
+    *) echo "$slug" ;;
+    esac
+}
+
+# yaml_str <text> — <text> as a double-quoted YAML string.
+yaml_str() {
+    local s="${1//\\/\\\\}"
+    printf '"%s"' "${s//\"/\\\"}"
+}
+
 # download.versatiles.org keeps each dataset in a folder of its own:
 # <slug>/<slug>[.<date>].versatiles. Only the old top-level URLs redirect, so
-# old dataset names are mapped to their new <content>-<format> names here.
+# old dataset names are mapped to their new names here.
 download_url() {
     local file="$1" slug="${1%%.*}"
     local rest="${file#"$slug"}" new
-    case "$slug" in
-    osm) new=osm-vector ;;
-    landcover-vectors) new=landcover-vector ;;
-    hillshade-vectors) new=hillshade-vector ;;
-    bathymetry-vectors) new=bathymetry-vector ;;
-    elevation) new=elevation-raster ;;
-    satellite) new=satellite-raster ;;
-    *) new="$slug" ;;
-    esac
+    new="$(dataset_name "$file")"
     if [ "$new" != "$slug" ]; then
         log "'$file' is the old name of '$new$rest'. Downloading that, still saved as '$file'." WARN
     fi
     printf 'https://download.versatiles.org/%s/%s%s' "$new" "$new" "$rest"
 }
 
-mkdir -p /data/tiles
+mkdir -p /data/tiles "${CONFIG%/*}"
 IFS=',' read -ra TS <<<"$TILE_SOURCES"
-args=""
+echo "tiles:" >"$CONFIG"
+declare -A used=()
 
 for src in "${TS[@]}"; do
     [ -z "$src" ] && continue
     target="/data/tiles/$src"
-    args+=" $target"
+
+    # Served under the dataset's name; the name versatiles derives from the
+    # file (it without its extension) stays an alias. If two files share a
+    # dataset name, the later one keeps the name derived from its file.
+    stem="${src%.*}"
+    name="$(dataset_name "$src")"
+    [ -n "${used[$name]:-}" ] && name="$stem"
+    if [ -n "${used[$name]:-}" ]; then
+        log "Two tile sources would be served as '$name'. Rename one of them." ERROR
+        exit 1
+    fi
+    used[$name]=1
+    {
+        echo "  - name: $(yaml_str "$name")"
+        echo "    src: $(yaml_str "$target")"
+        if [ "$stem" != "$name" ] && [ -z "${used[$stem]:-}" ]; then
+            used[$stem]=1
+            echo "    aliases: [$(yaml_str "$stem")]"
+        fi
+    } >>"$CONFIG"
+    if [ "$stem" != "$name" ]; then
+        log "Serving $src at /tiles/$name/, and at /tiles/$stem/ as before."
+    fi
 
     if [ ! -f "$target" ]; then
         tmp="${target%.*}.part.${target##*.}"
@@ -114,4 +159,4 @@ for src in "${TS[@]}"; do
     fi
 done
 
-printf '%s' "${args}"
+printf '%s' "-c $CONFIG"

@@ -75,8 +75,12 @@ Each entry in `TILE_SOURCES` is resolved against `/data/tiles/`:
 | File present   | Served as‑is. Nothing is downloaded, modified, or deleted.                                          |
 | File missing   | Downloaded once from [download.versatiles.org](https://download.versatiles.org/), then kept.        |
 
-Tiles are served at `/tiles/{name}/{z}/{x}/{y}`, where `{name}` is the filename
-without its extension — `osm-vector.versatiles` becomes `/tiles/osm-vector/…`.
+Tiles are served at `/tiles/{name}/{z}/{x}/{y}`, where `{name}` is the part of
+the filename before its first dot — `osm-vector.versatiles` and a dated
+`osm-vector.20261101.versatiles` both become `/tiles/osm-vector/…`, which is
+where the frontends load the map from. A file whose name has more than that is
+also served under its name without the extension, e.g.
+`/tiles/osm-vector.20261101/…`.
 
 > [!NOTE]
 > The hosted tilesets were renamed so each name ends with its format:
@@ -84,9 +88,10 @@ without its extension — `osm-vector.versatiles` becomes `/tiles/osm-vector/…
 > `hillshade-vectors` → `hillshade-vector`, `bathymetry-vectors` →
 > `bathymetry-vector`, `elevation` → `elevation-raster`, `satellite` →
 > `satellite-raster`. Old names in `TILE_SOURCES` still work: the file is
-> downloaded under its new name but saved and served under the old one
-> (`/tiles/osm/…`). To switch to the new name without downloading again, rename
-> the file in `data/tiles/` along with the entry in `TILE_SOURCES`.
+> downloaded under its new name but saved under the old one, and served under
+> both (`/tiles/osm-vector/…` and `/tiles/osm/…`). To switch to the new name
+> without downloading again, rename the file in `data/tiles/` along with the
+> entry in `TILE_SOURCES`.
 
 ### Serving your own tile data
 
@@ -102,6 +107,10 @@ docker run … -e TILE_SOURCES=my-region.mbtiles …
 
 Mixed lists work: `TILE_SOURCES=osm-vector.versatiles,my-region.mbtiles` downloads the
 first and serves the second from disk.
+
+The frontends show the tiles served as `osm-vector`. A versatiles-planetiler
+result such as `osm-vector.20261101.versatiles` is served under that name; give
+other OSM tiles a name starting with `osm-vector.` to show them in the frontends.
 
 > [!IMPORTANT]
 > A name with no matching file is treated as a download request — so a typo in a

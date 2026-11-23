@@ -50,6 +50,29 @@ if $needs_testing; then
     result=$(docker run --rm -e "FRONTEND=min" "$NAME:latest" 2>&1 || true)
     assert_contains "$NAME: TILE_SOURCES is required" "$result" "'TILE_SOURCES' is required"
 
+    # Tile names. The frontends load /tiles/osm-vector/, so a dated file and a
+    # file under an old dataset name are served under the dataset's name, and
+    # under the name derived from the file as before. Port 8080 is versatiles
+    # itself, behind nginx.
+    echo "  🧪 Tile names: $NAME:latest"
+    DATA_DIR=$(mktemp -d)
+    mkdir -p "$DATA_DIR/tiles"
+    cp ./testdata/chioggia.versatiles "$DATA_DIR/tiles/chioggia.20261123.versatiles"
+    cp ./testdata/chioggia.versatiles "$DATA_DIR/tiles/osm.versatiles"
+    start_http_container "$NAME:latest" -v "$DATA_DIR:/data" \
+        -e DOMAIN=localhost -e HTTP_ONLY=1 -e FRONTEND=none \
+        -e TILE_SOURCES=chioggia.20261123.versatiles,osm.versatiles
+    wait_for_http "http://127.0.0.1:${HOST_PORT}/tiles/index.json" 60
+    index=$(curl -sf "http://127.0.0.1:${HOST_PORT}/tiles/index.json" || true)
+    assert_eq "$NAME: tile names" "$index" '["chioggia","osm-vector"]'
+    for id in chioggia chioggia.20261123 osm-vector osm; do
+        code=$(curl -s -o /dev/null -w '%{http_code}' "http://127.0.0.1:${HOST_PORT}/tiles/$id/14/8750/5880" || true)
+        assert_eq "$NAME: tile at /tiles/$id/" "$code" "200"
+    done
+    stop_container
+    # The container owns the files now; on Linux the runner may not delete them.
+    rm -rf "$DATA_DIR" 2>/dev/null || true
+
     print_test_summary
 fi
 
