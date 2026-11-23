@@ -45,15 +45,20 @@ env:
   # the parallel build jobs.
   GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
-concurrency:
-  group: release-${{ github.workflow }}-${{ github.ref }}
-  cancel-in-progress: true
+# Concurrency is set per image job, not for the whole run: a release of one
+# project dispatches a run that builds only its image, and a run-wide group
+# would cancel a full build that is still running, so every other image would
+# miss the new release. Per job, a newer run cancels only the jobs it repeats
+# itself, with the latest versions.
 
 jobs:
   build-base:
     name: Build versatiles
     runs-on: ubuntu-latest
     if: ${{ github.event_name != 'workflow_dispatch' || inputs.build_base }}
+    concurrency:
+      group: release-versatiles
+      cancel-in-progress: true
     permissions:
       contents: read
       packages: write
@@ -74,6 +79,9 @@ jobs:
     name: Build versatiles-frontend
     runs-on: ubuntu-latest
     if: ${{ github.event_name != 'workflow_dispatch' || inputs.build_frontend }}
+    concurrency:
+      group: release-versatiles-frontend
+      cancel-in-progress: true
     permissions:
       contents: read
       packages: write
@@ -94,6 +102,9 @@ jobs:
     name: Build versatiles-nginx
     runs-on: ubuntu-latest
     if: ${{ github.event_name != 'workflow_dispatch' || inputs.build_nginx }}
+    concurrency:
+      group: release-versatiles-nginx
+      cancel-in-progress: true
     permissions:
       contents: read
       packages: write
@@ -114,6 +125,9 @@ jobs:
     name: Build versatiles-tippecanoe
     runs-on: ubuntu-latest
     if: ${{ github.event_name != 'workflow_dispatch' || inputs.build_tippecanoe }}
+    concurrency:
+      group: release-versatiles-tippecanoe
+      cancel-in-progress: true
     permissions:
       contents: read
       packages: write
@@ -142,6 +156,9 @@ jobs:
     runs-on: ${{ matrix.runner }}
     if: ${{ github.event_name != 'workflow_dispatch' || inputs.build_gdal }}
     timeout-minutes: 45
+    concurrency:
+      group: release-versatiles-gdal-${{ matrix.arch }}
+      cancel-in-progress: true
     permissions:
       contents: read
       packages: write
@@ -185,6 +202,9 @@ jobs:
     needs: build-gdal
     runs-on: ubuntu-latest
     timeout-minutes: 20
+    concurrency:
+      group: release-versatiles-gdal-merge
+      cancel-in-progress: true
     permissions:
       contents: read
       packages: write
@@ -217,6 +237,9 @@ jobs:
     name: Build versatiles-planetiler
     runs-on: ubuntu-latest
     if: ${{ github.event_name != 'workflow_dispatch' || inputs.build_planetiler }}
+    concurrency:
+      group: release-versatiles-planetiler
+      cancel-in-progress: true
     permissions:
       contents: read
       packages: write
