@@ -1,54 +1,59 @@
 # syntax=docker/dockerfile:1.7
 
-FROM debian:13-slim AS versatiles-gdal
-LABEL maintainer="Michael Kreil <versatiles@michael-kreil.de>"
-LABEL org.opencontainers.image.source="https://github.com/versatiles-org/versatiles-docker"
+###############################################################################
+# ⚙️  Builder: versatiles with GDAL, and the packages it needs at runtime
+###############################################################################
+
+# Compilers, Rust and GDAL's -dev packages stay in this stage. Purging them
+# from a single stage left about 90 -dev packages behind, which made up a
+# third of the image's security findings and most of its size.
+FROM debian:13-slim AS builder
 SHELL ["/bin/bash", "-eo", "pipefail", "-c"]
 # The release to build, like the other images. It also keys the build cache,
 # so a new release is never served from an older build.
 ARG VERSATILES_VERSION
 RUN \
   apt-get update; \
-  apt-get install -y --no-install-recommends build-essential ca-certificates clang curl git sudo tini; \
+  apt-get install -y --no-install-recommends build-essential ca-certificates clang curl git sudo; \
   curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | bash -s -- -y; \
   . "$HOME/.cargo/env"; \
-  mkdir -p /app; \
-  git clone --depth 1 --branch "${VERSATILES_VERSION:?}" https://github.com/versatiles-org/versatiles-rs.git /app/versatiles-rs; \
-  cd /app/versatiles-rs || exit 1; \
+  git clone --depth 1 --branch "${VERSATILES_VERSION:?}" https://github.com/versatiles-org/versatiles-rs.git /src; \
+  cd /src; \
   ./scripts/install-gdal.sh; \
-  ./scripts/build-release-with-gdal.sh; \
+  # Only the CLI: the workspace also holds the Node bindings, whose LTO build
+  # doubled the time and memory, enough to be killed in an 8 GB Docker VM.
+  cargo build --release --locked -p versatiles -F gdal; \
+  mkdir -p /out; \
+  mv target/release/versatiles /out/versatiles; \
+  strip /out/versatiles; \
   \
-  mv /app/versatiles-rs/target/release/versatiles /app/; \
-  strip /app/versatiles; \
-  rm -r /app/versatiles-rs; \
-  \
-  # 6) Remove typical *-dev packages pulled in
-  # dev_pkgs="$(dpkg -l | awk '/^ii/ && $2 ~ /-dev$/ {print $2}')" || true; \
-  # if [ -n "${dev_pkgs:-}" ]; then \
-  #   apt-get purge -y --allow-remove-essential --auto-remove ${dev_pkgs} || true; \
-  # fi; \
-  apt-get purge -y --auto-remove build-essential clang cmake cpp gcc git; \
-  apt-get autoremove -y; \
+  # The Debian packages owning the shared libraries the binary links against.
+  # Since Debian's /usr merge, dpkg may know a library only by its other path.
+  ldd /out/versatiles | awk '/=> \// {print $3}' | while read -r lib; do \
+    dpkg -S "$lib" 2>/dev/null || dpkg -S "$(realpath "$lib")"; \
+  done | grep -v '^diversion by' | cut -d: -f1 | sort -u > /out/runtime-packages; \
+  grep -qx 'libgdal[0-9]*' /out/runtime-packages; \
+  cat /out/runtime-packages
+
+###############################################################################
+# 🚀 Runtime
+###############################################################################
+
+FROM debian:13-slim AS versatiles-gdal
+LABEL maintainer="Michael Kreil <versatiles@michael-kreil.de>"
+LABEL org.opencontainers.image.source="https://github.com/versatiles-org/versatiles-docker"
+SHELL ["/bin/bash", "-eo", "pipefail", "-c"]
+
+COPY --from=builder /out/runtime-packages /tmp/runtime-packages
+RUN \
+  apt-get update; \
+  xargs -a /tmp/runtime-packages apt-get install -y --no-install-recommends ca-certificates tini; \
   apt-get clean; \
-  \
-  # 8) Remove development artifacts: headers, static libs, pkgconfig/cmake files
-  rm -rf /usr/include/* || true; \
-  find /usr/lib -type f \( -name '*.a' -o -name '*.la' \) -delete || true; \
-  find /usr/lib -type d \( -name 'pkgconfig' -o -name 'cmake' \) -exec rm -rf {} + || true; \
-  find /usr/lib/* -maxdepth 1 -type d \( -name 'pkgconfig' -o -name 'cmake' \) -exec rm -rf {} + || true; \
-  \
-  # 9) Remove docs, manpages, locales
-  rm -rf /usr/share/doc/* /usr/share/man/* /usr/share/locale/* || true; \
-  \
-  # 10) Drop cargo/rust caches and the source tree
-  rm -rf /root/.cargo /root/.rustup /root/.cache || true; \
-  \
-  # 11) Drop apt metadata
-  rm -rf /var/lib/apt/lists/* /var/cache/apt/*.bin || true; \
-  rm -rf /tmp/* /var/tmp/* || true; \
-  \
-  cd /; \
+  rm -rf /var/lib/apt/lists/* /var/cache/apt/*.bin /tmp/*; \
+  rm -rf /usr/share/doc/* /usr/share/man/* /usr/share/locale/*; \
   dpkg-query -Wf '${Installed-Size}\t${Package}\n' | sort -n
+
+COPY --from=builder --chmod=0755 /out/versatiles /app/versatiles
 
 # Security updates in their own step: BUILD_DATE changes daily, so this step
 # isn't reused from the cache, while the slow build above still can be.

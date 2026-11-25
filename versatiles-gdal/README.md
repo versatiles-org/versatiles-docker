@@ -4,6 +4,8 @@
 A minimal, lightweight, production-ready Docker image for [VersaTiles](https://github.com/versatiles-org/versatiles-rs) with [GDAL](https://gdal.org/) support.  
 This enables the VPL operation [`from_gdal_raster`](https://github.com/versatiles-org/versatiles-rs/tree/main/versatiles_pipeline#from_gdal_raster), allowing VersaTiles to read raster formats such as GeoTIFF, JPEG2000, and others.
 
+The image contains VersaTiles and the GDAL library it uses, not GDAL's command-line tools such as `gdalinfo` or `ogr2ogr`. For those, use one of [GDAL's own images](https://github.com/OSGeo/gdal/pkgs/container/gdal).
+
 **Base image:** Debian Linux  
 **Architectures:** `linux/amd64`, `linux/arm64`
 
