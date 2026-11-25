@@ -39,7 +39,7 @@ COPY --from=builder-versatiles-musl --chmod=0755 --chown=root /app/versatiles /a
 COPY --from=builder-frontend /app/frontend-dev.br.tar /app/
 WORKDIR /data
 ENV PATH="$PATH:/app"
-ENTRYPOINT ["/sbin/tini", "--", "/app/versatiles", "serve", "--static" , "/app/frontend-dev.br.tar"]
+ENTRYPOINT ["/sbin/tini", "--", "/app/versatiles", "serve", "--static", "/app/frontend-dev.br.tar", "--immutable", "assets/lib/*@*/**"]
 
 # ==== 2. Scratch (static musl) ==============================================
 FROM scratch AS versatiles-scratch
@@ -49,7 +49,7 @@ COPY --from=builder-versatiles-musl --chmod=0755 /app/versatiles /app/
 COPY --from=builder-frontend /app/frontend-dev.br.tar /app/
 WORKDIR /data
 ENV PATH="$PATH:/app"
-ENTRYPOINT ["/app/versatiles", "serve", "--static" , "/app/frontend-dev.br.tar"]
+ENTRYPOINT ["/app/versatiles", "serve", "--static", "/app/frontend-dev.br.tar", "--immutable", "assets/lib/*@*/**"]
 
 # ==== 3. Debian slim (glibc) =================================================
 FROM debian:13-slim AS versatiles-debian
@@ -66,4 +66,4 @@ COPY --from=builder-versatiles-gnu --chmod=0755 --chown=root /app/versatiles /ap
 COPY --from=builder-frontend /app/frontend-dev.br.tar /app/
 WORKDIR /data
 ENV PATH="$PATH:/app"
-ENTRYPOINT ["/usr/bin/tini", "--", "/app/versatiles", "serve", "--static" , "/app/frontend-dev.br.tar"]
+ENTRYPOINT ["/usr/bin/tini", "--", "/app/versatiles", "serve", "--static", "/app/frontend-dev.br.tar", "--immutable", "assets/lib/*@*/**"]

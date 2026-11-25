@@ -67,8 +67,21 @@ if $needs_testing; then
         assert_file_in_image_if_shell "$image"
     }
 
+    # The versioned maplibre-gl folder of the bundled frontend, such as
+    # assets/lib/maplibre-gl@6.19.0. Listed on the host, since scratch has no tar.
+    cid=$(docker create "$NAME:debian")
+    lib_dir=$(docker cp "$cid:/app/frontend-dev.br.tar" - | tar -xOf - | tar -tf - |
+        grep -o '^assets/lib/maplibre-gl@[^/]*' | sort -u)
+    docker rm "$cid" >/dev/null
+    [[ -n "$lib_dir" ]] || _fail "no versioned maplibre-gl folder in frontend-dev.br.tar"
+
+    cache_control() { # cache_control <path>: the Cache-Control header of a response
+        curl -s -o /dev/null -D - "http://127.0.0.1:${HOST_PORT}$1" |
+            tr -d '\r' | awk 'tolower($0) ~ /^cache-control: / { sub(/^[^:]*: /, ""); print }'
+    }
+
     test_image() {
-        local image="$1" tile_path tile_size
+        local image="$1" tile_path tile_size versioned unversioned
         echo "  🧪 Testing: $image"
 
         start_http_container "$image" -v "$TEST_DIR":/data:ro -- chioggia.versatiles
@@ -81,15 +94,21 @@ if $needs_testing; then
             echo "    ❌ $image: failed to download tile" >&2
             exit 1
         }
+        versioned=$(cache_control "/$lib_dir/maplibre-gl.css")
+        unversioned=$(cache_control /assets/lib/maplibre-gl/maplibre-gl.css)
         stop_container
 
         tile_size=$(wc -c <"$tile_path" | tr -d ' ')
         assert_eq "$image: tile size" "$tile_size" "48679"
+        # The entrypoint's --immutable: versioned libraries for a year,
+        # unversioned ones revalidated.
+        assert_eq "$image: versioned library Cache-Control" "$versioned" "public, max-age=31536000, immutable"
+        assert_eq "$image: unversioned library Cache-Control" "$unversioned" "no-cache"
     }
 
-    test_contract "$NAME:debian"  '["/usr/bin/tini","--","/app/versatiles","serve","--static","/app/frontend-dev.br.tar"]'
-    test_contract "$NAME:alpine"  '["/sbin/tini","--","/app/versatiles","serve","--static","/app/frontend-dev.br.tar"]'
-    test_contract "$NAME:scratch" '["/app/versatiles","serve","--static","/app/frontend-dev.br.tar"]'
+    test_contract "$NAME:debian"  '["/usr/bin/tini","--","/app/versatiles","serve","--static","/app/frontend-dev.br.tar","--immutable","assets/lib/*@*/**"]'
+    test_contract "$NAME:alpine"  '["/sbin/tini","--","/app/versatiles","serve","--static","/app/frontend-dev.br.tar","--immutable","assets/lib/*@*/**"]'
+    test_contract "$NAME:scratch" '["/app/versatiles","serve","--static","/app/frontend-dev.br.tar","--immutable","assets/lib/*@*/**"]'
 
     test_image "$NAME:debian"
     # NB: no `serve` argument — the entrypoint already supplies it. Passing one

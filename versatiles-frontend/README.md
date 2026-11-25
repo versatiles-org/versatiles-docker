@@ -40,6 +40,10 @@ Everything after the image name is passed to `versatiles serve`:
 
 The front‑end loads the map from `/tiles/osm-vector/`, and a file is served under its name without the extension. So a file with another name, such as a dated `osm-vector.20261101.versatiles`, shows no map until it is renamed to `osm-vector.versatiles`.
 
+## Caching
+
+Tiles may be kept by browsers for four weeks. The front‑end's files are sent with `no-cache`, so browsers check for a newer version on every load and an update of the image shows at once. Only the libraries in folders named with their version (`assets/lib/<name>@<version>/`) are sent with `immutable` and may be kept for a year, because a new version gets a new folder. The [Caching page](https://docs.versatiles.org/basics/caching) explains the reasons.
+
 ## Image Variants
 
 This image is available in three variants:
