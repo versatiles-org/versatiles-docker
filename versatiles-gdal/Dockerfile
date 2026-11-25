@@ -4,13 +4,16 @@ FROM debian:13-slim AS versatiles-gdal
 LABEL maintainer="Michael Kreil <versatiles@michael-kreil.de>"
 LABEL org.opencontainers.image.source="https://github.com/versatiles-org/versatiles-docker"
 SHELL ["/bin/bash", "-eo", "pipefail", "-c"]
+# The release to build, like the other images. It also keys the build cache,
+# so a new release is never served from an older build.
+ARG VERSATILES_VERSION
 RUN \
   apt-get update; \
   apt-get install -y --no-install-recommends build-essential ca-certificates clang curl git sudo tini; \
   curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | bash -s -- -y; \
   . "$HOME/.cargo/env"; \
   mkdir -p /app; \
-  git clone --depth 1 https://github.com/versatiles-org/versatiles-rs.git /app/versatiles-rs; \
+  git clone --depth 1 --branch "${VERSATILES_VERSION:?}" https://github.com/versatiles-org/versatiles-rs.git /app/versatiles-rs; \
   cd /app/versatiles-rs || exit 1; \
   ./scripts/install-gdal.sh; \
   ./scripts/build-release-with-gdal.sh; \

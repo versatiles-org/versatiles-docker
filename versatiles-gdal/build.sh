@@ -11,6 +11,9 @@ source ./scripts/test_utils.sh
 parse_arguments "$@"
 # Variables from utils.sh: needs_push, needs_testing
 VER=$(fetch_release_tag)
+# Build the tag we publish under, so the layer cache cannot serve a stale build
+# and a commit on main after the release cannot slip in.
+BUILD_ARGS="--build-arg VERSATILES_VERSION=$VER"
 NAME="versatiles-gdal"
 
 echo "👷 Building $NAME Docker images for version $VER"
