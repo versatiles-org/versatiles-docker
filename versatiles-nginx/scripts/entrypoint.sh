@@ -16,6 +16,7 @@
 #
 # OPTIONAL ENVIRONMENT VARIABLES
 #   HTTP_ONLY           Skip SSL certificates, run HTTP-only mode
+#   FRONTEND_VERSION    Frontend release tag, e.g. v3.20.0 (default: latest)
 #   BBOX                Bounding box for tile cropping (lng_min,lat_min,lng_max,lat_max)
 #   CACHE_SIZE_KEYS     Nginx cache keys zone size (default: 20% of RAM)
 #   CACHE_SIZE_MAX      Nginx cache max size (default: 60% of RAM)

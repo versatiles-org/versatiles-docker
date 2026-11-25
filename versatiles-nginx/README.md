@@ -44,6 +44,7 @@ To run **without TLS** — behind a CDN, a load balancer, or on a private networ
 | `DOMAIN`              | **Yes**            | –                | Fully qualified domain name served by Nginx and used for ACME issuance.     |
 | `EMAIL`               | Unless `HTTP_ONLY` | –                | Contact address for ACME registration.                                      |
 | `FRONTEND`            | **Yes**            | –                | UI bundle: `standard`, `dev`, `min`, `tiny`, `blank`, or `none`.            |
+| `FRONTEND_VERSION`    | No                 | `latest`         | Frontend release, e.g. `v3.20.0` — see [Frontend](#frontend).               |
 | `TILE_SOURCES`        | **Yes**            | –                | Comma‑separated tile archives — see [Tile Data](#tile-data).                |
 | `BBOX`                | No                 | –                | `lng_min,lat_min,lng_max,lat_max`. Crops **downloads** only.                |
 | `HTTP_ONLY`           | No                 | –                | Serve plain HTTP on port 80, no certificates. For use behind a proxy.       |
@@ -59,7 +60,7 @@ The container needs **one** bind‑mount at `/data`:
 ```
 /data
  ├─ certificates/   Let’s Encrypt config & live certificates
- ├─ frontend/       downloaded UI bundle (unless FRONTEND=none)
+ ├─ frontend/       downloaded UI bundle and its release tag (unless FRONTEND=none)
  ├─ log/            Nginx access & error logs
  ├─ static/         your static files (served before frontend files)
  └─ tiles/          tile archives
@@ -69,6 +70,10 @@ VersaTiles runs as the unprivileged user `vs`, with uid and gid `10001`. At ever
 start the container makes `/data` and everything in it owned by them. The ids
 are fixed when the image is built; setting `UID` or `GID` when running it
 changes nothing.
+
+## Frontend
+
+The frontend is downloaded from the [frontend releases](https://github.com/versatiles-org/versatiles-frontend/releases) into `/data/frontend/<variant>.br.tar`, and the release tag it came from into `<variant>.br.tar.version`. At every start the container looks up the latest release and downloads it if the tag differs, so a restart brings the frontend up to date. To keep one release, set `FRONTEND_VERSION`, e.g. `v3.20.0`. If GitHub can't be reached, the container keeps the frontend it has and logs a warning.
 
 ## Tile Data
 

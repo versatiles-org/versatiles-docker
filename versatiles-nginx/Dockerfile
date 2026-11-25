@@ -19,6 +19,7 @@ ENV UID=10001 GID=10001 \
     DOMAIN="" \
     EMAIL="" \
     FRONTEND="" \
+    FRONTEND_VERSION="" \
     TILE_SOURCES="" \
     CACHE_SIZE_KEYS="" \
     CACHE_SIZE_MAX="" \

@@ -54,23 +54,67 @@ if $needs_testing; then
     # file under an old dataset name are served under the dataset's name, and
     # under the name derived from the file as before. Port 8080 is versatiles
     # itself, behind nginx.
-    echo "  🧪 Tile names: $NAME:latest"
+    # Frontend updates (#62), with fetch_frontend.sh on its own. Each case has
+    # its own folder in DATA_DIR as /data, and keeps the script's log there.
+    echo "  🧪 Frontend updates: $NAME:latest"
     DATA_DIR=$(mktemp -d)
+    fetch_frontend() { # fetch_frontend <dir> [docker run options…]
+        local dir="$1"
+        shift
+        docker run --rm "$@" -v "$dir:/data" -e FRONTEND=tiny \
+            --entrypoint /scripts/fetch_frontend.sh "$NAME:latest" 2>"$dir/log"
+    }
+    bundle=frontend/frontend-tiny.br.tar
+    latest=$(curl -sfI -o /dev/null -w '%{redirect_url}' https://github.com/versatiles-org/versatiles-frontend/releases/latest)
+    latest=${latest##*/}
+
+    dir="$DATA_DIR/offline"
+    mkdir -p "$dir/frontend"
+    echo "fake" >"$dir/$bundle"
+    echo "v0.0.0-old" >"$dir/$bundle.version"
+    output=$(fetch_frontend "$dir" --network none) || output="failed"
+    assert_eq "$NAME: offline, outdated frontend served" "$output" "--static /data/$bundle"
+    assert_eq "$NAME: offline, outdated frontend kept" "$(cat "$dir/$bundle")" "fake"
+    assert_contains "$NAME: offline, warning" "$(cat "$dir/log")" "Keeping the frontend from v0.0.0-old."
+
+    dir="$DATA_DIR/offline-empty"
+    mkdir -p "$dir"
+    output=$(fetch_frontend "$dir" --network none) || output="failed"
+    assert_eq "$NAME: offline, no frontend fails" "$output" "failed"
+    assert_contains "$NAME: offline, no frontend error" "$(cat "$dir/log")" "No frontend to fall back to."
+
+    # A frontend without a tag file, as downloaded before #62, counts as outdated.
+    dir="$DATA_DIR/update"
+    mkdir -p "$dir/frontend"
+    echo "fake" >"$dir/$bundle"
+    fetch_frontend "$dir" >/dev/null
+    assert_eq "$NAME: outdated frontend, tag of latest stored" "$(cat "$dir/$bundle.version")" "$latest"
+    assert_min_size "$NAME: outdated frontend replaced" "$dir/$bundle" 1000000
+    fetch_frontend "$dir" >/dev/null
+    if [[ "$(cat "$dir/log")" == *Downloading* ]]; then
+        _fail "$NAME: current frontend not downloaded again" "$(cat "$dir/log")"
+    fi
+    _pass "$NAME: current frontend not downloaded again"
+
+    echo "  🧪 Tile names: $NAME:latest"
     mkdir -p "$DATA_DIR/tiles"
     cp ./testdata/chioggia.versatiles "$DATA_DIR/tiles/chioggia.20261123.versatiles"
     cp ./testdata/chioggia.versatiles "$DATA_DIR/tiles/osm.versatiles"
     mkdir -p "$DATA_DIR/static"
     echo "hello" >"$DATA_DIR/static/hello.txt"
-    # A stand-in for the tiny frontend: it is only downloaded if missing, so
-    # this tar is served instead, with a library in a versioned folder and the
-    # same one unversioned. A plain tar works under the .br.tar name, as each
-    # entry's compression is read from its own extension.
+    # A stand-in for the tiny frontend, with a library in a versioned folder
+    # and the same one unversioned. Its tag file names the pinned
+    # FRONTEND_VERSION, so it is served instead of being downloaded. A plain
+    # tar works under the .br.tar name, as each entry's compression is read
+    # from its own extension.
     mkdir -p "$DATA_DIR/fake/assets/lib/lib@1.0.0" "$DATA_DIR/fake/assets/lib/lib" "$DATA_DIR/frontend"
     echo "versioned" >"$DATA_DIR/fake/assets/lib/lib@1.0.0/lib.js"
     echo "unversioned" >"$DATA_DIR/fake/assets/lib/lib/lib.js"
-    COPYFILE_DISABLE=1 tar -cf "$DATA_DIR/frontend/frontend-tiny.br.tar" -C "$DATA_DIR/fake" assets
+    COPYFILE_DISABLE=1 tar -cf "$DATA_DIR/fake.tar" -C "$DATA_DIR/fake" assets
+    cp "$DATA_DIR/fake.tar" "$DATA_DIR/frontend/frontend-tiny.br.tar"
+    echo "v0.0.0-test" >"$DATA_DIR/frontend/frontend-tiny.br.tar.version"
     start_http_container "$NAME:latest" -v "$DATA_DIR:/data" -p 127.0.0.1:0:80 \
-        -e DOMAIN=localhost -e HTTP_ONLY=1 -e FRONTEND=tiny \
+        -e DOMAIN=localhost -e HTTP_ONLY=1 -e FRONTEND=tiny -e FRONTEND_VERSION=v0.0.0-test \
         -e TILE_SOURCES=chioggia.20261123.versatiles,osm.versatiles
     wait_for_http "http://127.0.0.1:${HOST_PORT}/tiles/index.json" 60
     index=$(curl -sf "http://127.0.0.1:${HOST_PORT}/tiles/index.json" || true)
