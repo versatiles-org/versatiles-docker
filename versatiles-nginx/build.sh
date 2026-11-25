@@ -61,8 +61,16 @@ if $needs_testing; then
     cp ./testdata/chioggia.versatiles "$DATA_DIR/tiles/osm.versatiles"
     mkdir -p "$DATA_DIR/static"
     echo "hello" >"$DATA_DIR/static/hello.txt"
+    # A stand-in for the tiny frontend: it is only downloaded if missing, so
+    # this tar is served instead, with a library in a versioned folder and the
+    # same one unversioned. A plain tar works under the .br.tar name, as each
+    # entry's compression is read from its own extension.
+    mkdir -p "$DATA_DIR/fake/assets/lib/lib@1.0.0" "$DATA_DIR/fake/assets/lib/lib" "$DATA_DIR/frontend"
+    echo "versioned" >"$DATA_DIR/fake/assets/lib/lib@1.0.0/lib.js"
+    echo "unversioned" >"$DATA_DIR/fake/assets/lib/lib/lib.js"
+    COPYFILE_DISABLE=1 tar -cf "$DATA_DIR/frontend/frontend-tiny.br.tar" -C "$DATA_DIR/fake" assets
     start_http_container "$NAME:latest" -v "$DATA_DIR:/data" -p 127.0.0.1:0:80 \
-        -e DOMAIN=localhost -e HTTP_ONLY=1 -e FRONTEND=none \
+        -e DOMAIN=localhost -e HTTP_ONLY=1 -e FRONTEND=tiny \
         -e TILE_SOURCES=chioggia.20261123.versatiles,osm.versatiles
     wait_for_http "http://127.0.0.1:${HOST_PORT}/tiles/index.json" 60
     index=$(curl -sf "http://127.0.0.1:${HOST_PORT}/tiles/index.json" || true)
@@ -91,6 +99,17 @@ if $needs_testing; then
     assert_eq "$NAME: static not cached in nginx" "$(header X-Cache /hello.txt)" "MISS"
     assert_eq "$NAME: 404 Cache-Control" "$(header Cache-Control /missing.txt)" "public, max-age=300"
     assert_eq "$NAME: 404 cached in nginx" "$(header X-Cache /missing.txt)" "HIT"
+
+    # Versioned libraries get a year once the image's versatiles has
+    # --immutable, and "no-cache" before; unversioned ones always "no-cache".
+    serve_help=$(docker run --rm --entrypoint versatiles "$NAME:latest" serve --help 2>&1 || true)
+    if [[ "$serve_help" == *"--immutable"* ]]; then
+        versioned="public, max-age=31536000, immutable"
+    else
+        versioned="no-cache"
+    fi
+    assert_eq "$NAME: versioned library Cache-Control" "$(header Cache-Control /assets/lib/lib@1.0.0/lib.js)" "$versioned"
+    assert_eq "$NAME: unversioned library Cache-Control" "$(header Cache-Control /assets/lib/lib/lib.js)" "no-cache"
     stop_container
     # The container owns the files now; on Linux the runner may not delete them.
     rm -rf "$DATA_DIR" 2>/dev/null || true

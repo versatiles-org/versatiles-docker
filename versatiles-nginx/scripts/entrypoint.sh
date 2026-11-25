@@ -54,6 +54,19 @@ versatiles_args+=($(/scripts/fetch_frontend.sh))
 # shellcheck disable=SC2207
 versatiles_args+=($(/scripts/fetch_data.sh))
 
+# The frontend also has each library in a folder named with its version
+# (assets/lib/<name>@<version>/), whose files never change under that path, so
+# browsers may keep them for a year. Only a versatiles with `--immutable` can
+# say so; an older one sends them with "no-cache", like every other static
+# file. Looked up in the help rather than by version number, and captured
+# first: `grep -q` in a pipe would end it early and fail it under pipefail.
+serve_help=$(versatiles serve --help 2>&1 || true)
+if [[ "$serve_help" == *"--immutable"* ]]; then
+    versatiles_args+=(--immutable 'assets/lib/*@*/**')
+else
+    log "This versatiles has no --immutable: versioned libraries are sent with no-cache" WARN
+fi
+
 /scripts/nginx_start.sh
 
 ############### start VersaTiles ############

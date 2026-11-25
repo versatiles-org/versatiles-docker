@@ -152,4 +152,4 @@ docker logs -f versatiles
 
 ## Caching
 
-Nginx keeps a response as long as the `Cache-Control` header of `versatiles serve` allows: tiles for four weeks, static files not at all, so changes in `/data/static/` show at once. A `404` is kept for one minute, other errors never. Browsers get the header of `versatiles serve`; a `404` gets five minutes, other errors `no-store`. The [Caching page](https://docs.versatiles.org/basics/caching) explains the reasons.
+Nginx keeps a response as long as the `Cache-Control` header of `versatiles serve` allows: tiles for four weeks, static files not at all, so changes in `/data/static/` show at once. A `404` is kept for one minute, other errors never. Browsers get the header of `versatiles serve`; a `404` gets five minutes, other errors `no-store`. The frontend's libraries in folders named with their version (`assets/lib/<name>@<version>/`) are sent with `immutable` and may be kept for a year, once the image contains a `versatiles` with `--immutable`. The same holds for such folders in `/data/static/`. The [Caching page](https://docs.versatiles.org/basics/caching) explains the reasons.
