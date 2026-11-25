@@ -149,3 +149,7 @@ docker logs -f versatiles
    * generates an optimised **Nginx** configuration (cache sizes based on RAM).
 2. Nginx starts (or reloads) and a background loop renews the certificate.
 3. `versatiles serve` — running as the unprivileged `vs` user — answers all requests proxied by Nginx.
+
+## Caching
+
+Nginx keeps a response as long as the `Cache-Control` header of `versatiles serve` allows: tiles for four weeks, static files not at all, so changes in `/data/static/` show at once. A `404` is kept for one minute, other errors never. Browsers get the header of `versatiles serve`; a `404` gets five minutes, other errors `no-store`. The [Caching page](https://docs.versatiles.org/basics/caching) explains the reasons.

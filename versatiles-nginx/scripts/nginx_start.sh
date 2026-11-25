@@ -34,7 +34,10 @@
 #   - Default keys zone: 20% of system RAM
 #   - Default max size: 60% of system RAM
 #   - Inactive timeout: 24 hours
-#   - Cache valid time: 5 minutes
+#   - Cache valid time: as the Cache-Control of versatiles says (tiles four
+#     weeks, static files not at all), 404 one minute, other errors never
+#   - Browsers get the Cache-Control of versatiles; 404 five minutes, other
+#     errors "no-store"
 #
 # SIGNAL HANDLING
 #   SIGINT, SIGTERM    Gracefully shutdown nginx and exit
@@ -94,8 +97,17 @@ NGINX_LOCATION_CACHE=$(
       location / {
         proxy_pass http://127.0.0.1:8080;
         proxy_cache tiles;
-        proxy_cache_valid any 5m;
-        add_header X-Cache \$upstream_cache_status;
+        # nginx keeps a response as long as the Cache-Control of versatiles
+        # allows: tiles for four weeks, static files with "no-cache" not at all,
+        # so edits in /data/static show at once. Errors come without
+        # Cache-Control and are cached only if listed here: a 404 briefly, to
+        # spare versatiles repeated misses, a 5xx never, as it describes a moment.
+        proxy_cache_valid 404 1m;
+        # Browsers get the header of versatiles, and one for errors
+        # (see \$browser_cache_control).
+        proxy_hide_header Cache-Control;
+        add_header Cache-Control \$browser_cache_control always;
+        add_header X-Cache \$upstream_cache_status always;
       }
 EOF
 )
@@ -152,6 +164,20 @@ http {
   server_tokens off;
 
   proxy_cache_path /dev/shm/nginx_cache levels=1:2 keys_zone=tiles:${CACHE_KEYS} max_size=${CACHE_MAX} inactive=24h;
+
+  # Cache-Control for browsers. Successful answers and redirects keep the one
+  # of versatiles (filled in on cache hits too), "no-cache" if it sent none.
+  # Errors carry none from versatiles: a 404 may be kept for five minutes, any
+  # other error describes a moment and must not be kept.
+  map \$upstream_http_cache_control \$backend_cache_control {
+    ""      "no-cache";
+    default \$upstream_http_cache_control;
+  }
+  map \$status \$browser_cache_control {
+    "~^[23]" \$backend_cache_control;
+    404      "public, max-age=300";
+    default  "no-store";
+  }
 
   # status endpoint on 127.0.0.1:8090
   server {

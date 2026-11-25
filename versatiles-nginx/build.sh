@@ -59,7 +59,9 @@ if $needs_testing; then
     mkdir -p "$DATA_DIR/tiles"
     cp ./testdata/chioggia.versatiles "$DATA_DIR/tiles/chioggia.20261123.versatiles"
     cp ./testdata/chioggia.versatiles "$DATA_DIR/tiles/osm.versatiles"
-    start_http_container "$NAME:latest" -v "$DATA_DIR:/data" \
+    mkdir -p "$DATA_DIR/static"
+    echo "hello" >"$DATA_DIR/static/hello.txt"
+    start_http_container "$NAME:latest" -v "$DATA_DIR:/data" -p 127.0.0.1:0:80 \
         -e DOMAIN=localhost -e HTTP_ONLY=1 -e FRONTEND=none \
         -e TILE_SOURCES=chioggia.20261123.versatiles,osm.versatiles
     wait_for_http "http://127.0.0.1:${HOST_PORT}/tiles/index.json" 60
@@ -69,6 +71,26 @@ if $needs_testing; then
         code=$(curl -s -o /dev/null -w '%{http_code}' "http://127.0.0.1:${HOST_PORT}/tiles/$id/14/8750/5880" || true)
         assert_eq "$NAME: tile at /tiles/$id/" "$code" "200"
     done
+
+    # Caching through nginx (port 80): nginx keeps tiles as long as versatiles
+    # allows, never static files, and only a 404 among the errors. Browsers get
+    # the header of versatiles, and one for errors.
+    echo "  🧪 Caching through nginx: $NAME:latest"
+    NGINX_PORT=$(docker port "$CONTAINER_ID" 80 | head -n1 | sed 's/.*://')
+    wait_for_http "http://127.0.0.1:${NGINX_PORT}/tiles/index.json" 60
+    header() { # header <name> <path>: the value of a response header, via nginx
+        curl -s -o /dev/null -D - "http://127.0.0.1:${NGINX_PORT}$2" |
+            tr -d '\r' | awk -v name="$1" 'tolower($0) ~ "^" tolower(name) ": " { sub(/^[^:]*: /, ""); print }'
+    }
+    tile=/tiles/osm-vector/14/8750/5880
+    assert_eq "$NAME: tile Cache-Control" "$(header Cache-Control $tile)" "public, max-age=2419200, no-transform"
+    assert_eq "$NAME: tile cached in nginx" "$(header X-Cache $tile)" "HIT"
+    assert_eq "$NAME: tile Cache-Control on a cache hit" "$(header Cache-Control $tile)" "public, max-age=2419200, no-transform"
+    assert_eq "$NAME: static Cache-Control" "$(header Cache-Control /hello.txt)" "no-cache"
+    header X-Cache /hello.txt >/dev/null
+    assert_eq "$NAME: static not cached in nginx" "$(header X-Cache /hello.txt)" "MISS"
+    assert_eq "$NAME: 404 Cache-Control" "$(header Cache-Control /missing.txt)" "public, max-age=300"
+    assert_eq "$NAME: 404 cached in nginx" "$(header X-Cache /missing.txt)" "HIT"
     stop_container
     # The container owns the files now; on Linux the runner may not delete them.
     rm -rf "$DATA_DIR" 2>/dev/null || true
