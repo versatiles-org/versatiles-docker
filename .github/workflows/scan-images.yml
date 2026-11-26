@@ -62,11 +62,14 @@ jobs:
         uses: actions/checkout@v7
 
       # Pinned to a commit, not a tag: in March 2026 an attacker rewrote
-      # almost every trivy-action tag to point at malicious code.
+      # almost every trivy-action tag to point at malicious code. The action
+      # installs Trivy itself, in the version given here; Dependabot doesn't
+      # update it, so bump it by hand, also in ci.yml.
       - name: Scan image
         id: scan
         uses: aquasecurity/trivy-action@ed142fd0673e97e23eac54620cfb913e5ce36c25 # v0.36.0
         with:
+          version: v0.76.2
           scan-type: image
           image-ref: ghcr.io/versatiles-org/${{ matrix.image }}:${{ matrix.tag }}
           scanners: vuln
@@ -88,7 +91,8 @@ jobs:
           category: trivy-image-${{ matrix.image }}-${{ matrix.tag }}
 
       # SARIF isn't readable in the log, so on failure print the same findings
-      # as a table. Trivy is already installed and its database cached.
+      # as a table. Trivy is already installed, in the version above, and its
+      # database cached.
       - name: List findings
         if: always() && steps.scan.outcome == 'failure'
         uses: aquasecurity/trivy-action@ed142fd0673e97e23eac54620cfb913e5ce36c25 # v0.36.0

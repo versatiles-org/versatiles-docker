@@ -72,9 +72,14 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v7
 
+      # Pinned to a commit, not a tag: in March 2026 an attacker rewrote
+      # almost every trivy-action tag to point at malicious code. The action
+      # installs Trivy itself, in the version given here; Dependabot doesn't
+      # update it, so bump it by hand, also in scan-images.yml.
       - name: Run Trivy vulnerability scanner
-        uses: aquasecurity/trivy-action@v0.36.0
+        uses: aquasecurity/trivy-action@ed142fd0673e97e23eac54620cfb913e5ce36c25 # v0.36.0
         with:
+          version: v0.76.2
           scan-type: 'fs'
           scan-ref: '.'
           format: 'sarif'
