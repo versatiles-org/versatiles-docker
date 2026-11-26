@@ -37,3 +37,22 @@ require() {
     log "Environment variable '$var' is required${msg:+ ($msg)}" ERROR
     exit 1
 }
+
+parse_domains() {
+    # DOMAIN is one domain or several, separated by commas. Sets DOMAINS (an
+    # array), CERT_NAME (the first domain, which names the certificate's
+    # folder) and SERVER_NAMES (the domains separated by spaces, for nginx).
+    local d
+    local -a parts
+    DOMAINS=()
+    IFS=',' read -ra parts <<<"${DOMAIN//[[:space:]]/}"
+    for d in "${parts[@]}"; do
+        if [ -n "$d" ]; then DOMAINS+=("$d"); fi
+    done
+    if [ ${#DOMAINS[@]} -eq 0 ]; then
+        log "DOMAIN '$DOMAIN' names no domain" ERROR
+        exit 1
+    fi
+    CERT_NAME=${DOMAINS[0]}
+    SERVER_NAMES="${DOMAINS[*]}"
+}

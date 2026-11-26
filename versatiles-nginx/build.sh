@@ -96,6 +96,35 @@ if $needs_testing; then
     fi
     _pass "$NAME: current frontend not downloaded again"
 
+    # HTTPS with several domains (#63). A self-signed certificate for both
+    # stands where certbot keeps it, in the folder of the first domain, so ACME
+    # is skipped and Let's Encrypt is never contacted.
+    echo "  🧪 HTTPS with several domains: $NAME:latest"
+    dir="$DATA_DIR/https"
+    mkdir -p "$dir/certificates/live/example.com" "$dir/tiles"
+    cp ./testdata/chioggia.versatiles "$dir/tiles/"
+    docker run --rm --entrypoint openssl -v "$dir/certificates/live/example.com:/out" "$NAME:latest" \
+        req -x509 -newkey rsa:2048 -nodes -days 90 -subj /CN=example.com \
+        -addext "subjectAltName=DNS:example.com,DNS:www.example.com" \
+        -keyout /out/privkey.pem -out /out/fullchain.pem 2>/dev/null
+    start_http_container "$NAME:latest" -v "$dir:/data" -p 127.0.0.1:0:80 -p 127.0.0.1:0:443 \
+        -e "DOMAIN=example.com, www.example.com" -e EMAIL=test@example.com -e FRONTEND=none \
+        -e TILE_SOURCES=chioggia.versatiles
+    wait_for_http "http://127.0.0.1:${HOST_PORT}/tiles/index.json" 60
+    assert_contains "$NAME: certificate of the first domain found" "$(docker logs "$CONTAINER_ID" 2>&1)" \
+        "Existing cert valid for more than 30 days - skipping ACME."
+    assert_contains "$NAME: server_name lists the domains" "$(docker exec "$CONTAINER_ID" cat /etc/nginx/nginx.conf)" \
+        "server_name example.com www.example.com;"
+    port80=$(docker port "$CONTAINER_ID" 80 | head -n1 | sed 's/.*://')
+    port443=$(docker port "$CONTAINER_ID" 443 | head -n1 | sed 's/.*://')
+    output=$(curl -s -o /dev/null -w '%{http_code} %{redirect_url}' -H "Host: www.example.com" \
+        "http://127.0.0.1:${port80}/tiles/index.json" || true)
+    assert_eq "$NAME: HTTP redirects to HTTPS" "$output" "301 https://www.example.com/tiles/index.json"
+    output=$(curl -sk --resolve "www.example.com:${port443}:127.0.0.1" \
+        "https://www.example.com:${port443}/tiles/index.json" || true)
+    assert_eq "$NAME: tiles over HTTPS" "$output" '["chioggia"]'
+    stop_container
+
     echo "  🧪 Tile names: $NAME:latest"
     mkdir -p "$DATA_DIR/tiles"
     cp ./testdata/chioggia.versatiles "$DATA_DIR/tiles/chioggia.20261123.versatiles"

@@ -28,7 +28,10 @@ docker run -d --name versatiles \
 > [!IMPORTANT]
 > `DOMAIN` must resolve to this server and port 80 must be reachable from the
 > internet: the first start obtains a Let’s Encrypt certificate via ACME
-> HTTP‑01. Renewal checks then run in the background.
+> HTTP‑01. Renewal checks then run in the background. If ACME fails, the
+> container waits 15 minutes before it exits, so that a restart policy can't
+> run into Let’s Encrypt’s rate limits. Certbot’s log is in
+> `/data/certificates/logs/`.
 
 The first start also downloads the frontend and the map data. The optional `BBOX` crops the
 download to one region — worth setting, since the full `osm-vector.versatiles` planet
@@ -41,7 +44,7 @@ To run **without TLS** — behind a CDN, a load balancer, or on a private networ
 
 | Variable              | Required           | Default          | Purpose                                                                     |
 |-----------------------|--------------------|------------------|-----------------------------------------------------------------------------|
-| `DOMAIN`              | **Yes**            | –                | Fully qualified domain name served by Nginx and used for ACME issuance.     |
+| `DOMAIN`              | **Yes**            | –                | Domain served by Nginx and used for ACME issuance. Several are separated by commas, e.g. `example.com,www.example.com`; the certificate covers all of them. |
 | `EMAIL`               | Unless `HTTP_ONLY` | –                | Contact address for ACME registration.                                      |
 | `FRONTEND`            | **Yes**            | –                | UI bundle: `standard`, `dev`, `min`, `tiny`, `blank`, or `none`.            |
 | `FRONTEND_VERSION`    | No                 | `latest`         | Frontend release, e.g. `v3.20.0` — see [Frontend](#frontend).               |

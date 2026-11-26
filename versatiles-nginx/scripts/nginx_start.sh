@@ -8,8 +8,8 @@
 #   SSL certificates via Let's Encrypt and starts a background renewal loop.
 #
 # REQUIRED ENVIRONMENT VARIABLES
-#   DOMAIN    Domain name for the server
-#             Example: "tiles.example.com"
+#   DOMAIN    Domain name(s) for the server, comma-separated
+#             Example: "tiles.example.com" or "example.com,www.example.com"
 #
 # OPTIONAL ENVIRONMENT VARIABLES
 #   HTTP_ONLY           Set to any non-empty value to disable HTTPS and certificates
@@ -61,6 +61,7 @@ set -euo pipefail
 # Validate input
 # -----------------------------------------------------------------------------
 require DOMAIN "domain name for this instance"
+parse_domains
 
 # Set to any non‑empty value to skip certificates and run HTTP‑only
 HTTP_ONLY=${HTTP_ONLY:-}
@@ -155,7 +156,7 @@ if [ -n "$HTTP_ONLY" ]; then
     # HTTP server only (no TLS)
     server {
       listen 80 default_server;
-      server_name ${DOMAIN};
+      server_name ${SERVER_NAMES};
 
         ${NGINX_LOCATION_CACHE}
     }
@@ -167,7 +168,7 @@ else
     # redirect HTTP → HTTPS
     server {
       listen 80 default_server;
-      server_name ${DOMAIN};
+      server_name ${SERVER_NAMES};
       return 301 https://\$host\$request_uri;
     }
 
@@ -175,10 +176,10 @@ else
     server {
       listen 443 ssl;
       http2 on;
-      server_name ${DOMAIN};
+      server_name ${SERVER_NAMES};
 
-      ssl_certificate     /data/certificates/live/${DOMAIN}/fullchain.pem;
-      ssl_certificate_key /data/certificates/live/${DOMAIN}/privkey.pem;
+      ssl_certificate     /data/certificates/live/${CERT_NAME}/fullchain.pem;
+      ssl_certificate_key /data/certificates/live/${CERT_NAME}/privkey.pem;
 
         ${NGINX_LOCATION_CACHE}
     }

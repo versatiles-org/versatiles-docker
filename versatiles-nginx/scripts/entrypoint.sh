@@ -9,7 +9,7 @@
 #   VersaTiles backend server.
 #
 # REQUIRED ENVIRONMENT VARIABLES
-#   DOMAIN          Domain name for nginx configuration
+#   DOMAIN          Domain name(s) for nginx configuration, comma-separated
 #   FRONTEND        Frontend variant (standard|dev|min|tiny|none)
 #   TILE_SOURCES    Comma-separated list of tile files to download
 #   EMAIL           Email for SSL certificate registration (if not HTTP_ONLY)
