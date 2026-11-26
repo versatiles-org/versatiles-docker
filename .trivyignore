@@ -7,3 +7,13 @@
 # Fixed in guava 33.7.2. Upstream planetiler is on 33.7.1 and its Dependabot
 # will bump it; then move the fork's head up and delete this entry.
 CVE-2026-102554 exp:2026-12-31
+
+# jackson-core DoS on malformed JSON (CVE-2026-89407, CVE-2026-89425), in the
+# copy Apache Parquet shades into planetiler.jar (shaded/parquet/…, from
+# parquet-jackson 1.18.1). Planetiler's own jackson-core is 2.23.0 and not
+# affected. Probably not reachable: Parquet metadata is Thrift, and GeoParquet's
+# JSON is parsed by planetiler's own Jackson. Fixed in parquet-floor 2.5
+# (Parquet 1.18.2, Jackson 2.22.4); upstream planetiler is on parquet-floor 2.3.
+# Once it bumps, move the fork's head up and delete these entries.
+CVE-2026-89407 exp:2026-12-31
+CVE-2026-89425 exp:2026-12-31
