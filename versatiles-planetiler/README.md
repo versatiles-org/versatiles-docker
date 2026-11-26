@@ -2,6 +2,12 @@
 
 This Docker image provides a self-contained toolchain to generate OpenStreetMap based vector tiles in the [Shortbread schema](https://shortbread-tiles.org) using [Planetiler](https://github.com/onthegomap/planetiler) (the [VersaTiles fork](https://github.com/versatiles-org/planetiler) of Planetiler together with the [Shortbread profile](https://github.com/versatiles-org/planetiler-shortbread)), then packs the result into an efficient `.versatiles`, `.pmtiles` or `.mbtiles` container.
 
+Each image is built from the newest commit on the fork's `main` branch, with the Shortbread profile at the commit the fork names. To see which commit an image contains:
+
+```bash
+docker inspect --format '{{ index .Config.Labels "org.versatiles.planetiler.revision" }}' versatiles/versatiles-planetiler
+```
+
 It is part of the [versatiles-docker](https://github.com/versatiles-org/versatiles-docker) project.
 
 ---
