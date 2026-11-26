@@ -113,7 +113,8 @@ if $needs_testing; then
     COPYFILE_DISABLE=1 tar -cf "$DATA_DIR/fake.tar" -C "$DATA_DIR/fake" assets
     cp "$DATA_DIR/fake.tar" "$DATA_DIR/frontend/frontend-tiny.br.tar"
     echo "v0.0.0-test" >"$DATA_DIR/frontend/frontend-tiny.br.tar.version"
-    start_http_container "$NAME:latest" -v "$DATA_DIR:/data" -p 127.0.0.1:0:80 \
+    # --memory: the cache is sized from the container's memory limit (#65).
+    start_http_container "$NAME:latest" -v "$DATA_DIR:/data" -p 127.0.0.1:0:80 --memory 512m \
         -e DOMAIN=localhost -e HTTP_ONLY=1 -e FRONTEND=tiny -e FRONTEND_VERSION=v0.0.0-test \
         -e TILE_SOURCES=chioggia.20261123.versatiles,osm.versatiles
     wait_for_http "http://127.0.0.1:${HOST_PORT}/tiles/index.json" 60
@@ -154,6 +155,15 @@ if $needs_testing; then
     fi
     assert_eq "$NAME: versioned library Cache-Control" "$(header Cache-Control /assets/lib/lib@1.0.0/lib.js)" "$versioned"
     assert_eq "$NAME: unversioned library Cache-Control" "$(header Cache-Control /assets/lib/lib/lib.js)" "no-cache"
+
+    # The cache is on disk and sized from the 512 MiB memory limit, not from
+    # the host's RAM (#65): 60 % for max_size, 1 % of that for keys_zone.
+    assert_contains "$NAME: cache sizes" "$(docker logs "$CONTAINER_ID" 2>&1)" "Cache keys=3145k, max=314572k"
+    cached=$(docker exec "$CONTAINER_ID" find /var/cache/nginx/tiles -type f | wc -l | tr -d ' ')
+    if ((cached == 0)); then
+        _fail "$NAME: cache on disk" "no files in /var/cache/nginx/tiles"
+    fi
+    _pass "$NAME: cache on disk ($cached files)"
     stop_container
     # The container owns the files now; on Linux the runner may not delete them.
     rm -rf "$DATA_DIR" 2>/dev/null || true

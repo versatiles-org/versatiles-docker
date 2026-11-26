@@ -18,8 +18,9 @@
 #   HTTP_ONLY           Skip SSL certificates, run HTTP-only mode
 #   FRONTEND_VERSION    Frontend release tag, e.g. v3.20.0 (default: latest)
 #   BBOX                Bounding box for tile cropping (lng_min,lat_min,lng_max,lat_max)
-#   CACHE_SIZE_KEYS     Nginx cache keys zone size (default: 20% of RAM)
-#   CACHE_SIZE_MAX      Nginx cache max size (default: 60% of RAM)
+#   CACHE_SIZE_KEYS     Nginx cache keys zone size (default: 1% of the max size)
+#   CACHE_SIZE_MAX      Nginx cache max size (default: 60% of the memory limit,
+#                       at most half the free disk space)
 #   CERT_MIN_DAYS       Min certificate validity before renewal (default: 30)
 #   CERT_RENEW_INTERVAL Renewal check interval in seconds (default: 86400)
 #
@@ -32,7 +33,7 @@
 #   6. Launch VersaTiles backend server on port 8080
 #
 # ARCHITECTURE
-#   - Nginx (port 80/443): Reverse proxy with caching in tmpfs
+#   - Nginx (port 80/443): Reverse proxy with a cache on disk
 #   - VersaTiles (port 8080): Backend tile server (runs as vs:vs user)
 #   - Certbot: Automatic SSL certificate management (if HTTPS mode)
 #

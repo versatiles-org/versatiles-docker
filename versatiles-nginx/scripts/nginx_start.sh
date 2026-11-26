@@ -13,26 +13,29 @@
 #
 # OPTIONAL ENVIRONMENT VARIABLES
 #   HTTP_ONLY           Set to any non-empty value to disable HTTPS and certificates
-#   CACHE_SIZE_KEYS     Size of cache keys zone (default: 20% of system RAM)
-#   CACHE_SIZE_MAX      Maximum cache data size (default: 60% of system RAM)
+#   CACHE_SIZE_KEYS     Size of cache keys zone (default: 1% of the max size, at least 1m)
+#   CACHE_SIZE_MAX      Maximum cache data size (default: 60% of the container's
+#                       memory limit, at most half the free disk space)
 #
 # BEHAVIOR
 #   1. Validate required DOMAIN environment variable
 #   2. Set up signal handlers for graceful shutdown
 #   3. Create log directories
 #   4. If HTTPS mode: ensure SSL certificates via cert_ensure.sh
-#   5. Calculate cache sizes based on available system memory
+#   5. Empty the cache, and calculate its sizes from the memory limit and
+#      the free disk space
 #   6. Generate nginx.conf with appropriate server blocks:
 #      - HTTP-only mode: Single HTTP server on port 80
 #      - HTTPS mode: HTTP→HTTPS redirect + HTTPS server on port 443
-#   7. Configure proxy cache in tmpfs (/dev/shm/nginx_cache)
+#   7. Configure proxy cache on disk (/var/cache/nginx/tiles)
 #   8. Start or reload nginx
 #   9. If HTTPS mode: launch background certificate renewal loop
 #
 # CACHE CONFIGURATION
-#   - Cache location: /dev/shm/nginx_cache (tmpfs for speed)
-#   - Default keys zone: 20% of system RAM
-#   - Default max size: 60% of system RAM
+#   - Cache location: /var/cache/nginx/tiles, emptied at every start
+#   - Default keys zone: 1% of the max size, at least 1 MB
+#   - Default max size: 60% of the container's memory limit (or of the host's
+#     RAM without one), at most half the free disk space
 #   - Inactive timeout: 24 hours
 #   - Cache valid time: as the Cache-Control of versatiles says (tiles four
 #     weeks, static files not at all), 404 one minute, other errors never
@@ -74,13 +77,47 @@ if [ -z "$HTTP_ONLY" ]; then
 fi
 
 # -----------------------------------------------------------------------------
-# Calculate cache sizes (20 % keys_zone, 60 % data) unless overridden
+# Prepare the cache and calculate its sizes unless overridden
 # -----------------------------------------------------------------------------
+# The cache is on disk, not in /dev/shm: Docker gives /dev/shm 64 MB unless
+# --shm-size is set, and memory in a tmpfs can't be reclaimed. Tiles requested
+# often still come from RAM, from the kernel's page cache. It is emptied at
+# every start, as tiles may have changed meanwhile.
+CACHE_DIR=/var/cache/nginx/tiles
+mkdir -p "$CACHE_DIR"
+find "$CACHE_DIR" -mindepth 1 -delete
+
+# The container's memory limit in KiB, from cgroups, or the host's RAM if
+# there is none. /proc/meminfo always shows the host's RAM.
+mem_limit_kb() {
+    local limit=""
+    if [ -r /sys/fs/cgroup/memory.max ]; then
+        limit=$(cat /sys/fs/cgroup/memory.max) # cgroup v2
+    elif [ -r /sys/fs/cgroup/memory/memory.limit_in_bytes ]; then
+        limit=$(cat /sys/fs/cgroup/memory/memory.limit_in_bytes) # cgroup v1
+    fi
+    # "max" (v2) or a sentinel near 2^63 (v1) means "no limit".
+    if [[ "$limit" =~ ^[0-9]+$ ]] && ((limit < 9000000000000000000)); then
+        echo $((limit / 1024))
+    else
+        awk '/^MemTotal:/ {print $2}' /proc/meminfo
+    fi
+}
+
+# max_size: 60 % of the memory limit, as the cache is only fast while the page
+# cache can hold it, but at most half the free disk space. keys_zone: 1 MB
+# holds about 8,000 keys, so 1 % of max_size is enough for entries of 12 KB on
+# average, and at least 1 MB.
 calc_cache() {
-    local mem_kb
-    mem_kb=$(awk '/MemTotal/ {print $2}' /proc/meminfo)
-    KEY_AUTO=$((mem_kb / 5))k     # 20 %
-    MAX_AUTO=$((mem_kb * 3 / 5))k # 60 %
+    local mem_kb free_kb max_kb keys_kb
+    mem_kb=$(mem_limit_kb)
+    free_kb=$(df -Pk "$CACHE_DIR" | awk 'NR == 2 {print $4}')
+    max_kb=$((mem_kb * 3 / 5))
+    if ((max_kb > free_kb / 2)); then max_kb=$((free_kb / 2)); fi
+    keys_kb=$((max_kb / 100))
+    if ((keys_kb < 1024)); then keys_kb=1024; fi
+    KEY_AUTO=${keys_kb}k
+    MAX_AUTO=${max_kb}k
 }
 calc_cache
 CACHE_KEYS=${CACHE_SIZE_KEYS:-$KEY_AUTO}
@@ -163,7 +200,9 @@ http {
   sendfile      on;
   server_tokens off;
 
-  proxy_cache_path /dev/shm/nginx_cache levels=1:2 keys_zone=tiles:${CACHE_KEYS} max_size=${CACHE_MAX} inactive=24h;
+  # use_temp_path=off: responses are written in the cache directory itself,
+  # not copied there from proxy_temp_path.
+  proxy_cache_path ${CACHE_DIR} levels=1:2 use_temp_path=off keys_zone=tiles:${CACHE_KEYS} max_size=${CACHE_MAX} inactive=24h;
 
   # Cache-Control for browsers. Successful answers and redirects keep the one
   # of versatiles (filled in on cache hits too), "no-cache" if it sent none.

@@ -3,7 +3,7 @@
 A production‑ready, **zero‑dependency** image that bundles
 
 * a [VersaTiles](https://github.com/versatiles-org/versatiles-rs) tile server (`versatiles serve`)
-* an in‑memory **Nginx** reverse‑proxy & tile cache
+* an **Nginx** reverse‑proxy & tile cache
 * an optional static [front‑end](https://github.com/versatiles-org/versatiles-frontend)
 * automatic HTTPS certificates via **Let’s Encrypt**
 
@@ -48,8 +48,8 @@ To run **without TLS** — behind a CDN, a load balancer, or on a private networ
 | `TILE_SOURCES`        | **Yes**            | –                | Comma‑separated tile archives — see [Tile Data](#tile-data).                |
 | `BBOX`                | No                 | –                | `lng_min,lat_min,lng_max,lat_max`. Crops **downloads** only.                |
 | `HTTP_ONLY`           | No                 | –                | Serve plain HTTP on port 80, no certificates. For use behind a proxy.       |
-| `CACHE_SIZE_KEYS`     | No                 | ≈20 % RAM        | Nginx `keys_zone` size, e.g. `128m`.                                        |
-| `CACHE_SIZE_MAX`      | No                 | ≈60 % RAM        | Maximum cached bytes, e.g. `2g`.                                            |
+| `CACHE_SIZE_KEYS`     | No                 | 1 % of max       | Nginx `keys_zone` size, e.g. `16m`. See [Caching](#caching).                |
+| `CACHE_SIZE_MAX`      | No                 | 60 % of memory   | Maximum cached bytes, e.g. `2g`. See [Caching](#caching).                   |
 | `CERT_MIN_DAYS`       | No                 | `30`             | Skip ACME on startup if the current certificate is valid for longer.        |
 | `CERT_RENEW_INTERVAL` | No                 | `86400` (24 h)   | Seconds between background `certbot renew` attempts.                        |
 
@@ -135,7 +135,7 @@ other OSM tiles a name starting with `osm-vector.` to show them in the frontends
 # Container health
 docker inspect --format='{{json .State.Health}}' versatiles
 
-# Clear the in‑memory tile cache
+# Clear the tile cache
 docker exec versatiles /scripts/nginx_clear.sh
 
 # Realtime Nginx stats (stub_status)
@@ -151,10 +151,12 @@ docker logs -f versatiles
    * downloads the chosen **front‑end** release,
    * downloads any **tile archives** not already present in `/data/tiles/`,
    * ensures a valid **TLS certificate** (launching a minimal Nginx for the ACME challenge if needed),
-   * generates an optimised **Nginx** configuration (cache sizes based on RAM).
+   * generates an optimised **Nginx** configuration (cache sizes based on the memory limit and the free disk space).
 2. Nginx starts (or reloads) and a background loop renews the certificate.
 3. `versatiles serve` — running as the unprivileged `vs` user — answers all requests proxied by Nginx.
 
 ## Caching
 
 Nginx keeps a response as long as the `Cache-Control` header of `versatiles serve` allows: tiles for four weeks, static files not at all, so changes in `/data/static/` show at once. A `404` is kept for one minute, other errors never. Browsers get the header of `versatiles serve`; a `404` gets five minutes, other errors `no-store`. The frontend's libraries in folders named with their version (`assets/lib/<name>@<version>/`) are sent with `immutable` and may be kept for a year. The same holds for such folders in `/data/static/`. The [Caching page](https://docs.versatiles.org/basics/caching) explains the reasons.
+
+Nginx keeps its cache on the container's disk, in `/var/cache/nginx/tiles`, and empties it at every start. Tiles requested often are still served from RAM, from the kernel's page cache. By default the cache may grow to 60 % of the container's memory limit (`--memory`, or the host's RAM without one), but to at most half the free disk space. Its keys get 1 % of that, at least 1 MB, which holds about 8,000 keys.
