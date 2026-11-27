@@ -49,7 +49,11 @@ COPY --from=builder-versatiles --chmod=0755 --chown=root /app/versatiles /app/ve
 # Copy tippecanoe binaries
 COPY --from=builder-tippecanoe /src/tippecanoe /src/tippecanoe-json-tool /src/tippecanoe-decode /src/tile-join /usr/local/bin/
 
-RUN apk add --no-cache libstdc++ sqlite-libs zlib tini
+# BUILD_DATE changes daily, so this upgrade isn't reused from the cache. The
+# builder stage above is left cached: it only produces the binaries.
+# See BUILD_DATE in scripts/utils.sh.
+ARG BUILD_DATE
+RUN apk upgrade --no-cache && apk add --no-cache libstdc++ sqlite-libs zlib tini
 
 WORKDIR /data
 ENV PATH="${PATH}:/app"

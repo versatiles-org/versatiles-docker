@@ -27,7 +27,10 @@ RUN ./download_versatiles_binary.sh "${TARGETPLATFORM}-gnu" "${VERSATILES_VERSIO
 FROM alpine:3.24 AS versatiles-alpine
 LABEL maintainer="Michael Kreil <versatiles@michael-kreil.de>"
 LABEL org.opencontainers.image.source="https://github.com/versatiles-org/versatiles-docker"
-RUN apk add --no-cache tini
+# BUILD_DATE changes daily, so this upgrade isn't reused from the cache.
+# See BUILD_DATE in scripts/utils.sh.
+ARG BUILD_DATE
+RUN apk upgrade --no-cache && apk add --no-cache tini
 COPY --from=builder-musl --chmod=0755 --chown=root /app/versatiles /app/
 WORKDIR /data
 ENV PATH="$PATH:/app"

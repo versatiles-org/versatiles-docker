@@ -247,6 +247,16 @@ Create vector tiles from GeoJSON using [Felt's tippecanoe](https://github.com/fe
 </tr>
 </table>
 
+## Updates
+
+The images are rebuilt with the newest packages of their distribution:
+
+- **with every VersaTiles release**, which also moves the version tag;
+- **every Thursday**, all of them;
+- **every day, as soon as the distribution has updates** for an image: on Alpine any update, on Debian and Ubuntu security updates. A daily check (`.github/workflows/rebuild-on-updates.yml`) rebuilds only the images that lack them.
+
+A rebuild pushes the same tags again (`latest` and the current version). Pull the image again to get it, for example with `docker compose pull && docker compose up -d`. `versatiles-nginx` faces the internet, so update a server that runs it regularly, for example daily from cron.
+
 ## Documentation
 
 - **VersaTiles Server:** [versatiles-rs](https://github.com/versatiles-org/versatiles-rs) - The core tile server implementation

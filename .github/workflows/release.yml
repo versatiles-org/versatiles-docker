@@ -35,6 +35,14 @@ on:
         required: false
         type: boolean
         default: true
+      # rebuild-on-updates.yml passes the current time, so the upgrade layers
+      # miss the cache even on a day that already had a build. Empty: today's
+      # date, see BUILD_DATE in scripts/utils.sh.
+      build_date:
+        description: 'BUILD_DATE (empty: today)'
+        required: false
+        type: string
+        default: ''
 
 env:
   CARGO_TERM_COLOR: always
@@ -44,6 +52,8 @@ env:
   # raising the rate limit from 60 to ~1000 req/hr to avoid HTTP 403 across
   # the parallel build jobs.
   GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+  # Empty except when given to a manual run; scripts/utils.sh then uses today.
+  BUILD_DATE: ${{ inputs.build_date }}
 
 # Concurrency is set per image job, not for the whole run: a release of one
 # project dispatches a run that builds only its image, and a run-wide group

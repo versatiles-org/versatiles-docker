@@ -1,0 +1,102 @@
+name: Rebuild on Updates
+
+# -----------------------------------------------------------------------------
+# Daily: rebuilds an image as soon as its distribution has released package
+# updates for it, instead of waiting for the weekly build on Thursday. That
+# matters most for versatiles-nginx, which faces the internet and gets nginx,
+# certbot and OpenSSL from Alpine.
+#
+# scripts/check_updates.sh asks each published image's package manager (on
+# Alpine any update, on Debian and Ubuntu the security archive). For the images
+# that lack updates, release.yml is started with only their build inputs set,
+# and with the current time as BUILD_DATE, so the upgrade layers miss the cache
+# even on a day that already had a build. A rebuild pushes the same tags as the
+# weekly build (latest and the current version), with the newest packages.
+#
+# The log names only the images that get rebuilt, never the packages: which
+# packages a published image lacks is a security finding, and this
+# repository's logs are public. `scripts/check_updates.sh --list <image>` shows
+# them by hand.
+# -----------------------------------------------------------------------------
+
+on:
+  schedule:
+    - cron: '0 3 * * *' # Every day at 03:00 UTC
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  actions: write # to start release.yml
+
+concurrency:
+  group: rebuild-on-updates
+  cancel-in-progress: false
+
+jobs:
+  check:
+    name: Check images and rebuild
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v7
+
+      - name: Check the published images
+        id: check
+        run: |
+          failed=false
+          any=false
+          # outdated <release input> <image…>: sets the input to true when any
+          # of the images lacks updates.
+          outdated() {
+            local input=$1 image code value=false
+            shift
+            for image in "$@"; do
+              code=0
+              scripts/check_updates.sh "$image" || code=$?
+              case $code in
+                0) value=true ;;
+                1) ;;
+                *) failed=true ;;
+              esac
+            done
+            echo "$input=$value" >>"$GITHUB_OUTPUT"
+            if $value; then
+              any=true
+              echo "$input: rebuild"
+            else
+              echo "$input: up to date"
+            fi
+          }
+          outdated build_base versatiles/versatiles:latest-alpine versatiles/versatiles:latest-debian
+          outdated build_frontend versatiles/versatiles-frontend:latest-alpine versatiles/versatiles-frontend:latest-debian
+          outdated build_nginx versatiles/versatiles-nginx:latest
+          outdated build_tippecanoe versatiles/versatiles-tippecanoe:latest
+          outdated build_gdal versatiles/versatiles-gdal:latest
+          outdated build_planetiler versatiles/versatiles-planetiler:latest
+          echo "any=$any" >>"$GITHUB_OUTPUT"
+          # An image that can't be checked fails the run (GitHub's failure
+          # email), after the others were checked and rebuilt.
+          echo "failed=$failed" >>"$GITHUB_OUTPUT"
+
+      - name: Start the release for the outdated images
+        if: steps.check.outputs.any == 'true'
+        env:
+          GH_TOKEN: ${{ github.token }}
+          BASE: ${{ steps.check.outputs.build_base }}
+          FRONTEND: ${{ steps.check.outputs.build_frontend }}
+          NGINX: ${{ steps.check.outputs.build_nginx }}
+          TIPPECANOE: ${{ steps.check.outputs.build_tippecanoe }}
+          GDAL: ${{ steps.check.outputs.build_gdal }}
+          PLANETILER: ${{ steps.check.outputs.build_planetiler }}
+        run: |
+          gh workflow run release.yml --ref "$GITHUB_REF_NAME" \
+            -f build_base="$BASE" -f build_frontend="$FRONTEND" -f build_nginx="$NGINX" \
+            -f build_tippecanoe="$TIPPECANOE" -f build_gdal="$GDAL" -f build_planetiler="$PLANETILER" \
+            -f build_date="$(date -u +%FT%T)"
+
+      - name: Fail if an image couldn't be checked
+        if: steps.check.outputs.failed == 'true'
+        run: |
+          echo "At least one image couldn't be checked; see the step above."
+          exit 1

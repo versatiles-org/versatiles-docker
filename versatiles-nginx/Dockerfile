@@ -25,8 +25,11 @@ ENV UID=10001 GID=10001 \
     CACHE_SIZE_MAX="" \
     PATH="/scripts:$PATH"
 
-# core packages
-RUN apk add --no-cache bash certbot certbot-nginx curl gzip nginx openssl su-exec tini tzdata && \
+# core packages. BUILD_DATE changes daily, so this upgrade isn't reused from
+# the cache. See BUILD_DATE in scripts/utils.sh.
+ARG BUILD_DATE
+RUN apk upgrade --no-cache && \
+    apk add --no-cache bash certbot certbot-nginx curl gzip nginx openssl su-exec tini tzdata && \
     mkdir -p /var/cache/nginx /etc/nginx/templates /data && \
     addgroup -g "$GID" vs && adduser -D -s /sbin/nologin -G vs -u "$UID" vs
 
