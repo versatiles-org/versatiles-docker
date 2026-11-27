@@ -6,7 +6,12 @@ set -euo pipefail
 # Debian and Ubuntu updates from the security archive. Pulls the image and asks
 # its own package manager, as root, with the image's network access.
 #
-# Usage: scripts/check_updates.sh [--list] <image>
+# Usage: scripts/check_updates.sh [--list] [--platform <platform>] <image>
+#
+# --platform picks the variant, e.g. linux/arm64 (default: the host's). Each
+# architecture needs a check of its own: Alpine builds a package for each one
+# separately, so one can have an update the other doesn't have yet. Another
+# architecture than the host's runs in emulation (QEMU).
 #
 # Exits 0 when there are updates, 1 when there are none, 2 when the image can't
 # be checked (no package manager, or it doesn't run). Prints nothing unless
@@ -14,18 +19,24 @@ set -euo pipefail
 # and .github/workflows/rebuild-on-updates.yml runs this where the log is
 # public. --list prints them, for a look by hand.
 
+usage="Usage: scripts/check_updates.sh [--list] [--platform <platform>] <image>"
 list=false
-if [ "${1:-}" = "--list" ]; then
-    list=true
+platform=()
+while [ $# -gt 1 ]; do
+    case $1 in
+        --list) list=true ;;
+        --platform) platform=(--platform "${2:?$usage}"); shift ;;
+        *) echo "$usage" >&2; exit 2 ;;
+    esac
     shift
-fi
-image=${1:?Usage: scripts/check_updates.sh [--list] <image>}
+done
+image=${1:?$usage}
 
 # Alpine: every line of `apk -u list` is an update. Debian and Ubuntu: a line of
 # `apt list --upgradable` names the archives the new version is in, such as
 # "trixie-security" or "noble-updates,noble-security".
 code=0
-updates=$(docker run --rm --pull always --quiet --user root --entrypoint sh "$image" -c '
+updates=$(docker run --rm --pull always --quiet ${platform[@]+"${platform[@]}"} --user root --entrypoint sh "$image" -c '
     if command -v apk >/dev/null; then
         apk update -q >/dev/null && apk -u list 2>/dev/null
     elif command -v apt-get >/dev/null; then

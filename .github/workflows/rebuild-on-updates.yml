@@ -7,7 +7,8 @@ name: Rebuild on Updates
 # certbot and OpenSSL from Alpine.
 #
 # scripts/check_updates.sh asks each published image's package manager (on
-# Alpine any update, on Debian and Ubuntu the security archive). For the images
+# Alpine any update, on Debian and Ubuntu the security archive), for amd64 and
+# arm64 each. For the images
 # that lack updates, release.yml is started with only their build inputs set,
 # and with the current time as BUILD_DATE, so the upgrade layers miss the cache
 # even on a day that already had a build. A rebuild pushes the same tags as the
@@ -41,24 +42,31 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v7
 
+      # The arm64 variants run in emulation. Alpine builds each architecture's
+      # packages separately, so an update can reach arm64 first, or amd64.
+      - name: Set up QEMU
+        uses: docker/setup-qemu-action@v3
+
       - name: Check the published images
         id: check
         run: |
           failed=false
           any=false
           # outdated <release input> <image…>: sets the input to true when any
-          # of the images lacks updates.
+          # of the images lacks updates, on either architecture.
           outdated() {
-            local input=$1 image code value=false
+            local input=$1 image platform code value=false
             shift
             for image in "$@"; do
-              code=0
-              scripts/check_updates.sh "$image" || code=$?
-              case $code in
-                0) value=true ;;
-                1) ;;
-                *) failed=true ;;
-              esac
+              for platform in linux/amd64 linux/arm64; do
+                code=0
+                scripts/check_updates.sh --platform "$platform" "$image" || code=$?
+                case $code in
+                  0) value=true ;;
+                  1) ;;
+                  *) failed=true ;;
+                esac
+              done
             done
             echo "$input=$value" >>"$GITHUB_OUTPUT"
             if $value; then
